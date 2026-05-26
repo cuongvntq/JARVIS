@@ -1,0 +1,54 @@
+"""FastAPI application entry point."""
+
+from contextlib import asynccontextmanager
+
+import structlog
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.config import get_settings
+from app.routers import chat, health
+
+settings = get_settings()
+log = structlog.get_logger()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup/shutdown hooks."""
+    log.info("jarvis.startup", env=settings.app_env, version="0.1.0")
+    yield
+    log.info("jarvis.shutdown")
+
+
+app = FastAPI(
+    title="J.A.R.V.I.S Backend API",
+    version="0.1.0",
+    description="Personal AI Assistant — MVP 1",
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Routers
+app.include_router(health.router, prefix="", tags=["health"])
+app.include_router(chat.router, prefix="/v1/chat", tags=["chat"])
+
+
+@app.get("/")
+async def root():
+    return {
+        "name": "jarvis-backend",
+        "version": "0.1.0",
+        "docs": "/docs",
+        "health": "/health",
+    }

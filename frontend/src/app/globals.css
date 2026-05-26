@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+@theme {
+  --color-jarvis-bg: #030712;
+  --color-jarvis-surface: #0b1929;
+  --color-jarvis-panel: #0f2235;
+  --color-jarvis-sidebar: #060f1c;
+  --color-jarvis-accent: #00b4d8;
+  --color-jarvis-accent2: #005f8a;
+  --color-jarvis-fg: #dff3fd;
+  --color-jarvis-muted: #5e8a9e;
+  --color-jarvis-success: #00e676;
+  --color-jarvis-warn: #ffd60a;
+  --color-jarvis-danger: #ff4444;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 180, 216, 0.25);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 180, 216, 0.55);
+}
+
+/* Typing indicator */
+@keyframes bounce-dot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.3;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.dot-1 {
+  animation: bounce-dot 1.4s ease-in-out infinite;
+}
+.dot-2 {
+  animation: bounce-dot 1.4s ease-in-out infinite 0.2s;
+}
+.dot-3 {
+  animation: bounce-dot 1.4s ease-in-out infinite 0.4s;
+}
+
+/* Status online glow */
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 4px rgba(0, 230, 118, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(0, 230, 118, 0.9);
+  }
+}
+
+.status-online {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* Message appear */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.msg-appear {
+  animation: fade-in-up 0.2s ease-out forwards;
+}
+
+/* Textarea placeholder */
+textarea::placeholder {
+  color: rgba(94, 138, 158, 0.5);
+}
+
+textarea:focus {
+  outline: none;
+}
