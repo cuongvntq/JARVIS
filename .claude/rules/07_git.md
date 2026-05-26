@@ -3,17 +3,20 @@
 ## TUYỆT ĐỐI — Bảo vệ nhánh main
 
 - **KHÔNG BAO GIỜ push trực tiếp lên `main`** — kể cả hotfix, kể cả thay đổi nhỏ.
-- **Trước bất kỳ thao tác git nào** (commit, push, merge, rebase, reset, ...) — phải hỏi user và được xác nhận rõ ràng trước khi thực hiện.
+- **Trước bất kỳ thao tác git làm thay đổi local/remote state hoặc history** (commit, push, merge, rebase, reset, branch -D, ...) — phải hỏi user và được xác nhận rõ ràng trước khi thực hiện.
+- **Read-only commands được phép chạy tự do** mà không cần hỏi: `git status`, `git diff`, `git log`, `git show`, `git branch` (liệt kê), `git fetch` (chỉ fetch, không merge).
 - Nếu user nói "tự làm đi" hoặc "cứ push" mà không chỉ định nhánh cụ thể — vẫn phải hỏi lại, không tự suy diễn là push lên `main`.
 
 ## Workflow bắt buộc
 
-Mọi thay đổi code đều phải đi theo thứ tự sau, không được bỏ bước:
+Mọi thay đổi trong repo (code, docs, config, rules) đều phải đi theo thứ tự sau, không được bỏ bước:
 
 ```
 1. Tạo nhánh mới từ main
-      git checkout main && git pull
-      git checkout -b feat/sprint1-auth-jwt
+      git status                      # kiểm tra worktree sạch trước
+      git switch main
+      git pull --ff-only              # fast-forward only, không tạo merge commit
+      git switch -c feat/sprint1-auth-jwt
 
 2. Commit lên nhánh đó
       git add <files>
