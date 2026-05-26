@@ -4,10 +4,12 @@ from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import chat, health
+from app.core.errors import JarvisError, RequestIDMiddleware, jarvis_exception_handler, validation_exception_handler
+from app.routers import auth, chat, health
 
 settings = get_settings()
 log = structlog.get_logger()
@@ -15,7 +17,6 @@ log = structlog.get_logger()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup/shutdown hooks."""
     log.info("jarvis.startup", env=settings.app_env, version="0.1.0")
     yield
     log.info("jarvis.shutdown")
@@ -30,7 +31,8 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS
+# Middleware (order matters — RequestID first so handlers can read it)
+app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -39,8 +41,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Exception handlers
+app.add_exception_handler(JarvisError, jarvis_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+
 # Routers
 app.include_router(health.router, prefix="", tags=["health"])
+app.include_router(auth.router, prefix="", tags=["auth"])
 app.include_router(chat.router, prefix="/v1/chat", tags=["chat"])
 
 

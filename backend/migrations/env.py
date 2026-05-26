@@ -8,9 +8,8 @@ from sqlalchemy import engine_from_config, pool
 from app.config import get_settings
 from app.database import Base
 
-# Import all models so Alembic can autogenerate
-# noqa: F401 — these are needed for side effect (model registration)
-# from app.models import user, conversation, todo, note, reminder, memory  # uncomment when models added
+# Import all models so Alembic can autogenerate (side-effect: registers mappers)
+import app.models  # noqa: F401
 
 config = context.config
 

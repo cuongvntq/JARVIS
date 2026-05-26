@@ -1,8 +1,6 @@
-"""ORM models — full schema from docs/01_Database_Schema_ERD.md.
+"""ORM models — import all so Alembic and SQLAlchemy register every mapper."""
 
-Sprint 1 will add: User, Conversation, Message, AuthSession.
-Sprint 3 adds: Todo, Note.
-Sprint 4 adds: Memory.
-Sprint 5 adds: Reminder, Notification.
+from app.models.conversation import Conversation, Message
+from app.models.user import AuthSession, User
 
-For now, only base imports."""
+__all__ = ["User", "AuthSession", "Conversation", "Message"]

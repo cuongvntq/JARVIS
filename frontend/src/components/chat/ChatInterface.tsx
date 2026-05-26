@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { Bot } from "lucide-react";
 import MessageBubble, { type Message } from "./MessageBubble";
 import ChatInput from "./ChatInput";
+import { useSendMessage } from "@/hooks/useChatMutation";
+import { ApiException } from "@/lib/types/api";
 
 const WELCOME: Message = {
   id: "welcome",
@@ -16,63 +18,75 @@ const WELCOME: Message = {
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  const apiUrl =
-    process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+  const { mutate: sendMessage, isPending } = useSendMessage();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, isPending]);
 
-  async function handleSend() {
-    if (!input.trim() || loading) return;
+  function handleSend() {
+    if (!input.trim() || isPending) return;
 
-    const userMsg: Message = {
+    const content = input.trim();
+    setInput("");
+
+    // Optimistically add user message
+    const tempUserMsg: Message = {
       id: crypto.randomUUID(),
       role: "user",
-      content: input.trim(),
+      content,
       timestamp: new Date(),
     };
+    setMessages((prev) => [...prev, tempUserMsg]);
 
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setLoading(true);
-
-    try {
-      const res = await fetch(`${apiUrl}/v1/chat/send`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: userMsg.content }),
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: data.content ?? "Xin lỗi, tôi không xử lý được yêu cầu này.",
-          model: data.model_used,
-          timestamp: new Date(),
-        } satisfies Message,
-      ]);
-    } catch (e) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: `Xin lỗi, tôi gặp sự cố kết nối tới backend.\n\n\`${e instanceof Error ? e.message : "Unknown error"}\`\n\nHãy đảm bảo backend đang chạy tại \`${apiUrl}\`.`,
-          timestamp: new Date(),
-        } satisfies Message,
-      ]);
-    } finally {
-      setLoading(false);
-    }
+    sendMessage(
+      { content, conversation_id: conversationId, stream: false },
+      {
+        onSuccess: (data) => {
+          // Replace temp message with server message, then add assistant reply
+          setConversationId(data.conversation_id);
+          setMessages((prev) => {
+            const withoutTemp = prev.filter((m) => m.id !== tempUserMsg.id);
+            return [
+              ...withoutTemp,
+              {
+                id: data.user_message.id,
+                role: "user",
+                content: data.user_message.content,
+                timestamp: new Date(data.user_message.created_at),
+              } satisfies Message,
+              {
+                id: data.assistant_message.id,
+                role: "assistant",
+                content: data.assistant_message.content,
+                timestamp: new Date(data.assistant_message.created_at),
+              } satisfies Message,
+            ];
+          });
+        },
+        onError: (err) => {
+          let errorText = "Xin lỗi, tôi gặp sự cố. Vui lòng thử lại.";
+          if (err instanceof ApiException) {
+            if (err.error.code === "llm_error") {
+              errorText = "Dịch vụ AI tạm thời không khả dụng. Vui lòng thử lại sau ít phút.";
+            } else if (err.statusCode === 429) {
+              errorText = "Bạn đang gửi quá nhiều tin nhắn. Vui lòng đợi một chút.";
+            }
+          }
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: errorText,
+              timestamp: new Date(),
+            } satisfies Message,
+          ]);
+        },
+      },
+    );
   }
 
   return (
@@ -96,20 +110,12 @@ export default function ChatInterface() {
         <div>
           <h2
             className="text-sm font-bold tracking-[0.15em]"
-            style={{
-              fontFamily: "var(--font-orbitron)",
-              color: "#dff3fd",
-            }}
+            style={{ fontFamily: "var(--font-orbitron)", color: "#dff3fd" }}
           >
             J.A.R.V.I.S
           </h2>
-          <p
-            className="text-[10px] tracking-[0.15em] flex items-center gap-1.5"
-            style={{ color: "#00e676" }}
-          >
-            <span
-              className="inline-block w-1.5 h-1.5 rounded-full bg-jarvis-success status-online"
-            />
+          <p className="text-[10px] tracking-[0.15em] flex items-center gap-1.5" style={{ color: "#00e676" }}>
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-jarvis-success status-online" />
             READY
           </p>
         </div>
@@ -121,14 +127,12 @@ export default function ChatInterface() {
           <MessageBubble key={msg.id} message={msg} />
         ))}
 
-        {/* Typing indicator */}
-        {loading && (
+        {isPending && (
           <div className="flex items-start gap-2.5 mb-5 msg-appear">
             <div
               className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
               style={{
-                background:
-                  "radial-gradient(circle, rgba(0, 180, 216, 0.55) 0%, rgba(0, 95, 138, 0.3) 100%)",
+                background: "radial-gradient(circle, rgba(0, 180, 216, 0.55) 0%, rgba(0, 95, 138, 0.3) 100%)",
                 border: "1px solid rgba(0, 180, 216, 0.35)",
                 boxShadow: "0 0 8px rgba(0, 180, 216, 0.25)",
               }}
@@ -137,23 +141,11 @@ export default function ChatInterface() {
             </div>
             <div
               className="px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1.5"
-              style={{
-                background: "rgba(15, 34, 53, 0.85)",
-                border: "1px solid rgba(0, 180, 216, 0.15)",
-              }}
+              style={{ background: "rgba(15, 34, 53, 0.85)", border: "1px solid rgba(0, 180, 216, 0.15)" }}
             >
-              <span
-                className="dot-1 w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: "#00b4d8" }}
-              />
-              <span
-                className="dot-2 w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: "#00b4d8" }}
-              />
-              <span
-                className="dot-3 w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: "#00b4d8" }}
-              />
+              <span className="dot-1 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
+              <span className="dot-2 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
+              <span className="dot-3 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
             </div>
           </div>
         )}
@@ -161,13 +153,7 @@ export default function ChatInterface() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <ChatInput
-        value={input}
-        onChange={setInput}
-        onSend={handleSend}
-        loading={loading}
-      />
+      <ChatInput value={input} onChange={setInput} onSend={handleSend} loading={isPending} />
     </div>
   );
 }
