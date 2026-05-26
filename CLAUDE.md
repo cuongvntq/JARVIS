@@ -14,6 +14,21 @@ Memory của dự án lưu tại `C:\Users\Admin\.claude\projects\c--Users-Admin
 
 ---
 
+## PR Review Workflow
+
+Sau khi tạo PR, thực hiện vòng lặp sau cho đến khi được approve:
+
+1. **Chờ review comments** — không tự merge khi chưa có approval
+2. **Đọc toàn bộ comments** — parse hết mọi comment trước khi bắt tay sửa
+3. **Fix các vấn đề được chỉ ra** — sửa đúng file, đúng scope, không sửa thêm ngoài yêu cầu
+4. **Commit thay đổi** — commit message rõ ràng, reference đến comment/issue
+5. **Push lên nhánh hiện tại** — không tạo nhánh mới, push lên cùng nhánh PR
+6. **Lặp lại** từ bước 1 cho đến khi PR được approve → merge trên GitHub UI
+
+> Không tự approve hoặc tự merge PR của mình.
+
+---
+
 ## Rules
 
 Rules chi tiết theo từng layer — đọc file liên quan trước khi làm việc với layer đó:
