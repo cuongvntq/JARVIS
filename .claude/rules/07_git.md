@@ -3,8 +3,8 @@
 ## TUYỆT ĐỐI — Bảo vệ nhánh main
 
 - **KHÔNG BAO GIỜ push trực tiếp lên `main`** — kể cả hotfix, kể cả thay đổi nhỏ.
-- **Trước bất kỳ thao tác git làm thay đổi local/remote state hoặc history** (commit, push, merge, rebase, reset, branch -D, ...) — phải hỏi user và được xác nhận rõ ràng trước khi thực hiện.
-- **Read-only commands được phép chạy tự do** mà không cần hỏi: `git status`, `git diff`, `git log`, `git show`, `git branch` (liệt kê), `git fetch` (chỉ fetch, không merge).
+- **Trước bất kỳ thao tác git làm thay đổi working tree, current branch, remote, hoặc history** (commit, push, merge, rebase, reset, branch -D, checkout/switch đổi branch, ...) — phải hỏi user và được xác nhận rõ ràng trước khi thực hiện.
+- **Commands được phép chạy tự do** mà không cần hỏi: `git status`, `git diff`, `git log`, `git show`, `git branch` (liệt kê), `git fetch` — các lệnh này không đổi working tree hay current branch (`git fetch` chỉ cập nhật remote-tracking refs, an toàn để chạy tự do).
 - Nếu user nói "tự làm đi" hoặc "cứ push" mà không chỉ định nhánh cụ thể — vẫn phải hỏi lại, không tự suy diễn là push lên `main`.
 
 ## Workflow bắt buộc
