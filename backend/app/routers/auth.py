@@ -16,14 +16,14 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=TokenResponse, response_model_exclude_none=True, status_code=status.HTTP_201_CREATED)
 async def register(req: RegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     token_resp, raw_refresh = await auth_service.register(db, req, request)
     auth_service.set_refresh_cookie(response, raw_refresh, settings.jwt_refresh_ttl_days)
     return token_resp
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, response_model_exclude_none=True)
 async def login(req: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     token_resp, raw_refresh = await auth_service.login(db, req, request)
     auth_service.set_refresh_cookie(response, raw_refresh, settings.jwt_refresh_ttl_days)
@@ -38,7 +38,7 @@ def _resolve_refresh_token(request: Request, req: RefreshRequest | None) -> str:
     return token
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh", response_model=TokenResponse, response_model_exclude_none=True)
 async def refresh(
     request: Request,
     response: Response,

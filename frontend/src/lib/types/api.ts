@@ -12,7 +12,7 @@ export interface UserOut {
 
 export interface TokenResponse {
   access_token: string;
-  refresh_token: string;
+  refresh_token?: string | null; // not present in browser flow; delivered via httponly cookie
   expires_in: number;
   user: UserOut;
 }
