@@ -46,7 +46,9 @@ async def jarvis_exception_handler(request: Request, exc: JarvisError) -> JSONRe
     )
 
 
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
     request_id = getattr(request.state, "request_id", "unknown")
     return JSONResponse(
         status_code=422,

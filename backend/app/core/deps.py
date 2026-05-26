@@ -20,18 +20,18 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.models.user import User  # local import avoids circular
-
     from fastapi import HTTPException
+
+    from app.models.user import User  # local import avoids circular
 
     payload = decode_access_token(token)
     user_id = uuid.UUID(payload["sub"])
 
-    result = await db.execute(
-        select(User).where(User.id == user_id, User.is_active.is_(True))
-    )
+    result = await db.execute(select(User).where(User.id == user_id, User.is_active.is_(True)))
     user = result.scalar_one_or_none()
     if user is None:
-        raise HTTPException(status_code=401, detail="Người dùng không tồn tại hoặc đã bị vô hiệu hóa")
+        raise HTTPException(
+            status_code=401, detail="Người dùng không tồn tại hoặc đã bị vô hiệu hóa"
+        )
 
     return user

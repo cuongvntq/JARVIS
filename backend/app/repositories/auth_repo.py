@@ -3,7 +3,8 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update as sql_update
+from sqlalchemy import select
+from sqlalchemy import update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import AuthSession

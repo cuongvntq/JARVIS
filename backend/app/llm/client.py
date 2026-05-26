@@ -71,10 +71,16 @@ async def chat_completion(
             usage = response.usage
             tokens_in = getattr(usage, "prompt_tokens", 0) or 0
             tokens_out = getattr(usage, "completion_tokens", 0) or 0
-            log.info("llm.success", model=model, response_len=len(content), tokens_in=tokens_in, tokens_out=tokens_out)
+            log.info(
+                "llm.success",
+                model=model,
+                response_len=len(content),
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+            )
             return content, model, tokens_in, tokens_out
 
-        except (RateLimitError, Timeout, ServiceUnavailableError, asyncio.TimeoutError) as e:
+        except (TimeoutError, RateLimitError, Timeout, ServiceUnavailableError) as e:
             log.warning("llm.transient_error", model=model, error=str(e))
             last_error = e
             continue

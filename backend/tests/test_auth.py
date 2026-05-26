@@ -38,7 +38,9 @@ async def test_register_weak_password(async_client):
 @pytest.mark.asyncio
 async def test_login_success(async_client):
     await async_client.post("/auth/register", json=TEST_USER)
-    resp = await async_client.post("/auth/login", json={"email": TEST_USER["email"], "password": TEST_USER["password"]})
+    resp = await async_client.post(
+        "/auth/login", json={"email": TEST_USER["email"], "password": TEST_USER["password"]}
+    )
     assert resp.status_code == 200
     assert "access_token" in resp.json()
 
@@ -46,7 +48,9 @@ async def test_login_success(async_client):
 @pytest.mark.asyncio
 async def test_login_wrong_password(async_client):
     await async_client.post("/auth/register", json=TEST_USER)
-    resp = await async_client.post("/auth/login", json={"email": TEST_USER["email"], "password": "WrongPass9"})
+    resp = await async_client.post(
+        "/auth/login", json={"email": TEST_USER["email"], "password": "WrongPass9"}
+    )
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "invalid_credentials"
 
@@ -139,7 +143,11 @@ async def test_register_race_condition_maps_to_409(async_client):
 
     await async_client.post("/auth/register", json=TEST_USER)
 
-    with patch("app.services.auth_service.user_repo.get_by_email", new_callable=AsyncMock, return_value=None):
+    with patch(
+        "app.services.auth_service.user_repo.get_by_email",
+        new_callable=AsyncMock,
+        return_value=None,
+    ):
         resp = await async_client.post("/auth/register", json=TEST_USER)
 
     assert resp.status_code == 409
@@ -156,4 +164,41 @@ async def test_email_case_insensitive(async_client):
         "/auth/login",
         json={"email": "test@jarvis.dev", "password": TEST_USER["password"]},
     )
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_csrf_blocked_when_samesite_none_no_origin(async_client):
+    """Cookie request with no Origin header is rejected when COOKIE_SAMESITE=none."""
+    from unittest.mock import MagicMock, patch
+
+    await async_client.post("/auth/register", json=TEST_USER)
+
+    mock_settings = MagicMock()
+    mock_settings.cookie_samesite = "none"
+    mock_settings.cors_origins_list = ["http://localhost:3000"]
+
+    with patch("app.routers.auth.settings", mock_settings):
+        resp = await async_client.post("/auth/refresh")  # no Origin header
+    assert resp.status_code == 403
+    assert resp.json()["error"]["code"] == "forbidden"
+
+
+@pytest.mark.asyncio
+async def test_csrf_allowed_when_samesite_none_valid_origin(async_client):
+    """Cookie request with a valid Origin is accepted when COOKIE_SAMESITE=none."""
+    from unittest.mock import MagicMock, patch
+
+    await async_client.post("/auth/register", json=TEST_USER)
+
+    mock_settings = MagicMock()
+    mock_settings.cookie_samesite = "none"
+    mock_settings.cors_origins_list = ["http://testserver"]
+    mock_settings.jwt_refresh_ttl_days = 30
+
+    with patch("app.routers.auth.settings", mock_settings):
+        resp = await async_client.post(
+            "/auth/refresh",
+            headers={"Origin": "http://testserver"},
+        )
     assert resp.status_code == 200

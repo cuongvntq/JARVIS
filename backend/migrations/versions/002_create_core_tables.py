@@ -96,7 +96,9 @@ def upgrade() -> None:
             last_used_at        TIMESTAMPTZ     NOT NULL DEFAULT NOW()
         )
     """)
-    op.execute("CREATE INDEX idx_session_user_active ON auth_sessions(user_id) WHERE revoked_at IS NULL")
+    op.execute(
+        "CREATE INDEX idx_session_user_active ON auth_sessions(user_id) WHERE revoked_at IS NULL"
+    )
     op.execute("CREATE INDEX idx_session_token ON auth_sessions(refresh_token_hash)")
 
 

@@ -1,6 +1,6 @@
 """Chat business logic — orchestrates LLM + DB persistence."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import structlog
@@ -60,8 +60,14 @@ async def send_message(
         raise JarvisError(502, "llm_error", "Dịch vụ AI tạm thời không khả dụng, vui lòng thử lại")
 
     assistant_msg = await conversation_repo.add_message(
-        db, conv.id, current_user.id, "assistant", content,
-        tokens_in, tokens_out, {"model": model_name},
+        db,
+        conv.id,
+        current_user.id,
+        "assistant",
+        content,
+        tokens_in,
+        tokens_out,
+        {"model": model_name},
     )
 
     await conversation_repo.increment_message_count(db, conv.id)

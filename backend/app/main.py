@@ -8,7 +8,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.core.errors import JarvisError, RequestIDMiddleware, jarvis_exception_handler, validation_exception_handler
+from app.core.errors import (
+    JarvisError,
+    RequestIDMiddleware,
+    jarvis_exception_handler,
+    validation_exception_handler,
+)
 from app.routers import auth, chat, health
 
 settings = get_settings()

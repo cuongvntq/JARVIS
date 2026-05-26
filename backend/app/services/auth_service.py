@@ -12,8 +12,8 @@ from app.core.errors import JarvisError
 from app.core.security import (
     create_access_token,
     create_refresh_token,
-    hash_refresh_token,
     hash_password,
+    hash_refresh_token,
     validate_password_strength,
     verify_password,
 )
@@ -25,7 +25,9 @@ log = structlog.get_logger()
 settings = get_settings()
 
 
-async def register(db: AsyncSession, req: RegisterRequest, request: Request) -> tuple[TokenResponse, str]:
+async def register(
+    db: AsyncSession, req: RegisterRequest, request: Request
+) -> tuple[TokenResponse, str]:
     """Register new user. Returns (TokenResponse, raw_refresh_token)."""
     try:
         validate_password_strength(req.password)
@@ -67,7 +69,9 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> tuple[TokenRes
     token_hash = hash_refresh_token(refresh_token)
     row = await auth_repo.atomic_revoke_session(db, token_hash)
     if row is None:
-        raise JarvisError(401, "invalid_refresh_token", "Refresh token không hợp lệ hoặc đã hết hạn")
+        raise JarvisError(
+            401, "invalid_refresh_token", "Refresh token không hợp lệ hoặc đã hết hạn"
+        )
 
     user = await user_repo.get_by_id(db, row.user_id)
     if not user or not user.is_active:
@@ -75,7 +79,9 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> tuple[TokenRes
 
     raw_refresh, token_hash_new = create_refresh_token()
     expires_at = datetime.now(UTC) + timedelta(days=settings.jwt_refresh_ttl_days)
-    await auth_repo.create_session(db, user.id, token_hash_new, row.user_agent, row.ip_address, expires_at)
+    await auth_repo.create_session(
+        db, user.id, token_hash_new, row.user_agent, row.ip_address, expires_at
+    )
 
     access_token = create_access_token(user.id, user.name)
     token_resp = TokenResponse(

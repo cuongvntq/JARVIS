@@ -1,4 +1,5 @@
 """Pytest fixtures for JARVIS backend tests."""
+
 import os
 
 # Must set env vars BEFORE any app imports so Settings() picks them up
@@ -8,17 +9,21 @@ os.environ.setdefault("GEMINI_API_KEY", "fake-gemini-key-for-tests")
 os.environ.setdefault("OPENAI_API_KEY", "sk-fake-openai-key-for-tests")
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-key-must-be-32-chars!!")
 
-from unittest.mock import AsyncMock, patch  # noqa: E402
+from unittest.mock import AsyncMock, patch
 
-import pytest  # noqa: E402
-import pytest_asyncio  # noqa: E402
-from httpx import ASGITransport, AsyncClient  # noqa: E402
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine  # noqa: E402
-from sqlalchemy.pool import StaticPool  # noqa: E402
+import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.pool import StaticPool
 
-import app.database as db_module  # noqa: E402
-from app.database import Base, get_db  # noqa: E402
-from app.main import app  # noqa: E402
+import app.database as db_module
+from app.database import Base, get_db
+from app.main import app
 
 # ── SQLite in-memory engine (StaticPool = single shared connection) ───────────
 _test_engine = create_async_engine(

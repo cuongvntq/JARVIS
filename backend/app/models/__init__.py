@@ -3,4 +3,4 @@
 from app.models.conversation import Conversation, Message
 from app.models.user import AuthSession, User
 
-__all__ = ["User", "AuthSession", "Conversation", "Message"]
+__all__ = ["AuthSession", "Conversation", "Message", "User"]

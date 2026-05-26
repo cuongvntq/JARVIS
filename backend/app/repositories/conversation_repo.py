@@ -4,7 +4,7 @@ import base64
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select, text, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import JarvisError
