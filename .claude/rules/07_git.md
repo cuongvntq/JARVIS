@@ -1,5 +1,54 @@
 # Rules — Git & PR Workflow
 
+## TUYỆT ĐỐI — Bảo vệ nhánh main
+
+- **KHÔNG BAO GIỜ push trực tiếp lên `main`** — kể cả hotfix, kể cả thay đổi nhỏ.
+- **Trước bất kỳ thao tác git làm thay đổi working tree, current branch, remote, hoặc history** (commit, push, merge, rebase, reset, branch -D, checkout/switch đổi branch, ...) — phải hỏi user và được xác nhận rõ ràng trước khi thực hiện.
+- **Commands được phép chạy tự do** mà không cần hỏi: `git status`, `git diff`, `git log`, `git show`, `git branch` (liệt kê), `git fetch` — các lệnh này không đổi working tree hay current branch (`git fetch` chỉ cập nhật remote-tracking refs, an toàn để chạy tự do).
+- Nếu user nói "tự làm đi" hoặc "cứ push" mà không chỉ định nhánh cụ thể — vẫn phải hỏi lại, không tự suy diễn là push lên `main`.
+
+## Workflow bắt buộc
+
+Mọi thay đổi trong repo (code, docs, config, rules) đều phải đi theo thứ tự sau, không được bỏ bước:
+
+```
+1. Tạo nhánh mới từ main
+      git status                      # kiểm tra worktree sạch trước
+      git switch main
+      git pull --ff-only              # fast-forward only, không tạo merge commit
+      git switch -c feat/sprint1-auth-jwt
+
+2. Commit lên nhánh đó
+      git add <files>
+      git commit -m "feat(auth): ..."
+
+3. Push nhánh lên remote
+      git push -u origin feat/sprint1-auth-jwt
+
+4. Tạo Pull Request (PR) trên GitHub
+      gh pr create --title "..." --body "..."
+
+5. Chờ review — KHÔNG tự merge
+      Người khác (hoặc user) review và approve trên GitHub
+
+6. Merge vào main SAU KHI được approve
+      Thực hiện merge trên GitHub UI, không merge bằng CLI trừ khi được yêu cầu rõ ràng
+```
+
+## Quy tắc hỏi trước khi làm
+
+Với các thao tác sau, **bắt buộc mô tả rõ hành động và hỏi user xác nhận** trước khi chạy lệnh:
+
+| Thao tác | Lý do phải hỏi |
+|----------|---------------|
+| `git push` bất kỳ | Ảnh hưởng remote, không thể undo dễ |
+| `git push --force` / `--force-with-lease` | Có thể ghi đè history của người khác |
+| `gh pr create` | Tạo PR công khai, cần confirm nội dung |
+| `gh pr merge` | Merge vào main — không thể undo dễ |
+| `git reset --hard` | Xóa uncommitted work |
+| `git rebase` | Rewrite history |
+| `git branch -D` | Xóa nhánh |
+
 ## Branch Naming
 
 ```

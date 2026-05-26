@@ -1,5 +1,34 @@
 # CLAUDE.md — J.A.R.V.I.S Personal AI Assistant
 
+## Memory — Đọc khi bắt đầu session mới
+
+Memory của dự án được Claude Code lưu tại `%USERPROFILE%\.claude\projects\<project-slug>\memory\` (ngoài repo, tự động resolve theo máy hiện tại).
+
+**Bắt buộc đọc khi bắt đầu session** (nhất là sau thời gian dài không làm việc):
+1. Đọc `MEMORY.md` (index) để biết có những memory nào.
+2. Đọc `project-sprint-status.md` — sprint hiện tại, DoD, việc đã làm và chưa làm.
+3. Đọc `project-architecture-built.md` — map file đã tồn tại, trạng thái implement thực tế.
+4. Tóm tắt ngắn cho user: sprint đang ở đâu, việc tiếp theo là gì → hỏi muốn bắt đầu từ đâu.
+
+**Cập nhật memory sau mỗi sprint hoàn thành** — đánh dấu DONE, ghi việc tiếp theo vào `project-sprint-status.md`.
+
+---
+
+## PR Review Workflow
+
+Sau khi tạo PR, thực hiện vòng lặp sau cho đến khi được approve:
+
+1. **Chờ review comments** — không tự merge khi chưa có approval
+2. **Đọc toàn bộ comments** — parse hết mọi comment trước khi bắt tay sửa
+3. **Fix các vấn đề được chỉ ra** — sửa đúng file, đúng scope, không sửa thêm ngoài yêu cầu
+4. **Commit thay đổi** — commit message rõ ràng, reference đến comment/issue *(hỏi user xác nhận trước — xem `.claude/rules/07_git.md`)*
+5. **Push lên nhánh hiện tại** — không tạo nhánh mới, push lên cùng nhánh PR *(hỏi user xác nhận trước — xem `.claude/rules/07_git.md`)*
+6. **Lặp lại** từ bước 1 cho đến khi PR được approve → merge trên GitHub UI
+
+> Không tự approve hoặc tự merge PR của mình.
+
+---
+
 ## Rules
 
 Rules chi tiết theo từng layer — đọc file liên quan trước khi làm việc với layer đó:
