@@ -77,7 +77,6 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> tuple[TokenRes
     access_token = create_access_token(user.id, user.name)
     token_resp = TokenResponse(
         access_token=access_token,
-        refresh_token=raw_refresh,
         expires_in=settings.jwt_access_ttl_minutes * 60,
         user=UserOut.model_validate(user),
     )
@@ -109,7 +108,6 @@ async def _issue_tokens(
     access_token = create_access_token(user.id, user.name)
     token_resp = TokenResponse(
         access_token=access_token,
-        refresh_token=raw_refresh,
         expires_in=settings.jwt_access_ttl_minutes * 60,
         user=UserOut.model_validate(user),
     )
@@ -121,12 +119,13 @@ def set_refresh_cookie(response: Response, raw_refresh: str, ttl_days: int) -> N
         key="refresh_token",
         value=raw_refresh,
         httponly=True,
-        samesite="strict",
+        samesite=settings.cookie_samesite,
         max_age=ttl_days * 86400,
-        path="/auth",  # covers /auth/refresh and /auth/logout
-        secure=False,  # set True in production (HTTPS)
+        path="/auth",
+        secure=settings.cookie_secure,
+        domain=settings.cookie_domain,
     )
 
 
 def clear_refresh_cookie(response: Response) -> None:
-    response.delete_cookie(key="refresh_token", path="/auth")
+    response.delete_cookie(key="refresh_token", path="/auth", domain=settings.cookie_domain)

@@ -2,7 +2,7 @@
 
 import uuid
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class RegisterRequest(BaseModel):
@@ -10,10 +10,20 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=8)
     name: str = Field(min_length=1, max_length=100)
 
+    @field_validator("email", mode="after")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return v.lower()
+
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+    @field_validator("email", mode="after")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return v.lower()
 
 
 class RefreshRequest(BaseModel):
@@ -41,6 +51,6 @@ class UserOut(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
-    refresh_token: str
+    refresh_token: str | None = None  # not returned in body; browser gets token via httponly cookie
     expires_in: int
     user: UserOut

@@ -34,7 +34,7 @@ class ApiClient {
     };
 
     if (_accessToken) {
-      headers["Authorization"] = `Bearer ${_accessToken}`;
+      headers.Authorization = `Bearer ${_accessToken}`;
     }
 
     const res = await fetch(`${BASE_URL}${path}`, { ...init, headers, credentials: "include" });

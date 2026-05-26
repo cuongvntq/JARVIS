@@ -23,7 +23,9 @@ export default function ChatInterface() {
   const { mutate: sendMessage, isPending } = useSendMessage();
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length > 0 || isPending) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, isPending]);
 
   function handleSend() {
