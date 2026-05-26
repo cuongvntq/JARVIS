@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 from fastapi import Request, Response
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -36,7 +37,11 @@ async def register(db: AsyncSession, req: RegisterRequest, request: Request) -> 
         raise JarvisError(409, "email_taken", "Email này đã được sử dụng")
 
     pw_hash = hash_password(req.password)
-    user = await user_repo.create(db, req.email, pw_hash, req.name)
+    try:
+        user = await user_repo.create(db, req.email, pw_hash, req.name)
+    except IntegrityError:
+        # Concurrent registration with the same email hit the unique constraint
+        raise JarvisError(409, "email_taken", "Email này đã được sử dụng")
     log.info("auth.register", user_id=str(user.id), email=user.email)
 
     return await _issue_tokens(db, user, request)
@@ -60,19 +65,17 @@ async def login(db: AsyncSession, req: LoginRequest, request: Request) -> tuple[
 async def refresh_tokens(db: AsyncSession, refresh_token: str) -> tuple[TokenResponse, str]:
     """Rotate refresh token. Returns (TokenResponse, new_raw_refresh_token)."""
     token_hash = hash_refresh_token(refresh_token)
-    session = await auth_repo.get_session_by_hash(db, token_hash)
-    if not session:
+    row = await auth_repo.atomic_revoke_session(db, token_hash)
+    if row is None:
         raise JarvisError(401, "invalid_refresh_token", "Refresh token không hợp lệ hoặc đã hết hạn")
 
-    await auth_repo.revoke_session(db, session.id)
-
-    user = await user_repo.get_by_id(db, session.user_id)
+    user = await user_repo.get_by_id(db, row.user_id)
     if not user or not user.is_active:
         raise JarvisError(401, "invalid_credentials", "Tài khoản không hợp lệ")
 
     raw_refresh, token_hash_new = create_refresh_token()
     expires_at = datetime.now(UTC) + timedelta(days=settings.jwt_refresh_ttl_days)
-    await auth_repo.create_session(db, user.id, token_hash_new, session.user_agent, session.ip_address, expires_at)
+    await auth_repo.create_session(db, user.id, token_hash_new, row.user_agent, row.ip_address, expires_at)
 
     access_token = create_access_token(user.id, user.name)
     token_resp = TokenResponse(

@@ -1,5 +1,7 @@
 """Auth endpoint integration tests."""
 
+import asyncio
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -102,6 +104,46 @@ async def test_old_token_rejected_after_rotation(async_client):
         resp = await fresh.post("/auth/refresh", json={"refresh_token": old_token})
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "invalid_refresh_token"
+
+
+@pytest.mark.asyncio
+async def test_concurrent_refresh_no_double_issue(async_client):
+    """Two concurrent requests with the same refresh token: at most one succeeds, no 500.
+
+    SQLite StaticPool serializes requests so races are not truly parallel here, but
+    the atomic UPDATE ensures correctness on real Postgres under concurrent load too.
+    """
+    reg = await async_client.post("/auth/register", json=TEST_USER)
+    token = reg.cookies["refresh_token"]
+
+    async def try_refresh():
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            return await c.post("/auth/refresh", json={"refresh_token": token})
+
+    r1, r2 = await asyncio.gather(try_refresh(), try_refresh())
+    codes = [r1.status_code, r2.status_code]
+    assert 500 not in codes, f"Unexpected 500: {codes}"
+    assert sorted(codes) == [200, 401], f"Expected exactly one 200 and one 401, got {codes}"
+
+
+@pytest.mark.asyncio
+async def test_register_race_condition_maps_to_409(async_client):
+    """IntegrityError from a concurrent insert must surface as 409, not 500.
+
+    Simulates the race by bypassing the get_by_email check (as if it ran before
+    the concurrent commit landed) so the unique constraint fires on insert.
+    True DB-level concurrency cannot be reproduced with SQLite StaticPool; this
+    test verifies the catch(IntegrityError) → JarvisError(409) mapping.
+    """
+    from unittest.mock import AsyncMock, patch
+
+    await async_client.post("/auth/register", json=TEST_USER)
+
+    with patch("app.services.auth_service.user_repo.get_by_email", new_callable=AsyncMock, return_value=None):
+        resp = await async_client.post("/auth/register", json=TEST_USER)
+
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "email_taken"
 
 
 @pytest.mark.asyncio

@@ -3,7 +3,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import AuthSession
@@ -48,3 +48,25 @@ async def revoke_session(db: AsyncSession, session_id: uuid.UUID) -> None:
     if session:
         session.revoked_at = datetime.now(UTC)
         await db.flush()
+
+
+async def atomic_revoke_session(db: AsyncSession, token_hash: str):
+    """Atomically revoke a non-expired, non-revoked session in one round-trip.
+
+    Returns a Row(user_id, user_agent, ip_address) if the session was successfully
+    claimed, or None if it was already revoked, expired, or never existed.
+    This prevents replay attacks under concurrent requests.
+    """
+    now = datetime.now(UTC)
+    stmt = (
+        sql_update(AuthSession)
+        .where(
+            AuthSession.refresh_token_hash == token_hash,
+            AuthSession.revoked_at.is_(None),
+            AuthSession.expires_at > now,
+        )
+        .values(revoked_at=now)
+        .returning(AuthSession.user_id, AuthSession.user_agent, AuthSession.ip_address)
+    )
+    result = await db.execute(stmt)
+    return result.one_or_none()
