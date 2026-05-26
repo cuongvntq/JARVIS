@@ -1,5 +1,19 @@
 # CLAUDE.md — J.A.R.V.I.S Personal AI Assistant
 
+## Memory — Đọc khi bắt đầu session mới
+
+Memory của dự án lưu tại `C:\Users\Admin\.claude\projects\c--Users-Admin-Desktop-Javis\memory\`.
+
+**Bắt buộc đọc khi bắt đầu session** (nhất là sau thời gian dài không làm việc):
+1. Đọc `MEMORY.md` (index) để biết có những memory nào.
+2. Đọc `project-sprint-status.md` — sprint hiện tại, DoD, việc đã làm và chưa làm.
+3. Đọc `project-architecture-built.md` — map file đã tồn tại, trạng thái implement thực tế.
+4. Tóm tắt ngắn cho user: sprint đang ở đâu, việc tiếp theo là gì → hỏi muốn bắt đầu từ đâu.
+
+**Cập nhật memory sau mỗi sprint hoàn thành** — đánh dấu DONE, ghi việc tiếp theo vào `project-sprint-status.md`.
+
+---
+
 ## Rules
 
 Rules chi tiết theo từng layer — đọc file liên quan trước khi làm việc với layer đó:
