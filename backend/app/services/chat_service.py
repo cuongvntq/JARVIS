@@ -1,26 +1,27 @@
 """Chat business logic — orchestrates LLM + DB persistence."""
 
-from datetime import datetime
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+import uuid
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
 from app.core.errors import JarvisError
-from app.llm.client import chat_completion
+from app.llm import orchestrator
+from app.llm.prompt import build_system_prompt
 from app.models.user import User
-from app.repositories import conversation_repo
-from app.schemas.chat import ChatSendRequest, ChatSendResponse, ConversationListResponse, MessageOut
+from app.repositories import conversation_repo, llm_call_log_repo
+from app.schemas.chat import (
+    ChatSendRequest,
+    ChatSendResponse,
+    ConversationDetailOut,
+    ConversationListResponse,
+    ConversationOut,
+    ConversationPatchRequest,
+    MessageOut,
+)
+from app.tools.definitions import TOOLS
 
 log = structlog.get_logger()
-settings = get_settings()
-
-_SYSTEM_PROMPT_TEMPLATE = (
-    "Bạn là {assistant_name}, trợ lý cá nhân AI của người dùng.\n"
-    "Luôn giao tiếp bằng tiếng Việt tự nhiên, thân thiện, ngắn gọn (1-3 câu trừ khi cần giải thích dài).\n"
-    "Hôm nay là {now_local}. Múi giờ: {timezone}."
-)
 
 
 async def send_message(
@@ -29,51 +30,87 @@ async def send_message(
     current_user: User,
 ) -> ChatSendResponse:
     if req.stream:
-        raise JarvisError(422, "stream_not_supported", "Streaming sẽ được hỗ trợ ở Sprint 2")
+        raise JarvisError(422, "stream_not_supported", "Streaming sẽ được hỗ trợ ở Sprint 3")
 
     conv = await conversation_repo.get_or_create(db, current_user.id, req.conversation_id)
+
+    # Fetch prior history BEFORE inserting the current user message
+    prior_msgs, _ = await conversation_repo.get_messages_page(db, conv.id, None, 20)
+    history = [{"role": m.role, "content": m.content} for m in prior_msgs]
 
     user_msg = await conversation_repo.add_message(
         db, conv.id, current_user.id, "user", req.content, 0, 0, {}
     )
     await db.flush()
 
-    try:
-        user_tz = ZoneInfo(current_user.timezone)
-    except ZoneInfoNotFoundError:
-        user_tz = ZoneInfo(settings.timezone_default)
-    now_local = datetime.now(user_tz).strftime("%H:%M %d/%m/%Y")
-    system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(
-        assistant_name=current_user.assistant_name,
-        now_local=now_local,
-        timezone=current_user.timezone,
-    )
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": req.content},
-    ]
+    system_prompt, prompt_version = build_system_prompt(current_user)
 
+    import time
+
+    t0 = time.monotonic()
     try:
-        content, model_name, tokens_in, tokens_out = await chat_completion(messages)
+        orch_result = await orchestrator.run(
+            db=db,
+            user_id=current_user.id,
+            user_message=req.content,
+            system_prompt=system_prompt,
+            history=history,
+            message_id=user_msg.id,
+            all_tools=TOOLS,
+        )
     except RuntimeError as e:
         log.error("chat.llm_error", error=str(e), user_id=str(current_user.id))
-        raise JarvisError(502, "llm_error", "Dịch vụ AI tạm thời không khả dụng, vui lòng thử lại")
+        raise JarvisError(
+            502, "llm_error", "Dịch vụ AI tạm thời không khả dụng, vui lòng thử lại"
+        ) from e
+    duration_ms = int((time.monotonic() - t0) * 1000)
 
+    # Log LLM call (best effort — don't fail the request if logging fails)
+    try:
+        await llm_call_log_repo.log_call(
+            db,
+            user_id=current_user.id,
+            message_id=user_msg.id,
+            intent=orch_result.route.intent.value,
+            classify_source=orch_result.route.classify_source,
+            model_used=orch_result.final_response.model,
+            tokens_in=orch_result.total_tokens_in,
+            tokens_out=orch_result.total_tokens_out,
+            duration_ms=duration_ms,
+            success=True,
+        )
+    except Exception as exc:
+        log.warning("chat.llm_log_failed", error=str(exc))
+
+    content = orch_result.final_response.content
     assistant_msg = await conversation_repo.add_message(
         db,
         conv.id,
         current_user.id,
         "assistant",
         content,
-        tokens_in,
-        tokens_out,
-        {"model": model_name},
+        orch_result.total_tokens_in,
+        orch_result.total_tokens_out,
+        {
+            "model": orch_result.final_response.model,
+            "intent": orch_result.route.intent.value,
+            "llm_calls": orch_result.total_llm_calls,
+            "prompt_version": prompt_version,
+        },
     )
 
     await conversation_repo.increment_message_count(db, conv.id)
     await conversation_repo.increment_message_count(db, conv.id)
 
-    log.info("chat.sent", conversation_id=str(conv.id), tokens_in=tokens_in, tokens_out=tokens_out)
+    log.info(
+        "chat.sent",
+        conversation_id=str(conv.id),
+        intent=orch_result.route.intent.value,
+        model=orch_result.final_response.model,
+        tokens_in=orch_result.total_tokens_in,
+        tokens_out=orch_result.total_tokens_out,
+        tool_calls=len(orch_result.tool_results),
+    )
 
     return ChatSendResponse(
         conversation_id=conv.id,
@@ -88,10 +125,61 @@ async def list_conversations(
     limit: int,
     cursor: str | None,
 ) -> ConversationListResponse:
-    from app.schemas.chat import ConversationOut
-
     items, next_cursor = await conversation_repo.list_conversations(db, user_id, limit, cursor)
     return ConversationListResponse(
         items=[ConversationOut.model_validate(c) for c in items],
         next_cursor=next_cursor,
     )
+
+
+async def get_conversation_detail(
+    db: AsyncSession,
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+    before_message_id: uuid.UUID | None,
+    limit: int,
+) -> ConversationDetailOut:
+    conv = await conversation_repo.get_conversation(db, conversation_id, user_id)
+    if conv is None:
+        raise JarvisError(404, "conversation_not_found", "Cuộc hội thoại không tồn tại")
+
+    messages, has_more = await conversation_repo.get_messages_page(
+        db, conversation_id, before_message_id, limit
+    )
+    return ConversationDetailOut(
+        id=conv.id,
+        title=conv.title,
+        last_message_at=conv.last_message_at,
+        message_count=conv.message_count,
+        created_at=conv.created_at,
+        messages=[MessageOut.model_validate(m) for m in messages],
+        has_more=has_more,
+    )
+
+
+async def update_conversation_title(
+    db: AsyncSession,
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+    data: ConversationPatchRequest,
+) -> ConversationDetailOut:
+    conv = await conversation_repo.get_conversation(db, conversation_id, user_id)
+    if conv is None:
+        raise JarvisError(404, "conversation_not_found", "Cuộc hội thoại không tồn tại")
+
+    await conversation_repo.update_title(db, conversation_id, data.title)
+    await db.commit()
+    return await get_conversation_detail(db, conversation_id, user_id, None, 50)
+
+
+async def delete_conversation(
+    db: AsyncSession,
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> None:
+    conv = await conversation_repo.get_conversation(db, conversation_id, user_id)
+    if conv is None:
+        raise JarvisError(404, "conversation_not_found", "Cuộc hội thoại không tồn tại")
+
+    await conversation_repo.soft_delete_conversation(db, conversation_id)
+    await db.commit()

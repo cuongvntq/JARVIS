@@ -51,6 +51,16 @@ export interface ConversationListResponse {
   next_cursor: string | null;
 }
 
+export interface ConversationDetailOut {
+  id: string;
+  title: string;
+  last_message_at: string | null;
+  message_count: number;
+  created_at: string;
+  messages: MessageOut[];
+  has_more: boolean;
+}
+
 export interface ApiErrorBody {
   code: string;
   message: string;

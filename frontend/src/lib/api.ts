@@ -2,6 +2,7 @@ import {
   ApiException,
   type ChatSendRequest,
   type ChatSendResponse,
+  type ConversationDetailOut,
   type ConversationListResponse,
   type TokenResponse,
   type UserOut,
@@ -104,6 +105,10 @@ class ApiClient {
     const params = new URLSearchParams({ limit: String(limit) });
     if (cursor) params.set("cursor", cursor);
     return this.request(`/v1/chat/conversations?${params}`);
+  }
+
+  async getConversation(id: string, limit = 50): Promise<ConversationDetailOut> {
+    return this.request(`/v1/chat/conversations/${id}?limit=${limit}`);
   }
 }
 

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bot } from "lucide-react";
+import { Bot, Loader2 } from "lucide-react";
 import MessageBubble, { type Message } from "./MessageBubble";
 import ChatInput from "./ChatInput";
 import { useSendMessage } from "@/hooks/useChatMutation";
+import { useConversationDetail } from "@/hooks/useConversations";
 import { ApiException } from "@/lib/types/api";
 
 const WELCOME: Message = {
@@ -15,12 +16,48 @@ const WELCOME: Message = {
   timestamp: new Date(),
 };
 
-export default function ChatInterface() {
+interface ChatInterfaceProps {
+  conversationId: string | null;
+  onConversationCreated: (id: string) => void;
+}
+
+export default function ChatInterface({
+  conversationId,
+  onConversationCreated,
+}: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState("");
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { mutate: sendMessage, isPending } = useSendMessage();
+
+  // Load conversation history when conversationId changes
+  const { data: convDetail, isLoading: isLoadingHistory } = useConversationDetail(conversationId);
+
+  // When switching to an existing conversation, populate messages from history
+  const prevConvId = useRef<string | null>(null);
+  useEffect(() => {
+    if (conversationId === prevConvId.current) return;
+    prevConvId.current = conversationId;
+
+    if (conversationId === null) {
+      setMessages([WELCOME]);
+      return;
+    }
+    // History will arrive via convDetail — handled below
+    setMessages([]);
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!convDetail || convDetail.id !== conversationId) return;
+    setMessages(
+      convDetail.messages.map((m) => ({
+        id: m.id,
+        role: m.role as Message["role"],
+        content: m.content,
+        timestamp: new Date(m.created_at),
+      })),
+    );
+  }, [convDetail, conversationId]);
 
   useEffect(() => {
     if (messages.length > 0 || isPending) {
@@ -34,7 +71,6 @@ export default function ChatInterface() {
     const content = input.trim();
     setInput("");
 
-    // Optimistically add user message
     const tempUserMsg: Message = {
       id: crypto.randomUUID(),
       role: "user",
@@ -47,8 +83,9 @@ export default function ChatInterface() {
       { content, conversation_id: conversationId, stream: false },
       {
         onSuccess: (data) => {
-          // Replace temp message with server message, then add assistant reply
-          setConversationId(data.conversation_id);
+          if (!conversationId) {
+            onConversationCreated(data.conversation_id);
+          }
           setMessages((prev) => {
             const withoutTemp = prev.filter((m) => m.id !== tempUserMsg.id);
             return [
@@ -125,9 +162,18 @@ export default function ChatInterface() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-5">
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
-        ))}
+        {isLoadingHistory ? (
+          <div className="flex items-center justify-center h-full gap-2" style={{ color: "#5e8a9e" }}>
+            <Loader2 size={16} className="animate-spin" />
+            <span className="text-xs tracking-widest" style={{ fontFamily: "var(--font-orbitron)" }}>
+              LOADING
+            </span>
+          </div>
+        ) : (
+          messages.map((msg) => (
+            <MessageBubble key={msg.id} message={msg} />
+          ))
+        )}
 
         {isPending && (
           <div className="flex items-start gap-2.5 mb-5 msg-appear">
