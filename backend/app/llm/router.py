@@ -16,7 +16,7 @@ import asyncio
 import json
 import re
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 import litellm
 import structlog
@@ -27,7 +27,7 @@ log = structlog.get_logger()
 settings = get_settings()
 
 
-class Intent(str, Enum):
+class Intent(StrEnum):
     CHITCHAT = "chitchat"
     SIMPLE_QUERY = "simple_query"
     TOOL_CALL = "tool_call"
@@ -36,10 +36,10 @@ class Intent(str, Enum):
 
 # Sprint 2: 2-model routing. Nano/mini tiers added Sprint 4/6.
 MODEL_MAP: dict[Intent, str] = {
-    Intent.CHITCHAT: settings.llm_primary,   # gemini/gemini-2.5-flash (FREE)
+    Intent.CHITCHAT: settings.llm_primary,  # gemini/gemini-2.5-flash (FREE)
     Intent.SIMPLE_QUERY: settings.llm_fallback,  # gpt-4o-mini
-    Intent.TOOL_CALL: settings.llm_fallback,     # gpt-4o-mini
-    Intent.COMPLEX: settings.llm_fallback,       # gpt-4o-mini
+    Intent.TOOL_CALL: settings.llm_fallback,  # gpt-4o-mini
+    Intent.COMPLEX: settings.llm_fallback,  # gpt-4o-mini
 }
 
 # Read-only tools that simple_query may call
@@ -57,8 +57,16 @@ _CHITCHAT_PATTERNS = [
 ]
 
 _TOOL_INTENT_PATTERNS: list[tuple[Intent, re.Pattern]] = [
-    (Intent.TOOL_CALL, re.compile(r"^(thêm|tạo|nhắc|nhớ\s+là|đã\s+xong|hoàn\s+thành|hủy)", re.IGNORECASE)),
-    (Intent.SIMPLE_QUERY, re.compile(r"(còn\s+việc|todo\s+còn|hôm\s+nay\s+có|tìm\s+ghi\s+chú|có\s+lời\s+nhắc)", re.IGNORECASE)),
+    (
+        Intent.TOOL_CALL,
+        re.compile(r"^(thêm|tạo|nhắc|nhớ\s+là|đã\s+xong|hoàn\s+thành|hủy)", re.IGNORECASE),
+    ),
+    (
+        Intent.SIMPLE_QUERY,
+        re.compile(
+            r"(còn\s+việc|todo\s+còn|hôm\s+nay\s+có|tìm\s+ghi\s+chú|có\s+lời\s+nhắc)", re.IGNORECASE
+        ),
+    ),
 ]
 
 

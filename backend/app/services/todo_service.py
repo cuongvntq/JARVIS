@@ -9,7 +9,9 @@ from app.repositories import todo_repo
 from app.schemas.todo import TodoCreate, TodoOut, TodoPartialUpdate, TodoReplace
 
 
-async def create_todo(db: AsyncSession, user_id: uuid.UUID, data: TodoCreate) -> TodoOut:
+async def create_todo(
+    db: AsyncSession, user_id: uuid.UUID, data: TodoCreate, commit: bool = True
+) -> TodoOut:
     todo = await todo_repo.create(
         db,
         user_id,
@@ -20,7 +22,10 @@ async def create_todo(db: AsyncSession, user_id: uuid.UUID, data: TodoCreate) ->
         tags=data.tags,
         source=data.source,
     )
-    await db.commit()
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
     await db.refresh(todo)
     return TodoOut.model_validate(todo)
 
@@ -76,7 +81,11 @@ async def replace_todo(
 
 
 async def patch_todo(
-    db: AsyncSession, todo_id: uuid.UUID, user_id: uuid.UUID, data: TodoPartialUpdate
+    db: AsyncSession,
+    todo_id: uuid.UUID,
+    user_id: uuid.UUID,
+    data: TodoPartialUpdate,
+    commit: bool = True,
 ) -> TodoOut:
     """Internal partial update — only sets provided fields. Used by tool executor."""
     todo = await todo_repo.get_by_id(db, todo_id, user_id)
@@ -86,29 +95,42 @@ async def patch_todo(
     fields = data.model_dump(exclude_unset=True)
     if fields:
         await todo_repo.update_fields(db, todo_id, **fields)
-    await db.commit()
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
     updated = await todo_repo.get_by_id(db, todo_id, user_id)
     return TodoOut.model_validate(updated)
 
 
-async def complete_todo(db: AsyncSession, todo_id: uuid.UUID, user_id: uuid.UUID) -> TodoOut:
+async def complete_todo(
+    db: AsyncSession, todo_id: uuid.UUID, user_id: uuid.UUID, commit: bool = True
+) -> TodoOut:
     todo = await todo_repo.get_by_id(db, todo_id, user_id)
     if todo is None:
         raise JarvisError(404, "todo_not_found", "Todo không tồn tại")
 
     await todo_repo.complete(db, todo_id)
-    await db.commit()
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
     updated = await todo_repo.get_by_id(db, todo_id, user_id)
     return TodoOut.model_validate(updated)
 
 
-async def uncomplete_todo(db: AsyncSession, todo_id: uuid.UUID, user_id: uuid.UUID) -> TodoOut:
+async def uncomplete_todo(
+    db: AsyncSession, todo_id: uuid.UUID, user_id: uuid.UUID, commit: bool = True
+) -> TodoOut:
     todo = await todo_repo.get_by_id(db, todo_id, user_id)
     if todo is None:
         raise JarvisError(404, "todo_not_found", "Todo không tồn tại")
 
     await todo_repo.uncomplete(db, todo_id)
-    await db.commit()
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
     updated = await todo_repo.get_by_id(db, todo_id, user_id)
     return TodoOut.model_validate(updated)
 

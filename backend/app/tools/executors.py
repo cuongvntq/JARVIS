@@ -60,7 +60,7 @@ async def execute_create_todo(
         tags=params.get("tags", []),
         source="chat",
     )
-    todo = await todo_service.create_todo(db, user_id, data)
+    todo = await todo_service.create_todo(db, user_id, data, commit=False)
 
     due_str = f" (deadline: {params['due_at']})" if params.get("due_at") else ""
     return _ok(
@@ -110,11 +110,11 @@ async def execute_update_todo(
     except (KeyError, ValueError):
         return _err("invalid_todo_id", "todo_id không hợp lệ hoặc thiếu.")
 
-    # Build the partial update payload — only include explicitly provided fields
+    # Build the partial update payload — extract status separately to use dedicated methods
     patch_data: dict = {}
-    for field in ("title", "description", "priority", "status"):
-        if field in params and params[field] is not None:
-            patch_data[field] = params[field]
+    for f in ("title", "description", "priority"):
+        if f in params and params[f] is not None:
+            patch_data[f] = params[f]
 
     if "due_at" in params:
         try:
@@ -122,16 +122,27 @@ async def execute_update_todo(
         except (ValueError, TypeError) as e:
             return _err("invalid_due_at", f"due_at không hợp lệ: {e}")
 
-    if patch_data:
-        patch = TodoPartialUpdate.model_validate(patch_data)
-        todo = await todo_service.patch_todo(db, todo_id, user_id, patch)
-    else:
-        from app.core.errors import JarvisError
+    new_status = params.get("status")
 
-        try:
+    from app.core.errors import JarvisError
+
+    try:
+        if patch_data:
+            patch = TodoPartialUpdate.model_validate(patch_data)
+            todo = await todo_service.patch_todo(db, todo_id, user_id, patch, commit=False)
+        else:
             todo = await todo_service.get_todo(db, todo_id, user_id)
-        except JarvisError:
-            return _err("todo_not_found", "Todo không tồn tại.")
+
+        # Use dedicated methods for status transitions — they set/clear completed_at correctly
+        if new_status == "completed":
+            todo = await todo_service.complete_todo(db, todo_id, user_id, commit=False)
+        elif new_status == "pending":
+            todo = await todo_service.uncomplete_todo(db, todo_id, user_id, commit=False)
+        elif new_status in ("in_progress", "cancelled"):
+            status_patch = TodoPartialUpdate.model_validate({"status": new_status})
+            todo = await todo_service.patch_todo(db, todo_id, user_id, status_patch, commit=False)
+    except JarvisError:
+        return _err("todo_not_found", "Todo không tồn tại.")
 
     # Apply tag mutations after main update
     add_tags = params.get("add_tags") or []
@@ -141,7 +152,7 @@ async def execute_update_todo(
         current.update(add_tags)
         current -= set(remove_tags)
         tag_patch = TodoPartialUpdate.model_validate({"tags": list(current)})
-        todo = await todo_service.patch_todo(db, todo_id, user_id, tag_patch)
+        todo = await todo_service.patch_todo(db, todo_id, user_id, tag_patch, commit=False)
 
     new_status = patch_data.get("status", "")
     status_note = f" → {new_status}" if new_status else ""

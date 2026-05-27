@@ -203,11 +203,11 @@ async def _llm_fallback(
         f"Reply ONLY with ISO 8601 UTC (e.g. '2026-05-18T11:00:00Z') or 'CANNOT_PARSE'."
     )
     try:
-        content, _, _, _ = await chat_completion(
+        resp = await chat_completion(
             messages=[{"role": "user", "content": prompt}],
             max_tokens=50,
         )
-        content = content.strip().strip('"').strip("'")
+        content = resp.content.strip().strip('"').strip("'")
         if content == "CANNOT_PARSE":
             return None
         dt = datetime.fromisoformat(content.replace("Z", "+00:00"))

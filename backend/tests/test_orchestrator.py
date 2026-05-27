@@ -72,11 +72,13 @@ async def test_route_prefilter_tool_call_passes_all_tools():
 @pytest.mark.asyncio
 async def test_route_classifier_called_for_unknown():
     mock_resp = MagicMock()
-    mock_resp.choices[0].message.content = (
-        '{"intent": "tool_call", "confidence": 0.9, "reason": "create action"}'
-    )
+    mock_resp.choices[
+        0
+    ].message.content = '{"intent": "tool_call", "confidence": 0.9, "reason": "create action"}'
     # Message that does NOT match pre-filter (no leading action keywords)
-    with patch("app.llm.router.litellm.acompletion", new_callable=AsyncMock, return_value=mock_resp):
+    with patch(
+        "app.llm.router.litellm.acompletion", new_callable=AsyncMock, return_value=mock_resp
+    ):
         result = await route("Bỏ deadline của việc mua sữa đi", [])
 
     assert result.intent == Intent.TOOL_CALL
@@ -100,10 +102,12 @@ async def test_route_simple_query_filters_write_tools():
         {"type": "function", "function": {"name": "search_memory"}},
     ]
     mock_resp = MagicMock()
-    mock_resp.choices[0].message.content = (
-        '{"intent": "simple_query", "confidence": 0.85, "reason": "list query"}'
-    )
-    with patch("app.llm.router.litellm.acompletion", new_callable=AsyncMock, return_value=mock_resp):
+    mock_resp.choices[
+        0
+    ].message.content = '{"intent": "simple_query", "confidence": 0.85, "reason": "list query"}'
+    with patch(
+        "app.llm.router.litellm.acompletion", new_callable=AsyncMock, return_value=mock_resp
+    ):
         result = await route("Tôi còn bao nhiêu việc?", all_tools)
 
     names = {t["function"]["name"] for t in result.effective_tools}
@@ -143,8 +147,14 @@ async def test_orchestrator_plain_text_no_tool_calls():
     llm_resp = LLMResponse(content="Xin chào!", model="gemini-mock", tokens_in=10, tokens_out=5)
     db = AsyncMock()
 
-    with patch("app.llm.orchestrator.route", new_callable=AsyncMock, return_value=_make_route_result()), \
-         patch("app.llm.orchestrator.chat_completion", new_callable=AsyncMock, return_value=llm_resp):
+    with (
+        patch(
+            "app.llm.orchestrator.route", new_callable=AsyncMock, return_value=_make_route_result()
+        ),
+        patch(
+            "app.llm.orchestrator.chat_completion", new_callable=AsyncMock, return_value=llm_resp
+        ),
+    ):
         result = await orchestrator.run(
             db=db,
             user_id=uuid.uuid4(),
@@ -181,10 +191,20 @@ async def test_orchestrator_single_tool_call_then_synthesis():
     }
     db = AsyncMock()
 
-    with patch("app.llm.orchestrator.route", new_callable=AsyncMock, return_value=_make_route_result(Intent.TOOL_CALL)), \
-         patch("app.llm.orchestrator.chat_completion", new_callable=AsyncMock, side_effect=[first_resp, second_resp]), \
-         patch("app.llm.orchestrator.dispatch", new_callable=AsyncMock, return_value=tool_result), \
-         patch("app.llm.orchestrator.tool_log_repo.log_execution", new_callable=AsyncMock):
+    with (
+        patch(
+            "app.llm.orchestrator.route",
+            new_callable=AsyncMock,
+            return_value=_make_route_result(Intent.TOOL_CALL),
+        ),
+        patch(
+            "app.llm.orchestrator.chat_completion",
+            new_callable=AsyncMock,
+            side_effect=[first_resp, second_resp],
+        ),
+        patch("app.llm.orchestrator.dispatch", new_callable=AsyncMock, return_value=tool_result),
+        patch("app.llm.orchestrator.tool_log_repo.log_execution", new_callable=AsyncMock),
+    ):
         result = await orchestrator.run(
             db=db,
             user_id=uuid.uuid4(),
@@ -221,10 +241,20 @@ async def test_orchestrator_hard_cap_5_tool_calls():
     tool_result = {"success": True, "data": {}, "summary": "OK", "warnings": []}
     db = AsyncMock()
 
-    with patch("app.llm.orchestrator.route", new_callable=AsyncMock, return_value=_make_route_result(Intent.TOOL_CALL)), \
-         patch("app.llm.orchestrator.chat_completion", new_callable=AsyncMock, side_effect=tool_call_responses), \
-         patch("app.llm.orchestrator.dispatch", new_callable=AsyncMock, return_value=tool_result), \
-         patch("app.llm.orchestrator.tool_log_repo.log_execution", new_callable=AsyncMock):
+    with (
+        patch(
+            "app.llm.orchestrator.route",
+            new_callable=AsyncMock,
+            return_value=_make_route_result(Intent.TOOL_CALL),
+        ),
+        patch(
+            "app.llm.orchestrator.chat_completion",
+            new_callable=AsyncMock,
+            side_effect=tool_call_responses,
+        ),
+        patch("app.llm.orchestrator.dispatch", new_callable=AsyncMock, return_value=tool_result),
+        patch("app.llm.orchestrator.tool_log_repo.log_execution", new_callable=AsyncMock),
+    ):
         result = await orchestrator.run(
             db=db,
             user_id=uuid.uuid4(),
@@ -235,12 +265,14 @@ async def test_orchestrator_hard_cap_5_tool_calls():
         )
 
     assert len(result.tool_results) == 5  # exactly 5 tool calls executed
-    assert "quá nhiều" in result.final_response.content or "thử lại" in result.final_response.content
+    assert (
+        "quá nhiều" in result.final_response.content or "thử lại" in result.final_response.content
+    )
 
 
 @pytest.mark.asyncio
 async def test_orchestrator_loop_detection_3_consecutive_same_tool():
-    """Same tool 3× in a row triggers loop detection before 5-cap."""
+    """Same tool 3x in a row triggers loop detection before 5-cap."""
     from app.llm import orchestrator
 
     tc = ToolCall(id="call_loop", name="list_todos", arguments={})
@@ -252,10 +284,18 @@ async def test_orchestrator_loop_detection_3_consecutive_same_tool():
     mock_dispatch = AsyncMock(return_value=tool_result)
     mock_log = AsyncMock()
 
-    with patch("app.llm.orchestrator.route", new_callable=AsyncMock, return_value=_make_route_result(Intent.TOOL_CALL)), \
-         patch("app.llm.orchestrator.chat_completion", new_callable=AsyncMock, return_value=tool_resp), \
-         patch("app.llm.orchestrator.dispatch", mock_dispatch), \
-         patch("app.llm.orchestrator.tool_log_repo.log_execution", mock_log):
+    with (
+        patch(
+            "app.llm.orchestrator.route",
+            new_callable=AsyncMock,
+            return_value=_make_route_result(Intent.TOOL_CALL),
+        ),
+        patch(
+            "app.llm.orchestrator.chat_completion", new_callable=AsyncMock, return_value=tool_resp
+        ),
+        patch("app.llm.orchestrator.dispatch", mock_dispatch),
+        patch("app.llm.orchestrator.tool_log_repo.log_execution", mock_log),
+    ):
         result = await orchestrator.run(
             db=db,
             user_id=uuid.uuid4(),
@@ -282,14 +322,30 @@ async def test_orchestrator_tool_retry_on_failure():
     llm_final = LLMResponse(
         content="Xin lỗi, có lỗi xảy ra.", model="gpt-4o-mini", tokens_in=80, tokens_out=15
     )
-    fail_result = {"success": False, "error": {"code": "db_error", "message": "DB error"}, "data": None}
+    fail_result = {
+        "success": False,
+        "error": {"code": "db_error", "message": "DB error"},
+        "data": None,
+    }
     db = AsyncMock()
 
-    with patch("app.llm.orchestrator.route", new_callable=AsyncMock, return_value=_make_route_result(Intent.TOOL_CALL)), \
-         patch("app.llm.orchestrator.chat_completion", new_callable=AsyncMock, side_effect=[llm_first, llm_final]), \
-         patch("app.llm.orchestrator.dispatch", new_callable=AsyncMock, return_value=fail_result), \
-         patch("app.llm.orchestrator.tool_log_repo.log_execution", new_callable=AsyncMock) as mock_log:
-        result = await orchestrator.run(
+    with (
+        patch(
+            "app.llm.orchestrator.route",
+            new_callable=AsyncMock,
+            return_value=_make_route_result(Intent.TOOL_CALL),
+        ),
+        patch(
+            "app.llm.orchestrator.chat_completion",
+            new_callable=AsyncMock,
+            side_effect=[llm_first, llm_final],
+        ),
+        patch("app.llm.orchestrator.dispatch", new_callable=AsyncMock, return_value=fail_result),
+        patch(
+            "app.llm.orchestrator.tool_log_repo.log_execution", new_callable=AsyncMock
+        ) as mock_log,
+    ):
+        await orchestrator.run(
             db=db,
             user_id=uuid.uuid4(),
             user_message="Thêm việc",
@@ -300,6 +356,7 @@ async def test_orchestrator_tool_retry_on_failure():
 
     # dispatch called twice: original + 1 retry (retries=0 < _MAX_RETRIES_PER_TOOL=2)
     from app.llm.orchestrator import dispatch as real_dispatch  # noqa: F401
+
     assert mock_log.call_count == 2  # once for original call, once for retry
 
 

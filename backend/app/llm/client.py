@@ -60,11 +60,7 @@ async def chat_completion(
 
     Returns an LLMResponse with content, tool_calls, model, and token counts.
     """
-    if model is not None:
-        # Caller explicitly chose a model — single attempt, no fallback chain
-        chain = [model]
-    else:
-        chain = [settings.llm_primary, settings.llm_fallback]
+    chain = [model] if model is not None else [settings.llm_primary, settings.llm_fallback]
 
     last_error: Exception | None = None
 
