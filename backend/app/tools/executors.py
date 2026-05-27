@@ -1,0 +1,177 @@
+"""Tool executors for the 3 todo tools (Sprint 2).
+
+Each executor:
+  - Accepts raw tool_call params dict from LLM
+  - Calls the appropriate service function
+  - Returns a standardised ToolResult dict
+"""
+
+import uuid
+from datetime import UTC, datetime
+from typing import Any
+
+import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.schemas.todo import TodoCreate, TodoPartialUpdate
+from app.services import todo_service
+
+log = structlog.get_logger()
+
+ToolResult = dict[str, Any]
+
+
+def _ok(data: Any, summary: str, warnings: list[str] | None = None) -> ToolResult:
+    return {"success": True, "data": data, "summary": summary, "warnings": warnings or []}
+
+
+def _err(code: str, message: str) -> ToolResult:
+    return {"success": False, "error": {"code": code, "message": message}, "data": None}
+
+
+def _parse_iso(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+
+
+# ── create_todo ───────────────────────────────────────────────────────────────
+
+
+async def execute_create_todo(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    params: dict,
+) -> ToolResult:
+    title = params.get("title", "").strip()
+    if not title:
+        return _err("missing_title", "title là bắt buộc.")
+
+    try:
+        due_at = _parse_iso(params.get("due_at"))
+    except (ValueError, TypeError) as e:
+        return _err("invalid_due_at", f"due_at không hợp lệ: {e}")
+
+    data = TodoCreate(
+        title=title,
+        description=params.get("description"),
+        due_at=due_at,
+        priority=params.get("priority", "medium"),
+        tags=params.get("tags", []),
+        source="chat",
+    )
+    todo = await todo_service.create_todo(db, user_id, data)
+
+    due_str = f" (deadline: {params['due_at']})" if params.get("due_at") else ""
+    return _ok(
+        todo.model_dump(mode="json"),
+        f"Đã thêm việc '{title}'{due_str}.",
+    )
+
+
+# ── list_todos ────────────────────────────────────────────────────────────────
+
+
+async def execute_list_todos(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    params: dict,
+) -> ToolResult:
+    filter_type = params.get("filter", "today")
+    limit = min(int(params.get("limit", 20)), 50)
+    q = params.get("q") or None
+
+    todos, _ = await todo_service.list_todos(
+        db,
+        user_id,
+        status=None,
+        filter_type=filter_type,
+        q=q,
+        limit=limit,
+        cursor=None,
+    )
+
+    return _ok(
+        {"todos": [t.model_dump(mode="json") for t in todos], "count": len(todos)},
+        f"Tìm thấy {len(todos)} việc (filter: {filter_type}).",
+    )
+
+
+# ── update_todo ───────────────────────────────────────────────────────────────
+
+
+async def execute_update_todo(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    params: dict,
+) -> ToolResult:
+    try:
+        todo_id = uuid.UUID(params["todo_id"])
+    except (KeyError, ValueError):
+        return _err("invalid_todo_id", "todo_id không hợp lệ hoặc thiếu.")
+
+    # Build the partial update payload — only include explicitly provided fields
+    patch_data: dict = {}
+    for field in ("title", "description", "priority", "status"):
+        if field in params and params[field] is not None:
+            patch_data[field] = params[field]
+
+    if "due_at" in params:
+        try:
+            patch_data["due_at"] = _parse_iso(params["due_at"])
+        except (ValueError, TypeError) as e:
+            return _err("invalid_due_at", f"due_at không hợp lệ: {e}")
+
+    if patch_data:
+        patch = TodoPartialUpdate.model_validate(patch_data)
+        todo = await todo_service.patch_todo(db, todo_id, user_id, patch)
+    else:
+        from app.core.errors import JarvisError
+
+        try:
+            todo = await todo_service.get_todo(db, todo_id, user_id)
+        except JarvisError:
+            return _err("todo_not_found", "Todo không tồn tại.")
+
+    # Apply tag mutations after main update
+    add_tags = params.get("add_tags") or []
+    remove_tags = params.get("remove_tags") or []
+    if add_tags or remove_tags:
+        current = set(todo.tags)
+        current.update(add_tags)
+        current -= set(remove_tags)
+        tag_patch = TodoPartialUpdate.model_validate({"tags": list(current)})
+        todo = await todo_service.patch_todo(db, todo_id, user_id, tag_patch)
+
+    new_status = patch_data.get("status", "")
+    status_note = f" → {new_status}" if new_status else ""
+    return _ok(
+        todo.model_dump(mode="json"),
+        f"Đã cập nhật việc '{todo.title}'{status_note}.",
+    )
+
+
+# ── dispatch ──────────────────────────────────────────────────────────────────
+
+_EXECUTOR_MAP = {
+    "create_todo": execute_create_todo,
+    "list_todos": execute_list_todos,
+    "update_todo": execute_update_todo,
+}
+
+
+async def dispatch(
+    tool_name: str,
+    params: dict,
+    db: AsyncSession,
+    user_id: uuid.UUID,
+) -> ToolResult:
+    """Route a tool call to the appropriate executor."""
+    executor = _EXECUTOR_MAP.get(tool_name)
+    if executor is None:
+        return _err("unknown_tool", f"Tool '{tool_name}' không tồn tại.")
+    try:
+        return await executor(db, user_id, params)
+    except Exception as e:
+        log.exception("tool.executor_error", tool=tool_name)
+        return _err("executor_error", str(e))
