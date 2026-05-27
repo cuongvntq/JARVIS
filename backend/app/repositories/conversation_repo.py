@@ -103,3 +103,76 @@ async def list_conversations(
             next_cursor = base64.b64encode(last_dt.isoformat().encode()).decode()
 
     return rows, next_cursor
+
+
+async def get_conversation(
+    db: AsyncSession,
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> Conversation | None:
+    result = await db.execute(
+        select(Conversation).where(
+            Conversation.id == conversation_id,
+            Conversation.user_id == user_id,
+            Conversation.deleted_at.is_(None),
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_messages_page(
+    db: AsyncSession,
+    conversation_id: uuid.UUID,
+    before_message_id: uuid.UUID | None,
+    limit: int,
+) -> tuple[list[Message], bool]:
+    """Return up to `limit` messages, ordered oldest-first.
+
+    If `before_message_id` is given, return only messages created strictly
+    before that message (i.e. load older history when scrolling up).
+    Returns (messages, has_more) where has_more=True means there are older messages.
+    """
+    query = select(Message).where(Message.conversation_id == conversation_id)
+
+    if before_message_id is not None:
+        anchor = await db.execute(
+            select(Message.created_at).where(Message.id == before_message_id)
+        )
+        anchor_dt = anchor.scalar_one_or_none()
+        if anchor_dt is not None:
+            query = query.where(Message.created_at < anchor_dt)
+
+    query = query.order_by(Message.created_at.desc()).limit(limit + 1)
+    result = await db.execute(query)
+    rows = list(result.scalars())
+
+    has_more = len(rows) > limit
+    if has_more:
+        rows = rows[:limit]
+
+    # Return in chronological order (oldest first)
+    rows.reverse()
+    return rows, has_more
+
+
+async def update_title(
+    db: AsyncSession,
+    conversation_id: uuid.UUID,
+    title: str,
+) -> None:
+    await db.execute(
+        update(Conversation)
+        .where(Conversation.id == conversation_id)
+        .values(title=title, updated_at=datetime.now(UTC))
+    )
+
+
+async def soft_delete_conversation(
+    db: AsyncSession,
+    conversation_id: uuid.UUID,
+) -> None:
+    await db.execute(
+        update(Conversation)
+        .where(Conversation.id == conversation_id)
+        .values(deleted_at=datetime.now(UTC))
+    )
