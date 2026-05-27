@@ -202,3 +202,23 @@ async def test_csrf_allowed_when_samesite_none_valid_origin(async_client):
             headers={"Origin": "http://testserver"},
         )
     assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_csrf_blocked_origin_prefix_bypass(async_client):
+    """http://localhost:3000.evil.com must NOT pass the Origin check (prefix bypass regression)."""
+    from unittest.mock import MagicMock, patch
+
+    await async_client.post("/auth/register", json=TEST_USER)
+
+    mock_settings = MagicMock()
+    mock_settings.cookie_samesite = "none"
+    mock_settings.cors_origins_list = ["http://localhost:3000"]
+
+    with patch("app.routers.auth.settings", mock_settings):
+        resp = await async_client.post(
+            "/auth/refresh",
+            headers={"Origin": "http://localhost:3000.evil.com"},
+        )
+    assert resp.status_code == 403
+    assert resp.json()["error"]["code"] == "forbidden"

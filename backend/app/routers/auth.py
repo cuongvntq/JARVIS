@@ -1,6 +1,7 @@
 """Auth endpoints."""
 
 from typing import Annotated
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Body, Depends, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,8 +53,15 @@ def _check_csrf_origin(request: Request) -> None:
     if not request.cookies.get("refresh_token"):
         return  # body-only flow, attacker has no token to exploit
 
-    origin = request.headers.get("origin") or request.headers.get("referer", "")
-    if not any(origin.startswith(o) for o in settings.cors_origins_list):
+    def _origin_key(url: str) -> str:
+        """Return normalized scheme://host[:port] from a URL or Origin header value."""
+        p = urlparse(url)
+        return f"{p.scheme}://{p.netloc}" if p.netloc else ""
+
+    raw = request.headers.get("origin") or request.headers.get("referer", "")
+    request_origin = _origin_key(raw)
+    allowed = {_origin_key(o) for o in settings.cors_origins_list}
+    if not request_origin or request_origin not in allowed:
         raise JarvisError(403, "forbidden", "Origin not allowed")
 
 
