@@ -135,9 +135,7 @@ async def get_messages_page(
     query = select(Message).where(Message.conversation_id == conversation_id)
 
     if before_message_id is not None:
-        anchor = await db.execute(
-            select(Message.created_at).where(Message.id == before_message_id)
-        )
+        anchor = await db.execute(select(Message.created_at).where(Message.id == before_message_id))
         anchor_dt = anchor.scalar_one_or_none()
         if anchor_dt is not None:
             query = query.where(Message.created_at < anchor_dt)

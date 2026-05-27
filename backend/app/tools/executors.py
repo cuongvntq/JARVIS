@@ -154,7 +154,6 @@ async def execute_update_todo(
         tag_patch = TodoPartialUpdate.model_validate({"tags": list(current)})
         todo = await todo_service.patch_todo(db, todo_id, user_id, tag_patch, commit=False)
 
-    new_status = patch_data.get("status", "")
     status_note = f" → {new_status}" if new_status else ""
     return _ok(
         todo.model_dump(mode="json"),

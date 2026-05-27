@@ -58,9 +58,7 @@ async def update_conversation(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await chat_service.update_conversation_title(
-        db, conversation_id, current_user.id, data
-    )
+    return await chat_service.update_conversation_title(db, conversation_id, current_user.id, data)
 
 
 @router.delete("/conversations/{conversation_id}", status_code=204)

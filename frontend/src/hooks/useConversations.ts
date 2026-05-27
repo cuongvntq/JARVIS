@@ -12,7 +12,10 @@ export function useConversations(limit = 20) {
 export function useConversationDetail(id: string | null) {
   return useQuery({
     queryKey: ["conversation", id],
-    queryFn: () => api.getConversation(id!),
+    queryFn: () => {
+      if (!id) throw new Error("conversation id is required");
+      return api.getConversation(id);
+    },
     enabled: !!id,
     staleTime: 60_000,
   });

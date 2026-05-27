@@ -102,6 +102,7 @@ async def test_conversation_ownership_returns_404_not_403(async_client, mock_llm
 
 # ── GET /v1/chat/conversations/{id} ───────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_get_conversation_detail(async_client, auth_headers, mock_llm):
     send_resp = await async_client.post(
@@ -124,9 +125,8 @@ async def test_get_conversation_detail(async_client, auth_headers, mock_llm):
 @pytest.mark.asyncio
 async def test_get_conversation_not_found(async_client, auth_headers):
     import uuid
-    resp = await async_client.get(
-        f"/v1/chat/conversations/{uuid.uuid4()}", headers=auth_headers
-    )
+
+    resp = await async_client.get(f"/v1/chat/conversations/{uuid.uuid4()}", headers=auth_headers)
     assert resp.status_code == 404
     assert resp.json()["error"]["code"] == "conversation_not_found"
 
@@ -153,6 +153,7 @@ async def test_get_conversation_ownership(async_client, mock_llm):
 
 # ── PATCH /v1/chat/conversations/{id} ─────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_update_conversation_title(async_client, auth_headers, mock_llm):
     send_resp = await async_client.post(
@@ -174,6 +175,7 @@ async def test_update_conversation_title(async_client, auth_headers, mock_llm):
 @pytest.mark.asyncio
 async def test_update_conversation_title_not_found(async_client, auth_headers):
     import uuid
+
     resp = await async_client.patch(
         f"/v1/chat/conversations/{uuid.uuid4()}",
         json={"title": "New title"},
@@ -184,6 +186,7 @@ async def test_update_conversation_title_not_found(async_client, auth_headers):
 
 # ── DELETE /v1/chat/conversations/{id} ────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_delete_conversation(async_client, auth_headers, mock_llm):
     send_resp = await async_client.post(
@@ -193,22 +196,17 @@ async def test_delete_conversation(async_client, auth_headers, mock_llm):
     )
     conv_id = send_resp.json()["conversation_id"]
 
-    del_resp = await async_client.delete(
-        f"/v1/chat/conversations/{conv_id}", headers=auth_headers
-    )
+    del_resp = await async_client.delete(f"/v1/chat/conversations/{conv_id}", headers=auth_headers)
     assert del_resp.status_code == 204
 
     # Deleted conversation must not be accessible
-    get_resp = await async_client.get(
-        f"/v1/chat/conversations/{conv_id}", headers=auth_headers
-    )
+    get_resp = await async_client.get(f"/v1/chat/conversations/{conv_id}", headers=auth_headers)
     assert get_resp.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_delete_conversation_not_found(async_client, auth_headers):
     import uuid
-    resp = await async_client.delete(
-        f"/v1/chat/conversations/{uuid.uuid4()}", headers=auth_headers
-    )
+
+    resp = await async_client.delete(f"/v1/chat/conversations/{uuid.uuid4()}", headers=auth_headers)
     assert resp.status_code == 404
