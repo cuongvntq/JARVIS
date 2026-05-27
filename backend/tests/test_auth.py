@@ -74,7 +74,7 @@ async def test_refresh_token_via_cookie(async_client):
     reg = await async_client.post("/auth/register", json=TEST_USER)
     initial_token = reg.cookies["refresh_token"]
 
-    resp = await async_client.post("/auth/refresh")  # cookie sent automatically
+    resp = await async_client.post("/auth/refresh", headers={"Origin": "http://test"})
     assert resp.status_code == 200
     assert "access_token" in resp.json()
     # new cookie issued (token rotated)
@@ -86,11 +86,11 @@ async def test_logout_via_cookie(async_client):
     """Browser flow: logout via cookie, subsequent refresh is rejected."""
     await async_client.post("/auth/register", json=TEST_USER)
 
-    resp = await async_client.post("/auth/logout")
+    resp = await async_client.post("/auth/logout", headers={"Origin": "http://test"})
     assert resp.status_code == 204
 
     # cookie cleared — /auth/refresh should now fail
-    resp2 = await async_client.post("/auth/refresh")
+    resp2 = await async_client.post("/auth/refresh", headers={"Origin": "http://test"})
     assert resp2.status_code == 401
 
 
@@ -101,7 +101,7 @@ async def test_old_token_rejected_after_rotation(async_client):
     old_token = reg.cookies["refresh_token"]
 
     # Rotate the token
-    await async_client.post("/auth/refresh")
+    await async_client.post("/auth/refresh", headers={"Origin": "http://test"})
 
     # Try old token via body in a fresh client (no active cookie)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as fresh:

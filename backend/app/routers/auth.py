@@ -41,15 +41,14 @@ async def login(
 
 
 def _check_csrf_origin(request: Request) -> None:
-    """Reject cross-origin cookie requests when SameSite=none is active.
+    """Reject cookie requests whose Origin is not in the allowed list.
 
-    SameSite=lax already blocks CSRF POST from cross-site forms; this check
-    is only needed in the production cross-site scenario (COOKIE_SAMESITE=none,
-    Vercel→Railway). Body-only requests (no cookie) are API/test clients and
-    are exempt — attacker cannot forge a body-only request with the victim's token.
+    SameSite=Lax is site-based, not origin-based: a sibling subdomain on the
+    same eTLD+1 can still send cookies. Validating Origin/Referer on every
+    cookie-authenticated state-changing endpoint closes that gap regardless of
+    the SameSite setting. Body-only requests (no cookie) are API/test clients
+    and are always exempt.
     """
-    if settings.cookie_samesite.lower() != "none":
-        return
     if not request.cookies.get("refresh_token"):
         return  # body-only flow, attacker has no token to exploit
 

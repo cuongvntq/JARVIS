@@ -26,14 +26,13 @@ async def get_or_create(
     result = await db.execute(
         select(Conversation).where(
             Conversation.id == conversation_id,
+            Conversation.user_id == user_id,
             Conversation.deleted_at.is_(None),
         )
     )
     conv = result.scalar_one_or_none()
     if conv is None:
         raise JarvisError(404, "conversation_not_found", "Cuộc hội thoại không tồn tại")
-    if conv.user_id != user_id:
-        raise JarvisError(403, "forbidden", "Không có quyền truy cập cuộc hội thoại này")
     return conv
 
 

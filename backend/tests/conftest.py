@@ -8,6 +8,8 @@ os.environ["DATABASE_URL_DIRECT"] = "sqlite:///./test_direct.db"
 os.environ.setdefault("GEMINI_API_KEY", "fake-gemini-key-for-tests")
 os.environ.setdefault("OPENAI_API_KEY", "sk-fake-openai-key-for-tests")
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-key-must-be-32-chars!!")
+# Allow the httpx test base URL as a valid CSRF origin so cookie-based tests pass
+os.environ.setdefault("BACKEND_CORS_ORIGINS", "http://test")
 
 from unittest.mock import AsyncMock, patch
 

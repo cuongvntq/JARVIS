@@ -2,6 +2,8 @@
 
 import pytest
 
+from tests.conftest import TEST_USER
+
 
 @pytest.mark.asyncio
 async def test_send_message_authenticated(async_client, auth_headers, mock_llm):
@@ -69,3 +71,30 @@ async def test_list_conversations(async_client, auth_headers, mock_llm):
     data = resp.json()
     assert "items" in data
     assert len(data["items"]) >= 1
+
+
+@pytest.mark.asyncio
+async def test_conversation_ownership_returns_404_not_403(async_client, mock_llm):
+    """User B accessing user A's conversation must get 404, not 403 (no ownership leak via status code)."""
+    # User A creates a conversation
+    resp_a = await async_client.post("/auth/register", json=TEST_USER)
+    headers_a = {"Authorization": f"Bearer {resp_a.json()['access_token']}"}
+    resp_conv = await async_client.post(
+        "/v1/chat/send",
+        json={"content": "Hello", "conversation_id": None},
+        headers=headers_a,
+    )
+    conv_id = resp_conv.json()["conversation_id"]
+
+    # User B registers and tries to send a message into user A's conversation
+    user_b = {**TEST_USER, "email": "other@jarvis.dev"}
+    resp_b = await async_client.post("/auth/register", json=user_b)
+    headers_b = {"Authorization": f"Bearer {resp_b.json()['access_token']}"}
+
+    resp = await async_client.post(
+        "/v1/chat/send",
+        json={"content": "Unauthorized", "conversation_id": conv_id},
+        headers=headers_b,
+    )
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "conversation_not_found"
