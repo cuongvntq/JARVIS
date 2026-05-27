@@ -21,7 +21,10 @@ class Todo(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
         sa.Enum(
-            "pending", "in_progress", "completed", "cancelled",
+            "pending",
+            "in_progress",
+            "completed",
+            "cancelled",
             name="todo_status",
             create_type=False,
         ),
@@ -30,7 +33,10 @@ class Todo(Base):
     )
     priority: Mapped[str] = mapped_column(
         sa.Enum(
-            "low", "medium", "high", "urgent",
+            "low",
+            "medium",
+            "high",
+            "urgent",
             name="todo_priority",
             create_type=False,
         ),

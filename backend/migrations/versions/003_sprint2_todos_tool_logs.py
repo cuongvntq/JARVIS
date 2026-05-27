@@ -15,7 +15,9 @@ depends_on = None
 
 def upgrade() -> None:
     # ENUM types
-    op.execute("CREATE TYPE todo_status   AS ENUM ('pending', 'in_progress', 'completed', 'cancelled')")
+    op.execute(
+        "CREATE TYPE todo_status   AS ENUM ('pending', 'in_progress', 'completed', 'cancelled')"
+    )
     op.execute("CREATE TYPE todo_priority AS ENUM ('low', 'medium', 'high', 'urgent')")
     op.execute("CREATE TYPE tool_status   AS ENUM ('success', 'failed', 'timeout')")
 
@@ -30,7 +32,7 @@ def upgrade() -> None:
             priority        todo_priority   NOT NULL DEFAULT 'medium',
             due_at          TIMESTAMPTZ,
             completed_at    TIMESTAMPTZ,
-            tags            TEXT[]          NOT NULL DEFAULT '{}',
+            tags            JSONB           NOT NULL DEFAULT '[]'::jsonb,
             source          VARCHAR(20)     NOT NULL DEFAULT 'ui',
             created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
             updated_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
@@ -91,12 +93,8 @@ def upgrade() -> None:
             created_at       TIMESTAMPTZ   NOT NULL DEFAULT NOW()
         )
     """)
-    op.execute(
-        "CREATE INDEX idx_llm_log_user_created ON llm_call_logs(user_id, created_at DESC)"
-    )
-    op.execute(
-        "CREATE INDEX idx_llm_log_model ON llm_call_logs(model_used, created_at DESC)"
-    )
+    op.execute("CREATE INDEX idx_llm_log_user_created ON llm_call_logs(user_id, created_at DESC)")
+    op.execute("CREATE INDEX idx_llm_log_model ON llm_call_logs(model_used, created_at DESC)")
 
 
 def downgrade() -> None:
