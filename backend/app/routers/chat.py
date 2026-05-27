@@ -1,35 +1,30 @@
-"""Chat endpoints (placeholder, full implementation in Sprint 1-2)."""
+"""Chat endpoints."""
 
-from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.llm.client import chat_completion
+from app.core.deps import get_current_user
+from app.database import get_db
+from app.schemas.chat import ChatSendRequest, ChatSendResponse, ConversationListResponse
+from app.services import chat_service
 
 router = APIRouter()
 
 
-class ChatRequest(BaseModel):
-    content: str
-    conversation_id: str | None = None
+@router.post("/send", response_model=ChatSendResponse)
+async def send_message(
+    req: ChatSendRequest,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await chat_service.send_message(db, req, current_user)
 
 
-class ChatResponse(BaseModel):
-    content: str
-    model_used: str
-
-
-@router.post("/send", response_model=ChatResponse)
-async def send_message(req: ChatRequest):
-    """Sprint 1 placeholder — gọi LLM 1 chiều, chưa lưu DB, chưa tool calling."""
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "Bạn là JARVIS, trợ lý cá nhân của người dùng. "
-                "Giao tiếp bằng tiếng Việt tự nhiên, ngắn gọn (1-3 câu)."
-            ),
-        },
-        {"role": "user", "content": req.content},
-    ]
-    response, model = await chat_completion(messages)
-    return ChatResponse(content=response, model_used=model)
+@router.get("/conversations", response_model=ConversationListResponse)
+async def list_conversations(
+    limit: int = Query(default=20, ge=1, le=100),
+    cursor: str | None = Query(default=None),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await chat_service.list_conversations(db, current_user.id, limit, cursor)

@@ -23,15 +23,25 @@
 
 ## 2. AUTHENTICATION
 
+> **Cookie flow (browser):** `/auth/register` và `/auth/login` set `refresh_token` qua
+> `Set-Cookie: refresh_token=...; HttpOnly; SameSite=Lax; Path=/auth`.
+> Browser tự gửi cookie này khi gọi `/auth/refresh` hoặc `/auth/logout` (không cần body).
+> API/test clients có thể gửi `{ "refresh_token": "..." }` trong body thay thế.
+>
+> **Production cross-site** (Vercel → Railway): set `COOKIE_SAMESITE=none` và `COOKIE_SECURE=true` trong env.
+> Email tự động normalize về lowercase.
+
 ### `POST /auth/register`
 Đăng ký bằng email/password.
 ```json
 // Request
 { "email": "user@example.com", "password": "Strong@123", "name": "Nguyễn Văn A" }
 
-// 201 Created
-{ "user": { "id": "uuid", "email": "...", "name": "..." },
-  "access_token": "...", "refresh_token": "...", "expires_in": 900 }
+// 201 Created — refresh_token KHÔNG có trong body; được set qua HttpOnly cookie
+{ "access_token": "eyJ...", "expires_in": 900,
+  "user": { "id": "uuid", "email": "user@example.com", "name": "Nguyễn Văn A",
+            "timezone": "Asia/Ho_Chi_Minh", "assistant_name": "JARVIS", "locale": "vi-VN" } }
+// Header: Set-Cookie: refresh_token=<raw>; HttpOnly; SameSite=Lax; Path=/auth; Max-Age=2592000
 ```
 **Errors:** `409` email_taken · `422` weak_password (min 8, có chữ + số).
 
@@ -40,9 +50,9 @@
 // Request
 { "email": "user@example.com", "password": "Strong@123" }
 
-// 200 OK
-{ "access_token": "...", "refresh_token": "...", "expires_in": 900,
-  "user": { "id": "uuid", "name": "...", "timezone": "Asia/Ho_Chi_Minh", "assistant_name": "JARVIS" } }
+// 200 OK — cùng shape với /auth/register
+{ "access_token": "eyJ...", "expires_in": 900, "user": { ... } }
+// Header: Set-Cookie: refresh_token=...; HttpOnly; ...
 ```
 **Errors:** `401` invalid_credentials · `423` account_disabled.
 
@@ -53,13 +63,19 @@
 ```
 
 ### `POST /auth/refresh`
+Browser gửi tự động qua cookie. API clients dùng body fallback.
 ```json
+// Request (optional body — chỉ cần nếu không có cookie)
 { "refresh_token": "..." }
-// 200 OK: { "access_token": "...", "refresh_token": "...", "expires_in": 900 }
+
+// 200 OK — token mới (rotation); cookie mới được set
+{ "access_token": "eyJ...", "expires_in": 900, "user": { ... } }
 ```
+**Errors:** `401` invalid_refresh_token.
 
 ### `POST /auth/logout`
-Header auth bắt buộc. Body rỗng. **204 No Content**.
+Browser gửi cookie tự động, không cần body. **204 No Content**.
+Cookie `refresh_token` bị xóa. Token đã dùng bị revoke.
 
 ### `GET /auth/me`
 Trả về profile hiện tại. **200 OK** kèm user object.
