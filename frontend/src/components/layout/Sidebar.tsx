@@ -9,7 +9,10 @@ import {
   LayoutDashboard,
   Settings,
   Zap,
+  Plus,
+  Loader2,
 } from "lucide-react";
+import { useConversations } from "@/hooks/useConversations";
 
 export type Section =
   | "chat"
@@ -22,6 +25,8 @@ export type Section =
 interface SidebarProps {
   active: Section;
   onNavigate: (section: Section) => void;
+  activeConversationId: string | null;
+  onSelectConversation: (id: string | null) => void;
 }
 
 const navItems = [
@@ -33,7 +38,87 @@ const navItems = [
   { id: "dashboard" as Section, icon: LayoutDashboard, label: "DASHBOARD" },
 ];
 
-export default function Sidebar({ active, onNavigate }: SidebarProps) {
+function ConversationList({
+  activeId,
+  onSelect,
+}: {
+  activeId: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  const { data, isLoading } = useConversations();
+  const conversations = data?.items ?? [];
+
+  return (
+    <div className="mt-1 mb-2">
+      {/* New Chat button */}
+      <button
+        type="button"
+        onClick={() => onSelect(null)}
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-150 hover:bg-white/5"
+        style={{ color: activeId === null ? "#00b4d8" : "#5e8a9e" }}
+      >
+        <Plus size={12} style={{ flexShrink: 0 }} />
+        <span
+          className="text-[9px] font-semibold tracking-[0.12em]"
+          style={{
+            fontFamily: "var(--font-orbitron)",
+            color: activeId === null ? "#00b4d8" : "#5e8a9e",
+          }}
+        >
+          NEW CHAT
+        </span>
+      </button>
+
+      {/* Conversation list */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-3">
+          <Loader2 size={12} className="animate-spin" style={{ color: "#5e8a9e" }} />
+        </div>
+      ) : conversations.length === 0 ? (
+        <p
+          className="px-3 py-1.5 text-[9px] tracking-[0.1em]"
+          style={{ color: "rgba(0, 180, 216, 0.3)" }}
+        >
+          Chưa có hội thoại nào
+        </p>
+      ) : (
+        <div className="space-y-0.5 max-h-[220px] overflow-y-auto">
+          {conversations.map((conv) => {
+            const isActive = conv.id === activeId;
+            return (
+              <button
+                key={conv.id}
+                type="button"
+                onClick={() => onSelect(conv.id)}
+                className="w-full text-left px-3 py-1.5 rounded-lg transition-all duration-150 truncate"
+                style={{
+                  backgroundColor: isActive
+                    ? "rgba(0, 180, 216, 0.08)"
+                    : "transparent",
+                  borderLeft: isActive
+                    ? "2px solid rgba(0, 180, 216, 0.5)"
+                    : "2px solid transparent",
+                  color: isActive ? "#dff3fd" : "#4a7a8e",
+                  fontSize: "10px",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {conv.title}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Sidebar({
+  active,
+  onNavigate,
+  activeConversationId,
+  onSelectConversation,
+}: SidebarProps) {
   return (
     <aside
       className="w-[220px] flex-shrink-0 flex flex-col h-full border-r"
@@ -93,42 +178,51 @@ export default function Sidebar({ active, onNavigate }: SidebarProps) {
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-3 py-3 overflow-y-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = active === item.id;
           return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onNavigate(item.id)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-150"
-              style={{
-                backgroundColor: isActive
-                  ? "rgba(0, 180, 216, 0.1)"
-                  : "transparent",
-                borderLeft: isActive
-                  ? "2px solid rgba(0, 180, 216, 0.7)"
-                  : "2px solid transparent",
-              }}
-            >
-              <Icon
-                size={14}
+            <div key={item.id}>
+              <button
+                type="button"
+                onClick={() => onNavigate(item.id)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-150"
                 style={{
-                  color: isActive ? "#00b4d8" : "#5e8a9e",
-                  flexShrink: 0,
-                }}
-              />
-              <span
-                className="text-[10px] font-semibold tracking-[0.15em]"
-                style={{
-                  fontFamily: "var(--font-orbitron)",
-                  color: isActive ? "#dff3fd" : "#5e8a9e",
+                  backgroundColor: isActive
+                    ? "rgba(0, 180, 216, 0.1)"
+                    : "transparent",
+                  borderLeft: isActive
+                    ? "2px solid rgba(0, 180, 216, 0.7)"
+                    : "2px solid transparent",
                 }}
               >
-                {item.label}
-              </span>
-            </button>
+                <Icon
+                  size={14}
+                  style={{
+                    color: isActive ? "#00b4d8" : "#5e8a9e",
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  className="text-[10px] font-semibold tracking-[0.15em]"
+                  style={{
+                    fontFamily: "var(--font-orbitron)",
+                    color: isActive ? "#dff3fd" : "#5e8a9e",
+                  }}
+                >
+                  {item.label}
+                </span>
+              </button>
+
+              {/* Conversation list — only under CHAT when active */}
+              {item.id === "chat" && isActive && (
+                <ConversationList
+                  activeId={activeConversationId}
+                  onSelect={onSelectConversation}
+                />
+              )}
+            </div>
           );
         })}
       </nav>

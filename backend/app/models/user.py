@@ -40,6 +40,9 @@ class User(Base):
     conversations: Mapped[list["Conversation"]] = relationship(  # noqa: F821
         "Conversation", back_populates="user", cascade="all, delete-orphan"
     )
+    todos: Mapped[list["Todo"]] = relationship(  # noqa: F821
+        "Todo", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class AuthSession(Base):

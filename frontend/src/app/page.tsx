@@ -31,17 +31,31 @@ function ComingSoon({ name }: { name: string }) {
 
 export default function HomePage() {
   const [section, setSection] = useState<Section>("chat");
+  const [conversationId, setConversationId] = useState<string | null>(null);
+
+  function handleSelectConversation(id: string | null) {
+    setConversationId(id);
+    setSection("chat");
+  }
 
   return (
     <div className="flex h-full" style={{ backgroundColor: "#030712" }}>
-      <Sidebar active={section} onNavigate={setSection} />
+      <Sidebar
+        active={section}
+        onNavigate={setSection}
+        activeConversationId={conversationId}
+        onSelectConversation={handleSelectConversation}
+      />
 
       <main
         className="flex-1 flex flex-col min-w-0 overflow-hidden"
         style={{ backgroundColor: "#0b1929" }}
       >
         {section === "chat" ? (
-          <ChatInterface />
+          <ChatInterface
+            conversationId={conversationId}
+            onConversationCreated={(id) => setConversationId(id)}
+          />
         ) : (
           <ComingSoon name={section} />
         )}

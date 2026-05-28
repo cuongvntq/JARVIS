@@ -85,7 +85,10 @@ select = [
     "SIM",  # simplify
     "RUF",  # ruff-specific
 ]
-ignore = ["E501"]  # line-too-long handled by formatter
+ignore = [
+    "E501",   # line-too-long handled by formatter
+    "B008",   # Depends() in default args is idiomatic FastAPI pattern
+]
 
 [tool.ruff.format]
 quote-style = "double"

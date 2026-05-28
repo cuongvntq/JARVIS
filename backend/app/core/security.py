@@ -63,4 +63,4 @@ def decode_access_token(token: str) -> dict:
             raise JWTError("wrong token type")
         return payload
     except JWTError:
-        raise HTTPException(status_code=401, detail="Token không hợp lệ hoặc đã hết hạn")
+        raise HTTPException(status_code=401, detail="Token không hợp lệ hoặc đã hết hạn") from None

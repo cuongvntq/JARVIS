@@ -14,7 +14,7 @@ from app.core.errors import (
     jarvis_exception_handler,
     validation_exception_handler,
 )
-from app.routers import auth, chat, health
+from app.routers import auth, chat, health, todos
 
 settings = get_settings()
 log = structlog.get_logger()
@@ -54,6 +54,7 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.include_router(health.router, prefix="", tags=["health"])
 app.include_router(auth.router, prefix="", tags=["auth"])
 app.include_router(chat.router, prefix="/v1/chat", tags=["chat"])
+app.include_router(todos.router, prefix="/v1/todos", tags=["todos"])
 
 
 @app.get("/")

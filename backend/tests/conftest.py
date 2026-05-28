@@ -25,6 +25,9 @@ from sqlalchemy.pool import StaticPool
 
 import app.database as db_module
 from app.database import Base, get_db
+from app.llm.models import LLMResponse
+from app.llm.orchestrator import OrchestratorResult
+from app.llm.router import Intent, RouteResult
 from app.main import app
 
 # ── SQLite in-memory engine (StaticPool = single shared connection) ───────────
@@ -91,11 +94,31 @@ async def async_client():
 
 @pytest.fixture
 def mock_llm():
-    """Patch chat_completion at the import site to avoid real LLM calls."""
+    """Patch orchestrator.run to avoid real LLM calls in chat endpoint tests."""
+    _route = RouteResult(
+        intent=Intent.CHITCHAT,
+        model="gemini-mock",
+        confidence=1.0,
+        classify_source="prefilter",
+        effective_tools=[],
+    )
+    _orch = OrchestratorResult(
+        final_response=LLMResponse(
+            content="Xin chào! Tôi là JARVIS.",
+            model="gemini-mock",
+            tokens_in=10,
+            tokens_out=20,
+        ),
+        route=_route,
+        tool_results=[],
+        total_tokens_in=10,
+        total_tokens_out=20,
+        total_llm_calls=1,
+    )
     with patch(
-        "app.services.chat_service.chat_completion",
+        "app.llm.orchestrator.run",
         new_callable=AsyncMock,
-        return_value=("Xin chào! Tôi là JARVIS.", "gemini-mock", 10, 20),
+        return_value=_orch,
     ):
         yield
 

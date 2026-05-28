@@ -6,6 +6,7 @@ Fallback: OpenAI gpt-4o-mini ($0.15/$0.60 per 1M tokens)
 """
 
 import asyncio
+import json
 import os
 
 import litellm
@@ -18,6 +19,7 @@ from litellm.exceptions import (
 )
 
 from app.config import get_settings
+from app.llm.models import LLMResponse, ToolCall
 
 log = structlog.get_logger()
 settings = get_settings()
@@ -32,64 +34,88 @@ if settings.anthropic_api_key:
 litellm.suppress_debug_info = True
 
 
+def _parse_tool_calls(raw_tool_calls) -> list[ToolCall]:
+    """Convert LiteLLM tool_calls into ToolCall dataclasses."""
+    if not raw_tool_calls:
+        return []
+    result = []
+    for tc in raw_tool_calls:
+        try:
+            args = json.loads(tc.function.arguments) if tc.function.arguments else {}
+        except (json.JSONDecodeError, AttributeError):
+            args = {}
+        result.append(ToolCall(id=tc.id, name=tc.function.name, arguments=args))
+    return result
+
+
 async def chat_completion(
     messages: list[dict],
+    model: str | None = None,
     tools: list[dict] | None = None,
     stream: bool = False,
     max_tokens: int | None = None,
-) -> tuple[str, str, int, int]:
+) -> LLMResponse:
     """
-    Try primary model, fall back to gpt-4o-mini if it fails.
+    Call the specified model (or primary→fallback chain if model is None).
 
-    Returns:
-        Tuple of (response_content, model_name_used, tokens_in, tokens_out).
+    Returns an LLMResponse with content, tool_calls, model, and token counts.
     """
-    chain = [settings.llm_primary, settings.llm_fallback]
+    chain = [model] if model is not None else [settings.llm_primary, settings.llm_fallback]
+
     last_error: Exception | None = None
 
-    for attempt, model in enumerate(chain):
+    for attempt, m in enumerate(chain):
         try:
             log.info(
                 "llm.call",
-                model=model,
+                model=m,
                 attempt=attempt,
                 message_count=len(messages),
                 has_tools=tools is not None,
             )
             response = await asyncio.wait_for(
                 litellm.acompletion(
-                    model=model,
+                    model=m,
                     messages=messages,
-                    tools=tools,
+                    tools=tools or None,
                     stream=stream,
                     max_tokens=max_tokens or settings.llm_max_tokens_out,
                     temperature=0.7,
                 ),
                 timeout=settings.llm_timeout_seconds,
             )
-            content = response.choices[0].message.content or ""
+            msg = response.choices[0].message
+            content = msg.content or ""
+            tool_calls = _parse_tool_calls(getattr(msg, "tool_calls", None))
             usage = response.usage
             tokens_in = getattr(usage, "prompt_tokens", 0) or 0
             tokens_out = getattr(usage, "completion_tokens", 0) or 0
             log.info(
                 "llm.success",
-                model=model,
+                model=m,
                 response_len=len(content),
+                tool_call_count=len(tool_calls),
                 tokens_in=tokens_in,
                 tokens_out=tokens_out,
             )
-            return content, model, tokens_in, tokens_out
+            return LLMResponse(
+                content=content,
+                model=m,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+                tool_calls=tool_calls,
+            )
 
         except (TimeoutError, RateLimitError, Timeout, ServiceUnavailableError) as e:
-            log.warning("llm.transient_error", model=model, error=str(e))
+            log.warning("llm.transient_error", model=m, error=str(e))
             last_error = e
             continue
         except BadRequestError as e:
-            log.error("llm.bad_request", model=model, error=str(e))
+            log.error("llm.bad_request", model=m, error=str(e))
             last_error = e
             continue
         except Exception as e:
-            log.exception("llm.unexpected_error", model=model)
+            log.exception("llm.unexpected_error", model=m)
             last_error = e
             continue
 

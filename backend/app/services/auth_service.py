@@ -32,7 +32,7 @@ async def register(
     try:
         validate_password_strength(req.password)
     except ValueError as e:
-        raise JarvisError(422, "weak_password", str(e))
+        raise JarvisError(422, "weak_password", str(e)) from e
 
     existing = await user_repo.get_by_email(db, req.email)
     if existing:
@@ -43,7 +43,7 @@ async def register(
         user = await user_repo.create(db, req.email, pw_hash, req.name)
     except IntegrityError:
         # Concurrent registration with the same email hit the unique constraint
-        raise JarvisError(409, "email_taken", "Email này đã được sử dụng")
+        raise JarvisError(409, "email_taken", "Email này đã được sử dụng") from None
     log.info("auth.register", user_id=str(user.id), email=user.email)
 
     return await _issue_tokens(db, user, request)

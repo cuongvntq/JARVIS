@@ -42,3 +42,19 @@ class ConversationOut(BaseModel):
 class ConversationListResponse(BaseModel):
     items: list[ConversationOut]
     next_cursor: str | None
+
+
+class ConversationPatchRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+
+
+class ConversationDetailOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    title: str
+    last_message_at: datetime | None
+    message_count: int
+    created_at: datetime
+    messages: list[MessageOut]
+    has_more: bool
