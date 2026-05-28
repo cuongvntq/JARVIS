@@ -404,7 +404,6 @@ async def test_orchestrator_primary_intent_passes_none_to_chat_completion():
 async def test_orchestrator_fallback_intent_pins_model_string():
     """Non-primary intent (tool_call) → model is pinned to fallback string, not None."""
     from app.config import get_settings
-
     from app.llm import orchestrator
 
     _settings = get_settings()
