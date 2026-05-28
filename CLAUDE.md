@@ -1,16 +1,23 @@
 # CLAUDE.md — J.A.R.V.I.S Personal AI Assistant
 
-## Memory — Đọc khi bắt đầu session mới
-
-Memory của dự án được Claude Code lưu tại `%USERPROFILE%\.claude\projects\<project-slug>\memory\` (ngoài repo, tự động resolve theo máy hiện tại).
+## Context — Đọc khi bắt đầu session mới
 
 **Bắt buộc đọc khi bắt đầu session** (nhất là sau thời gian dài không làm việc):
-1. Đọc `MEMORY.md` (index) để biết có những memory nào.
-2. Đọc `project-sprint-status.md` — sprint hiện tại, DoD, việc đã làm và chưa làm.
-3. Đọc `project-architecture-built.md` — map file đã tồn tại, trạng thái implement thực tế.
-4. Tóm tắt ngắn cho user: sprint đang ở đâu, việc tiếp theo là gì → hỏi muốn bắt đầu từ đâu.
+1. Đọc `MEMORY.md` (external memory index) — để biết có những memory nào.
+2. Đọc [`docs/ai-context/06-current-sprint.md`](docs/ai-context/06-current-sprint.md) — sprint state, design decisions, Sprint plan tiếp theo.
+3. Đọc [`docs/ai-context/02-folder-map.md`](docs/ai-context/02-folder-map.md) — map toàn bộ file trong repo (thay thế `project-architecture-built.md`).
+4. **Chỉ đọc thêm nếu task yêu cầu** (không đọc trước):
+   - [`docs/ai-context/01-architecture.md`](docs/ai-context/01-architecture.md) — request flows, auth flow, key patterns
+   - [`docs/ai-context/04-database-schema.md`](docs/ai-context/04-database-schema.md) — migration state, ORM→file map
+   - [`docs/ai-context/05-api-contract.md`](docs/ai-context/05-api-contract.md) — endpoints đã implement
+   - [`docs/ai-context/07-known-issues.md`](docs/ai-context/07-known-issues.md) — tech debt, known bugs
+   - [`docs/ai-context/08-test-strategy.md`](docs/ai-context/08-test-strategy.md) — fixtures, test patterns
+5. **KHÔNG đọc source file** trước khi cần sửa — dùng Explore subagent để tìm kiếm, tránh tốn context.
+6. Tóm tắt ngắn cho user: sprint đang ở đâu, việc tiếp theo là gì → hỏi muốn bắt đầu từ đâu.
 
-**Cập nhật memory sau mỗi sprint hoàn thành** — đánh dấu DONE, ghi việc tiếp theo vào `project-sprint-status.md`.
+**Cập nhật sau mỗi sprint hoàn thành:**
+- Cập nhật các file `docs/ai-context/` liên quan (06 sprint state, 02 folder map, 05 API contract, 04 DB schema, 08 test coverage).
+- Cập nhật external memory: `project-sprint-status.md` — đánh dấu DONE, ghi việc tiếp theo.
 
 ---
 

@@ -211,7 +211,9 @@ async def execute_search_notes(
     summary = f"Tìm thấy {len(notes)} ghi chú"
     if q:
         summary += f" cho '{q}'"
-    return _ok({"notes": [n.model_dump(mode="json") for n in notes], "count": len(notes)}, summary + ".")
+    return _ok(
+        {"notes": [n.model_dump(mode="json") for n in notes], "count": len(notes)}, summary + "."
+    )
 
 
 # ── dispatch ──────────────────────────────────────────────────────────────────
