@@ -28,9 +28,7 @@ def upgrade() -> None:
             deleted_at  TIMESTAMPTZ
         )
     """)
-    op.execute(
-        "CREATE INDEX idx_note_user ON notes(user_id) WHERE deleted_at IS NULL"
-    )
+    op.execute("CREATE INDEX idx_note_user ON notes(user_id) WHERE deleted_at IS NULL")
     op.execute(
         "CREATE INDEX idx_note_user_pinned ON notes(user_id, pinned) WHERE deleted_at IS NULL"
     )

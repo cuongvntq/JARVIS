@@ -1,10 +1,11 @@
 """Note repository — DB queries only."""
 
 import base64
+import json
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.note import Note
@@ -43,9 +44,18 @@ async def list_notes(
 
     if cursor:
         try:
-            cursor_str = base64.b64decode(cursor).decode()
-            cursor_dt = datetime.fromisoformat(cursor_str)
-            query = query.where(Note.created_at < cursor_dt)
+            cursor_data = json.loads(base64.b64decode(cursor).decode())
+            cursor_pinned: bool = cursor_data["pinned"]
+            cursor_dt = datetime.fromisoformat(cursor_data["created_at"])
+            # Composite cursor matching pinned DESC, created_at DESC ordering:
+            # next page starts after (cursor_pinned, cursor_dt) — either pinned is lower
+            # (False < True when going DESC) or same pinned group with older created_at.
+            query = query.where(
+                or_(
+                    Note.pinned < cursor_pinned,
+                    and_(Note.pinned == cursor_pinned, Note.created_at < cursor_dt),
+                )
+            )
         except Exception:
             pass
 
@@ -57,7 +67,11 @@ async def list_notes(
     next_cursor = None
     if len(rows) > limit:
         rows = rows[:limit]
-        next_cursor = base64.b64encode(rows[-1].created_at.isoformat().encode()).decode()
+        last = rows[-1]
+        cursor_payload = json.dumps(
+            {"pinned": last.pinned, "created_at": last.created_at.isoformat()}
+        )
+        next_cursor = base64.b64encode(cursor_payload.encode()).decode()
 
     return rows, next_cursor
 
