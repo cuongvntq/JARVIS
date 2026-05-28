@@ -147,6 +147,81 @@ TOOLS: list[dict] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_note",
+            "description": (
+                "Tạo một ghi chú cho người dùng. "
+                "Gọi khi người dùng muốn ghi lại thông tin, ý tưởng, công thức, "
+                "ví dụ: 'ghi chú lại công thức này', 'tôi muốn lưu ý điều này'. "
+                "Nếu user muốn ghim ngay, đặt pinned=true."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500,
+                        "description": "Tiêu đề ngắn gọn của ghi chú.",
+                    },
+                    "content": {
+                        "type": "string",
+                        "default": "",
+                        "description": "Nội dung ghi chú (markdown được hỗ trợ).",
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string", "maxLength": 32},
+                        "maxItems": 5,
+                        "default": [],
+                        "description": "Tag phân loại. Tối đa 5.",
+                    },
+                    "pinned": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Ghim ghi chú lên đầu danh sách.",
+                    },
+                },
+                "required": ["title"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_notes",
+            "description": (
+                "Tìm kiếm ghi chú theo từ khóa hoặc lấy danh sách ghi chú. "
+                "Gọi khi người dùng hỏi 'tôi đã ghi gì', 'tìm ghi chú về X', "
+                "'ghi chú nào đang ghim'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "q": {
+                        "type": ["string", "null"],
+                        "description": "Từ khóa tìm kiếm trong title. Null để lấy tất cả.",
+                    },
+                    "pinned_only": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Chỉ trả về ghi chú đang ghim.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 20,
+                        "description": "Số lượng tối đa trả về.",
+                    },
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 # Lookup by tool name for the orchestrator
