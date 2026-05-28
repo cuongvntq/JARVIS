@@ -364,6 +364,78 @@ async def test_orchestrator_tool_failure_fed_back_to_model():
     assert result.final_response.content == "Xin lỗi, có lỗi xảy ra."
 
 
+# ─── Fallback chain model selection ──────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_primary_intent_passes_none_to_chat_completion():
+    """Primary model intent (chitchat) → model=None so client.py activates primary→fallback chain."""
+    from app.llm import orchestrator
+
+    llm_resp = LLMResponse(content="Xin chào!", model="gemini-mock", tokens_in=10, tokens_out=5)
+    db = AsyncMock()
+
+    with (
+        patch(
+            "app.llm.orchestrator.route",
+            new_callable=AsyncMock,
+            return_value=_make_route_result(Intent.CHITCHAT),
+        ),
+        patch(
+            "app.llm.orchestrator.chat_completion",
+            new_callable=AsyncMock,
+            return_value=llm_resp,
+        ) as mock_cc,
+        patch("app.llm.orchestrator.llm_call_log_repo.log_call", new_callable=AsyncMock),
+    ):
+        await orchestrator.run(
+            db=db,
+            user_id=uuid.uuid4(),
+            user_message="Xin chào",
+            system_prompt="You are JARVIS.",
+            history=[],
+            all_tools=[],
+        )
+
+    assert mock_cc.call_args.kwargs["model"] is None
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_fallback_intent_pins_model_string():
+    """Non-primary intent (tool_call) → model is pinned to fallback string, not None."""
+    from app.config import get_settings
+
+    from app.llm import orchestrator
+
+    _settings = get_settings()
+    llm_resp = LLMResponse(content="Done", model=_settings.llm_fallback, tokens_in=10, tokens_out=5)
+    db = AsyncMock()
+
+    with (
+        patch(
+            "app.llm.orchestrator.route",
+            new_callable=AsyncMock,
+            return_value=_make_route_result(Intent.TOOL_CALL),
+        ),
+        patch(
+            "app.llm.orchestrator.chat_completion",
+            new_callable=AsyncMock,
+            return_value=llm_resp,
+        ) as mock_cc,
+        patch("app.llm.orchestrator.llm_call_log_repo.log_call", new_callable=AsyncMock),
+    ):
+        await orchestrator.run(
+            db=db,
+            user_id=uuid.uuid4(),
+            user_message="Thêm việc test",
+            system_prompt="You are JARVIS.",
+            history=[],
+            all_tools=[],
+        )
+
+    assert mock_cc.call_args.kwargs["model"] == _settings.llm_fallback
+
+
 # ─── LLMCallLogRepo cost calculation ─────────────────────────────────────────
 
 

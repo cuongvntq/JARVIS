@@ -1,5 +1,7 @@
 """Chat endpoint integration tests."""
 
+import asyncio
+
 import pytest
 
 from tests.conftest import TEST_USER
@@ -210,3 +212,48 @@ async def test_delete_conversation_not_found(async_client, auth_headers):
 
     resp = await async_client.delete(f"/v1/chat/conversations/{uuid.uuid4()}", headers=auth_headers)
     assert resp.status_code == 404
+
+
+# ── Pagination anchor isolation ────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_before_from_other_conversation_is_ignored(async_client, auth_headers, mock_llm):
+    """before_message_id belonging to a different conversation must not affect pagination.
+
+    Regression for: anchor query without conversation_id filter could use a foreign
+    message's timestamp to incorrectly slice the target conversation's message list.
+    """
+    # Create conv B first so all its messages have strictly older timestamps
+    resp_b = await async_client.post(
+        "/v1/chat/send",
+        json={"content": "Conv B message", "conversation_id": None},
+        headers=auth_headers,
+    )
+    conv_b_id = resp_b.json()["conversation_id"]
+
+    await asyncio.sleep(0.05)  # ensure conv A messages are strictly newer than conv B's
+
+    # Create conv A
+    resp_a = await async_client.post(
+        "/v1/chat/send",
+        json={"content": "Conv A message", "conversation_id": None},
+        headers=auth_headers,
+    )
+    conv_a_id = resp_a.json()["conversation_id"]
+
+    # Get the oldest message from conv B to use as a cross-conversation cursor
+    detail_b = await async_client.get(f"/v1/chat/conversations/{conv_b_id}", headers=auth_headers)
+    msg_from_b_id = detail_b.json()["messages"][0]["id"]
+
+    # Use conv B's message ID as `before` cursor when fetching conv A
+    resp = await async_client.get(
+        f"/v1/chat/conversations/{conv_a_id}",
+        params={"before": msg_from_b_id},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    # Anchor must be rejected (not found in conv A) → no timestamp filter applied
+    # → all conv A messages returned, not an empty list caused by the foreign anchor
+    assert len(data["messages"]) == 2  # user + assistant from conv A's single send

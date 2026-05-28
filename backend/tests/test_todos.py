@@ -1,5 +1,8 @@
 """Todo API integration tests."""
 
+from datetime import timedelta
+from zoneinfo import ZoneInfo
+
 import pytest
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -255,3 +258,56 @@ async def test_deleted_todo_excluded_from_list(async_client, auth_headers):
     titles = [t["title"] for t in resp.json()["items"]]
     assert "Giữ lại" in titles
     assert "Xóa đi" not in titles
+
+
+# ── _today_range_utc unit tests ────────────────────────────────────────────────
+
+
+class TestTodayRangeUtc:
+    def test_span_is_exactly_one_day(self):
+        from app.repositories.todo_repo import _today_range_utc
+
+        start, end = _today_range_utc("Asia/Ho_Chi_Minh")
+        assert end - start == timedelta(days=1)
+
+    def test_start_is_local_midnight(self):
+        from app.repositories.todo_repo import _today_range_utc
+
+        start, _ = _today_range_utc("Asia/Ho_Chi_Minh")
+        local = start.astimezone(ZoneInfo("Asia/Ho_Chi_Minh"))
+        assert local.hour == 0 and local.minute == 0 and local.second == 0
+
+    def test_hcm_start_is_17h_utc(self):
+        """Asia/Ho_Chi_Minh is UTC+7 (no DST): local midnight always = 17:00 UTC."""
+        from app.repositories.todo_repo import _today_range_utc
+
+        start, _ = _today_range_utc("Asia/Ho_Chi_Minh")
+        assert start.hour == 17
+
+    def test_invalid_tz_falls_back_to_utc(self):
+        from app.repositories.todo_repo import _today_range_utc
+
+        start, end = _today_range_utc("Not/A_Valid_TZ")
+        assert end - start == timedelta(days=1)
+        assert start.hour == 0 and start.minute == 0  # UTC midnight fallback
+
+
+# ── today filter integration ───────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_list_todos_today_filter_includes_current_moment(async_client, auth_headers):
+    """A todo due right now must appear in the today filter (current moment is always within local today)."""
+    from datetime import UTC, datetime
+
+    due_now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    due_far_future = "2099-12-31T12:00:00Z"
+
+    await _create_todo(async_client, auth_headers, "Due today", due_at=due_now)
+    await _create_todo(async_client, auth_headers, "Due 2099", due_at=due_far_future)
+
+    resp = await async_client.get("/v1/todos", params={"filter": "today"}, headers=auth_headers)
+    assert resp.status_code == 200
+    titles = {t["title"] for t in resp.json()["items"]}
+    assert "Due today" in titles
+    assert "Due 2099" not in titles
