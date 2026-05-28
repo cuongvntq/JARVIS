@@ -45,6 +45,7 @@ async def list_todos(
     q: str | None,
     limit: int,
     cursor: str | None,
+    user_tz: str = "UTC",
 ) -> tuple[list[TodoOut], str | None]:
     rows, next_cursor = await todo_repo.list_todos(
         db,
@@ -54,6 +55,7 @@ async def list_todos(
         q=q,
         limit=limit,
         cursor=cursor,
+        user_tz=user_tz,
     )
     return [TodoOut.model_validate(r) for r in rows], next_cursor
 

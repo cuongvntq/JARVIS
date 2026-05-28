@@ -54,6 +54,7 @@ async def send_message(
             history=history,
             message_id=user_msg.id,
             all_tools=TOOLS,
+            user_tz=current_user.timezone,
         )
     except RuntimeError as e:
         log.error("chat.llm_error", error=str(e), user_id=str(current_user.id))

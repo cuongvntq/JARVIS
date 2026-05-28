@@ -77,6 +77,7 @@ async def execute_list_todos(
     db: AsyncSession,
     user_id: uuid.UUID,
     params: dict,
+    user_tz: str = "UTC",
 ) -> ToolResult:
     filter_type = params.get("filter", "today")
     limit = min(int(params.get("limit", 20)), 50)
@@ -90,6 +91,7 @@ async def execute_list_todos(
         q=q,
         limit=limit,
         cursor=None,
+        user_tz=user_tz,
     )
 
     return _ok(
@@ -176,12 +178,15 @@ async def dispatch(
     params: dict,
     db: AsyncSession,
     user_id: uuid.UUID,
+    user_tz: str = "UTC",
 ) -> ToolResult:
     """Route a tool call to the appropriate executor."""
     executor = _EXECUTOR_MAP.get(tool_name)
     if executor is None:
         return _err("unknown_tool", f"Tool '{tool_name}' không tồn tại.")
     try:
+        if tool_name == "list_todos":
+            return await executor(db, user_id, params, user_tz)
         return await executor(db, user_id, params)
     except SQLAlchemyError:
         raise  # propagate so orchestrator can abort turn with a clean session

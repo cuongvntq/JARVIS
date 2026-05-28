@@ -44,6 +44,7 @@ async def list_todos(
         q=q,
         limit=limit,
         cursor=cursor,
+        user_tz=current_user.timezone,
     )
     return TodoListOut(items=items, next_cursor=next_cursor)
 

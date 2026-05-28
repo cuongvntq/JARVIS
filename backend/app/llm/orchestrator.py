@@ -21,6 +21,7 @@ import structlog
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.llm.client import chat_completion
 from app.llm.models import LLMResponse, ToolCall
 from app.llm.router import RouteResult, route
@@ -28,6 +29,7 @@ from app.repositories import llm_call_log_repo, tool_log_repo
 from app.tools.executors import dispatch
 
 log = structlog.get_logger()
+settings = get_settings()
 
 _MAX_TOOL_CALLS = 5
 
@@ -51,6 +53,7 @@ async def run(
     history: list[dict],
     message_id: uuid.UUID | None = None,
     all_tools: list[dict],
+    user_tz: str = "UTC",
 ) -> OrchestratorResult:
     """
     Full orchestration loop: route → LLM → [tool → LLM]* → final response.
@@ -63,6 +66,7 @@ async def run(
         history:       Prior messages in OpenAI format (role/content dicts).
         message_id:    DB message_id for tool log FK (may be None before flush).
         all_tools:     Full list of available tool schemas.
+        user_tz:       User's IANA timezone string for date-sensitive tool filters.
 
     Returns:
         OrchestratorResult with final response and metadata.
@@ -97,6 +101,10 @@ async def run(
 
     tools_to_send = route_result.effective_tools or None
 
+    # Pass None for primary model to enable the primary→fallback chain in client.py.
+    # When routing to fallback model directly (tool_call, etc.), pin it — no tertiary.
+    call_model = None if route_result.model == settings.llm_primary else route_result.model
+
     total_tokens_in = 0
     total_tokens_out = 0
     total_llm_calls = 0
@@ -114,7 +122,7 @@ async def run(
         try:
             llm_response = await chat_completion(
                 messages=messages,
-                model=route_result.model,
+                model=call_model,
                 tools=tools_to_send,
             )
             call_duration_ms = int((time.monotonic() - t0) * 1000)
@@ -229,7 +237,7 @@ async def run(
                 break
 
             # Execute tool — DB errors propagate as RuntimeError to abort the turn
-            result = await _execute_tool(db, user_id, tc, message_id)
+            result = await _execute_tool(db, user_id, tc, message_id, user_tz)
             tool_results.append({"tool": tc.name, "result": result})
             messages.append(_tool_result_msg(tc, result))
 
@@ -255,6 +263,7 @@ async def _execute_tool(
     user_id: uuid.UUID,
     tc: ToolCall,
     message_id: uuid.UUID | None,
+    user_tz: str = "UTC",
 ) -> dict:
     """Execute a tool call and log the result.
 
@@ -264,7 +273,7 @@ async def _execute_tool(
     t0 = time.monotonic()
 
     try:
-        result = await dispatch(tc.name, tc.arguments, db, user_id)
+        result = await dispatch(tc.name, tc.arguments, db, user_id, user_tz)
     except SQLAlchemyError as e:
         # DB error escaped the executor — session may be dirty; abort the turn
         # so we never attempt further DB writes on a broken session.

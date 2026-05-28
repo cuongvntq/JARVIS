@@ -2,12 +2,25 @@
 
 import base64
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.todo import Todo
+
+
+def _today_range_utc(user_tz: str) -> tuple[datetime, datetime]:
+    """Return (start_of_today_utc, start_of_tomorrow_utc) in the user's timezone."""
+    try:
+        tz = ZoneInfo(user_tz)
+    except (ZoneInfoNotFoundError, KeyError):
+        tz = ZoneInfo("UTC")
+    now_local = datetime.now(tz)
+    start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_local = start_local + timedelta(days=1)
+    return start_local.astimezone(UTC), end_local.astimezone(UTC)
 
 
 async def get_by_id(db: AsyncSession, todo_id: uuid.UUID, user_id: uuid.UUID) -> Todo | None:
@@ -30,6 +43,7 @@ async def list_todos(
     q: str | None = None,
     limit: int = 20,
     cursor: str | None = None,
+    user_tz: str = "UTC",
 ) -> tuple[list[Todo], str | None]:
     now = datetime.now(UTC)
 
@@ -42,11 +56,10 @@ async def list_todos(
         query = query.where(Todo.status == status)
 
     if filter_type == "today":
-        from sqlalchemy import Date, cast
-
-        today_date = now.date()
+        start_utc, end_utc = _today_range_utc(user_tz)
         query = query.where(
-            cast(Todo.due_at, Date) == today_date,
+            Todo.due_at >= start_utc,
+            Todo.due_at < end_utc,
             Todo.status.in_(["pending", "in_progress"]),
         )
     elif filter_type == "upcoming":
