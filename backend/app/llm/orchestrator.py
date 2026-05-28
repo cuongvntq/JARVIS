@@ -9,8 +9,8 @@ Flow per request:
 
 Safety limits (per rules/04_ai_llm.md):
   - Hard cap: 5 tool calls per turn
-  - Per-tool retry: max 2 retries when executor returns success=False
   - Loop detection: same tool called 3x in a row → abort
+  - Per-tool retry: handled naturally by LLM seeing failure result in context
 """
 
 import time
@@ -18,18 +18,18 @@ import uuid
 from dataclasses import dataclass, field
 
 import structlog
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.llm.client import chat_completion
 from app.llm.models import LLMResponse, ToolCall
 from app.llm.router import RouteResult, route
-from app.repositories import tool_log_repo
+from app.repositories import llm_call_log_repo, tool_log_repo
 from app.tools.executors import dispatch
 
 log = structlog.get_logger()
 
 _MAX_TOOL_CALLS = 5
-_MAX_RETRIES_PER_TOOL = 2
 
 
 @dataclass
@@ -70,6 +70,24 @@ async def run(
     # ── Stage 0+1: Route ────────────────────────────────────────────────────────
     route_result = await route(user_message, all_tools)
 
+    # Log classifier LLM call when it actually hit the API
+    if route_result.classify_source == "classifier" and route_result.classifier_tokens_in > 0:
+        try:
+            await llm_call_log_repo.log_call(
+                db,
+                user_id=user_id,
+                message_id=message_id,
+                intent=route_result.intent.value,
+                classify_source="classifier",
+                model_used=route_result.classifier_model,
+                tokens_in=route_result.classifier_tokens_in,
+                tokens_out=route_result.classifier_tokens_out,
+                duration_ms=route_result.classifier_duration_ms,
+                success=True,
+            )
+        except Exception:
+            log.warning("orchestrator.classifier_log_failed")
+
     # ── Build initial message list ──────────────────────────────────────────────
     messages: list[dict] = [
         {"role": "system", "content": system_prompt},
@@ -87,20 +105,58 @@ async def run(
 
     # Track last 3 tool names for loop detection
     recent_tool_names: list[str] = []
-    # Track per-tool retry count
-    retry_counts: dict[str, int] = {}
 
     llm_response: LLMResponse | None = None
 
     while True:
         total_llm_calls += 1
-        llm_response = await chat_completion(
-            messages=messages,
-            model=route_result.model,
-            tools=tools_to_send,
-        )
-        total_tokens_in += llm_response.tokens_in
-        total_tokens_out += llm_response.tokens_out
+        t0 = time.monotonic()
+        try:
+            llm_response = await chat_completion(
+                messages=messages,
+                model=route_result.model,
+                tools=tools_to_send,
+            )
+            call_duration_ms = int((time.monotonic() - t0) * 1000)
+            total_tokens_in += llm_response.tokens_in
+            total_tokens_out += llm_response.tokens_out
+
+            # Log each individual LLM call (classifier logged separately above)
+            try:
+                await llm_call_log_repo.log_call(
+                    db,
+                    user_id=user_id,
+                    message_id=message_id,
+                    intent=route_result.intent.value,
+                    classify_source="orchestrator",
+                    model_used=llm_response.model,
+                    tokens_in=llm_response.tokens_in,
+                    tokens_out=llm_response.tokens_out,
+                    duration_ms=call_duration_ms,
+                    success=True,
+                )
+            except Exception:
+                log.warning("orchestrator.llm_log_failed")
+
+        except RuntimeError:
+            call_duration_ms = int((time.monotonic() - t0) * 1000)
+            try:
+                await llm_call_log_repo.log_call(
+                    db,
+                    user_id=user_id,
+                    message_id=message_id,
+                    intent=route_result.intent.value,
+                    classify_source="orchestrator",
+                    model_used=route_result.model,
+                    tokens_in=0,
+                    tokens_out=0,
+                    duration_ms=call_duration_ms,
+                    success=False,
+                    error_code="llm_error",
+                )
+            except Exception:
+                log.warning("orchestrator.llm_log_failed")
+            raise
 
         if not llm_response.has_tool_calls:
             # Terminal: plain text response
@@ -172,12 +228,12 @@ async def run(
                 tool_call_count = _MAX_TOOL_CALLS + 1
                 break
 
-            # Execute with retry
-            result = await _execute_with_retry(db, user_id, tc, message_id, retry_counts)
+            # Execute tool — DB errors propagate as RuntimeError to abort the turn
+            result = await _execute_tool(db, user_id, tc, message_id)
             tool_results.append({"tool": tc.name, "result": result})
             messages.append(_tool_result_msg(tc, result))
 
-        # Check if we broke out of the inner loop due to loop detection
+        # Check if we broke out of the inner loop due to cap / loop detection
         if tool_call_count > _MAX_TOOL_CALLS:
             break
 
@@ -194,48 +250,31 @@ async def run(
     )
 
 
-async def _execute_with_retry(
+async def _execute_tool(
     db: AsyncSession,
     user_id: uuid.UUID,
     tc: ToolCall,
     message_id: uuid.UUID | None,
-    retry_counts: dict[str, int],
 ) -> dict:
-    """Execute a tool call, retrying up to _MAX_RETRIES_PER_TOOL times on failure."""
-    retries = retry_counts.get(tc.name, 0)
+    """Execute a tool call and log the result.
 
+    SQLAlchemy errors propagate from dispatch() and are re-raised as RuntimeError
+    so the outer session is not left in a dirty state for subsequent logging.
+    """
     t0 = time.monotonic()
-    result = await dispatch(tc.name, tc.arguments, db, user_id)
-    duration_ms = int((time.monotonic() - t0) * 1000)
 
-    success = result.get("success", False)
-    status = "success" if success else "failed"
-
-    await tool_log_repo.log_execution(
-        db,
-        user_id=user_id,
-        tool_name=tc.name,
-        input=tc.arguments,
-        output=result,
-        status=status,
-        duration_ms=duration_ms,
-        message_id=message_id,
-        error_message=result.get("error", {}).get("message") if not success else None,
-    )
-
-    if not success and retries < _MAX_RETRIES_PER_TOOL:
-        retry_counts[tc.name] = retries + 1
-        log.warning(
-            "orchestrator.tool_retry",
-            tool=tc.name,
-            retry=retries + 1,
-            error=result.get("error"),
-        )
-        # Re-execute on retry
-        t0 = time.monotonic()
+    try:
         result = await dispatch(tc.name, tc.arguments, db, user_id)
-        duration_ms = int((time.monotonic() - t0) * 1000)
-        success = result.get("success", False)
+    except SQLAlchemyError as e:
+        # DB error escaped the executor — session may be dirty; abort the turn
+        # so we never attempt further DB writes on a broken session.
+        log.exception("orchestrator.tool_db_error", tool=tc.name)
+        raise RuntimeError(f"DB error in tool '{tc.name}': {e}") from e
+
+    duration_ms = int((time.monotonic() - t0) * 1000)
+    success = result.get("success", False)
+
+    try:
         await tool_log_repo.log_execution(
             db,
             user_id=user_id,
@@ -247,6 +286,8 @@ async def _execute_with_retry(
             message_id=message_id,
             error_message=result.get("error", {}).get("message") if not success else None,
         )
+    except Exception as log_exc:
+        log.warning("orchestrator.tool_log_failed", error=str(log_exc))
 
     return result
 

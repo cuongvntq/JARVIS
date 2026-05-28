@@ -9,7 +9,7 @@ from app.core.errors import JarvisError
 from app.llm import orchestrator
 from app.llm.prompt import build_system_prompt
 from app.models.user import User
-from app.repositories import conversation_repo, llm_call_log_repo
+from app.repositories import conversation_repo
 from app.schemas.chat import (
     ChatSendRequest,
     ChatSendResponse,
@@ -45,9 +45,6 @@ async def send_message(
 
     system_prompt, prompt_version = build_system_prompt(current_user)
 
-    import time
-
-    t0 = time.monotonic()
     try:
         orch_result = await orchestrator.run(
             db=db,
@@ -63,24 +60,6 @@ async def send_message(
         raise JarvisError(
             502, "llm_error", "Dịch vụ AI tạm thời không khả dụng, vui lòng thử lại"
         ) from e
-    duration_ms = int((time.monotonic() - t0) * 1000)
-
-    # Log LLM call (best effort — don't fail the request if logging fails)
-    try:
-        await llm_call_log_repo.log_call(
-            db,
-            user_id=current_user.id,
-            message_id=user_msg.id,
-            intent=orch_result.route.intent.value,
-            classify_source=orch_result.route.classify_source,
-            model_used=orch_result.final_response.model,
-            tokens_in=orch_result.total_tokens_in,
-            tokens_out=orch_result.total_tokens_out,
-            duration_ms=duration_ms,
-            success=True,
-        )
-    except Exception as exc:
-        log.warning("chat.llm_log_failed", error=str(exc))
 
     content = orch_result.final_response.content
     assistant_msg = await conversation_repo.add_message(

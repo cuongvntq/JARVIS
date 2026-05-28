@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import structlog
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.todo import TodoCreate, TodoPartialUpdate
@@ -182,6 +183,8 @@ async def dispatch(
         return _err("unknown_tool", f"Tool '{tool_name}' không tồn tại.")
     try:
         return await executor(db, user_id, params)
+    except SQLAlchemyError:
+        raise  # propagate so orchestrator can abort turn with a clean session
     except Exception as e:
         log.exception("tool.executor_error", tool=tool_name)
         return _err("executor_error", str(e))

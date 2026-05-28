@@ -154,6 +154,7 @@ async def test_orchestrator_plain_text_no_tool_calls():
         patch(
             "app.llm.orchestrator.chat_completion", new_callable=AsyncMock, return_value=llm_resp
         ),
+        patch("app.llm.orchestrator.llm_call_log_repo.log_call", new_callable=AsyncMock),
     ):
         result = await orchestrator.run(
             db=db,
@@ -204,6 +205,7 @@ async def test_orchestrator_single_tool_call_then_synthesis():
         ),
         patch("app.llm.orchestrator.dispatch", new_callable=AsyncMock, return_value=tool_result),
         patch("app.llm.orchestrator.tool_log_repo.log_execution", new_callable=AsyncMock),
+        patch("app.llm.orchestrator.llm_call_log_repo.log_call", new_callable=AsyncMock),
     ):
         result = await orchestrator.run(
             db=db,
@@ -254,6 +256,7 @@ async def test_orchestrator_hard_cap_5_tool_calls():
         ),
         patch("app.llm.orchestrator.dispatch", new_callable=AsyncMock, return_value=tool_result),
         patch("app.llm.orchestrator.tool_log_repo.log_execution", new_callable=AsyncMock),
+        patch("app.llm.orchestrator.llm_call_log_repo.log_call", new_callable=AsyncMock),
     ):
         result = await orchestrator.run(
             db=db,
@@ -295,6 +298,7 @@ async def test_orchestrator_loop_detection_3_consecutive_same_tool():
         ),
         patch("app.llm.orchestrator.dispatch", mock_dispatch),
         patch("app.llm.orchestrator.tool_log_repo.log_execution", mock_log),
+        patch("app.llm.orchestrator.llm_call_log_repo.log_call", new_callable=AsyncMock),
     ):
         result = await orchestrator.run(
             db=db,
@@ -311,8 +315,8 @@ async def test_orchestrator_loop_detection_3_consecutive_same_tool():
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_tool_retry_on_failure():
-    """Failed tool execution triggers one retry."""
+async def test_orchestrator_tool_failure_fed_back_to_model():
+    """Failed tool result is returned to LLM; model synthesizes final answer without retry."""
     from app.llm import orchestrator
 
     tc = ToolCall(id="call_retry", name="create_todo", arguments={"title": "x"})
@@ -344,8 +348,9 @@ async def test_orchestrator_tool_retry_on_failure():
         patch(
             "app.llm.orchestrator.tool_log_repo.log_execution", new_callable=AsyncMock
         ) as mock_log,
+        patch("app.llm.orchestrator.llm_call_log_repo.log_call", new_callable=AsyncMock),
     ):
-        await orchestrator.run(
+        result = await orchestrator.run(
             db=db,
             user_id=uuid.uuid4(),
             user_message="Thêm việc",
@@ -354,10 +359,9 @@ async def test_orchestrator_tool_retry_on_failure():
             all_tools=[{"type": "function", "function": {"name": "create_todo"}}],
         )
 
-    # dispatch called twice: original + 1 retry (retries=0 < _MAX_RETRIES_PER_TOOL=2)
-    from app.llm.orchestrator import dispatch as real_dispatch  # noqa: F401
-
-    assert mock_log.call_count == 2  # once for original call, once for retry
+    # dispatch called once — failure is fed back to LLM which synthesizes the final response
+    assert mock_log.call_count == 1
+    assert result.final_response.content == "Xin lỗi, có lỗi xảy ra."
 
 
 # ─── LLMCallLogRepo cost calculation ─────────────────────────────────────────

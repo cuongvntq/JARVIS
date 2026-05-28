@@ -15,7 +15,8 @@ Sprint 2 model map (simplified):
 import asyncio
 import json
 import re
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from enum import StrEnum
 
 import litellm
@@ -109,6 +110,11 @@ class RouteResult:
     confidence: float
     classify_source: str  # "prefilter" | "classifier" | "fallback"
     effective_tools: list[dict]  # filtered tool subset for this intent
+    # Populated only when classify_source == "classifier"
+    classifier_model: str = field(default="")
+    classifier_tokens_in: int = field(default=0)
+    classifier_tokens_out: int = field(default=0)
+    classifier_duration_ms: int = field(default=0)
 
 
 async def route(
@@ -123,6 +129,7 @@ async def route(
 
     # Stage 1: Gemini classifier (free, fast, 3s timeout)
     try:
+        t0 = time.monotonic()
         resp = await asyncio.wait_for(
             litellm.acompletion(
                 model=settings.llm_primary,
@@ -138,11 +145,18 @@ async def route(
             ),
             timeout=3.0,
         )
+        classifier_duration_ms = int((time.monotonic() - t0) * 1000)
         raw = resp.choices[0].message.content or "{}"
         data = json.loads(raw)
         intent = Intent(data.get("intent", "tool_call"))
         confidence = float(data.get("confidence", 0.8))
-        return _build_result(intent, confidence, "classifier", all_tools)
+        usage = getattr(resp, "usage", None)
+        result = _build_result(intent, confidence, "classifier", all_tools)
+        result.classifier_model = settings.llm_primary
+        result.classifier_tokens_in = getattr(usage, "prompt_tokens", 0) or 0
+        result.classifier_tokens_out = getattr(usage, "completion_tokens", 0) or 0
+        result.classifier_duration_ms = classifier_duration_ms
+        return result
     except Exception as exc:
         log.warning("router.classifier_failed", error=str(exc))
         return _build_result(Intent.TOOL_CALL, 0.5, "fallback", all_tools)
