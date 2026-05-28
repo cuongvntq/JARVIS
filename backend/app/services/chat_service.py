@@ -43,6 +43,11 @@ async def send_message(
     )
     await db.flush()
 
+    # Auto-title on first message (prior_msgs empty means this is message #1)
+    if not prior_msgs:
+        auto_title = req.content.strip()[:50]
+        await conversation_repo.update_title(db, conv.id, auto_title)
+
     system_prompt, prompt_version = build_system_prompt(current_user)
 
     try:

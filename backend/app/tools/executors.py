@@ -14,8 +14,9 @@ import structlog
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.schemas.note import NoteCreate
 from app.schemas.todo import TodoCreate, TodoPartialUpdate
-from app.services import todo_service
+from app.services import note_service, todo_service
 
 log = structlog.get_logger()
 
@@ -164,12 +165,63 @@ async def execute_update_todo(
     )
 
 
+# ── create_note ───────────────────────────────────────────────────────────────
+
+
+async def execute_create_note(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    params: dict,
+) -> ToolResult:
+    title = params.get("title", "").strip()
+    if not title:
+        return _err("missing_title", "title là bắt buộc.")
+
+    data = NoteCreate(
+        title=title,
+        content=params.get("content", ""),
+        tags=params.get("tags", []),
+        pinned=params.get("pinned", False),
+        source="chat",
+    )
+    note = await note_service.create_note(db, user_id, data, commit=False)
+    return _ok(note.model_dump(mode="json"), f"Đã tạo ghi chú '{title}'.")
+
+
+# ── search_notes ──────────────────────────────────────────────────────────────
+
+
+async def execute_search_notes(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    params: dict,
+) -> ToolResult:
+    q = params.get("q") or None
+    pinned_only = params.get("pinned_only", False)
+    limit = min(int(params.get("limit", 20)), 50)
+
+    notes, _ = await note_service.list_notes(
+        db,
+        user_id,
+        pinned=True if pinned_only else None,
+        q=q,
+        limit=limit,
+        cursor=None,
+    )
+    summary = f"Tìm thấy {len(notes)} ghi chú"
+    if q:
+        summary += f" cho '{q}'"
+    return _ok({"notes": [n.model_dump(mode="json") for n in notes], "count": len(notes)}, summary + ".")
+
+
 # ── dispatch ──────────────────────────────────────────────────────────────────
 
 _EXECUTOR_MAP = {
     "create_todo": execute_create_todo,
     "list_todos": execute_list_todos,
     "update_todo": execute_update_todo,
+    "create_note": execute_create_note,
+    "search_notes": execute_search_notes,
 }
 
 

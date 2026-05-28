@@ -1,0 +1,264 @@
+# Test Strategy
+
+## Overview
+
+**Backend:** pytest + pytest-asyncio, SQLite in-memory (real DB, no mocks for DB layer)
+**Frontend:** vitest (unit), Playwright (E2E) — minimal coverage currently
+**Test count (Sprint 3 backend):** 117 tests, all passing
+
+---
+
+## Backend Test Setup
+
+### Test Database
+```python
+# tests/conftest.py
+DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+_test_engine = create_async_engine(
+    "sqlite+aiosqlite:///:memory:",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,   # single shared connection for all test coroutines
+)
+```
+
+- Tables created once per session (`scope="session"`)
+- All rows wiped between tests (autouse fixture `clean_tables`)
+- `get_db` dependency overridden with `_override_get_db` (test session)
+
+### Key Fixtures
+
+| Fixture | Scope | What it does |
+|---|---|---|
+| `create_tables` | session | `Base.metadata.create_all` once |
+| `clean_tables` | function (autouse) | DELETE all rows between tests |
+| `async_client` | function | `AsyncClient` via `ASGITransport` |
+| `auth_headers` | function | Register TEST_USER, return `{"Authorization": "Bearer ..."}` |
+| `mock_llm` | function | Patch `orchestrator.run` to return fixed OrchestratorResult |
+
+### TEST_USER
+```python
+TEST_USER = {"email": "test@jarvis.dev", "password": "Test1234!", "name": "Test User"}
+```
+
+### CSRF in Tests
+All cookie-based endpoints check Origin header. Tests using cookies must include:
+```python
+headers={"Origin": "http://test"}
+```
+`BACKEND_CORS_ORIGINS = "http://test"` set in conftest before app import.
+
+### mock_llm Fixture Details
+```python
+_orch = OrchestratorResult(
+    final_response=LLMResponse(
+        content="Xin chào! Tôi là JARVIS.",
+        model="gemini-mock",
+        tokens_in=10,
+        tokens_out=20,
+    ),
+    route=RouteResult(intent=Intent.CHITCHAT, model="gemini-mock", ...),
+    total_tokens_in=10, total_tokens_out=20, total_llm_calls=1,
+)
+# Patches: app.llm.orchestrator.run
+```
+
+---
+
+## Test Files & Coverage
+
+### `tests/test_auth.py`
+- register happy path
+- duplicate email → 409
+- weak password → 422
+- login happy path
+- wrong password → 401
+- refresh token rotation
+- logout
+- `/auth/me` with/without token
+- CSRF origin rejection
+
+### `tests/test_chat.py`
+- send message authenticated
+- creates conversation when `conversation_id=null`
+- resumes existing conversation
+- unauthenticated → 401
+- list conversations
+- ownership isolation → 404 (not 403)
+- GET conversation detail (messages, has_more)
+- GET conversation not found
+- GET conversation ownership
+- PATCH conversation title
+- PATCH not found
+- DELETE conversation
+- DELETE not found
+- **Regression:** `test_before_from_other_conversation_is_ignored` — cross-conversation anchor returns all messages
+
+### `tests/test_todos.py`
+- POST /todos happy path (all fields)
+- POST missing title → 422
+- POST empty title → 422
+- POST unauthenticated → 401
+- GET todo by id
+- GET not found → 404
+- GET ownership isolation → 404
+- GET list (own todos only)
+- GET list unauthenticated → 401
+- GET list filter=completed
+- GET list invalid filter → 400
+- GET list search q
+- PUT todo (replace)
+- PUT not found
+- PATCH /complete
+- PATCH /uncomplete
+- PATCH complete not found
+- DELETE soft delete (then 404 on GET)
+- DELETE not found
+- Deleted todo excluded from list
+- **Unit:** `TestTodayRangeUtc` (4 tests)
+  - span is exactly 1 day
+  - start is local midnight
+  - HCM = 17:00 UTC (UTC+7, no DST)
+  - invalid TZ falls back to UTC
+- **Regression:** today filter includes current moment, excludes far future
+
+### `tests/test_orchestrator.py` (16 tests)
+- route pre-filter: chitchat patterns (empty tools list)
+- route pre-filter: tool intent patterns (full tools list)
+- route classifier (mocked LiteLLM)
+- route classifier failure → fallback to TOOL_CALL
+- route simple query filters write tools
+- route chitchat has no tools
+- orchestrator: plain text (no tool calls)
+- orchestrator: tool call (create_todo) then synthesis
+- orchestrator: hard cap at 5 tool calls
+- orchestrator: loop detection (same tool 3x)
+- orchestrator: tool failure result fed back to LLM (not RuntimeError)
+- calc_cost: free model, gpt-4o-mini, unknown model
+- **Regression:** `test_orchestrator_primary_intent_passes_none_to_chat_completion`
+  - CHITCHAT route → `chat_completion(model=None, ...)`
+- **Regression:** `test_orchestrator_fallback_intent_pins_model_string`
+  - TOOL_CALL route → `chat_completion(model=settings.llm_fallback, ...)`
+
+### `tests/test_datetime_parser.py` (12 tests)
+- ISO 8601 fast path
+- "chiều nay", "sáng mai", "tối nay" dict replace
+- "X h Y" (hour notation)
+- weekday references
+- DD/MM date parsing
+- time only (future resolve)
+- LLM fallback (mocked)
+- `ParseDatetimeError` when all fail
+
+### `tests/test_notes.py` (19 tests) — Sprint 3
+- POST /notes happy path (all fields)
+- POST missing title → 422, empty title → 422
+- POST unauthenticated → 401
+- GET /notes/{id} happy path
+- GET not found → 404
+- GET ownership isolation → 404
+- GET /notes list empty, list returns created
+- GET filter pinned=true
+- GET search by q
+- PATCH /notes/{id} update title+content
+- PATCH not found → 404
+- PATCH /pin → pinned=true; PATCH /unpin → pinned=false
+- DELETE soft delete (then 404 on GET)
+- DELETE not found → 404
+- DELETE ownership (other user gets 404, original still exists)
+- Pinned notes appear first in list
+
+### `tests/test_health.py`
+- GET /health → 200
+- GET /health/ready → 200
+
+---
+
+## Running Tests
+
+```powershell
+cd backend
+
+# All tests
+pytest -v
+
+# Specific file
+pytest tests/test_todos.py -v
+
+# Specific test
+pytest tests/test_orchestrator.py::test_orchestrator_primary_intent_passes_none_to_chat_completion -v
+
+# With coverage
+pytest --cov=app --cov-report=term-missing
+```
+
+---
+
+## Lint Before Tests
+
+```powershell
+ruff check . --fix    # auto-fix import sorting and style
+ruff format .         # format all files
+pytest                # then run tests
+```
+
+**Common ruff failures:**
+- E401: import block with blank lines inside a function → `ruff check . --fix` fixes automatically
+- E501: line too long → manually wrap
+
+---
+
+## Adding New Tests
+
+### Pattern for new endpoint
+```python
+@pytest.mark.asyncio
+async def test_create_note_happy_path(async_client, auth_headers):
+    resp = await async_client.post("/v1/notes", json={"title": "Test", "content": "..."}, headers=auth_headers)
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["title"] == "Test"
+    assert "id" in data
+
+@pytest.mark.asyncio
+async def test_create_note_unauthenticated(async_client):
+    resp = await async_client.post("/v1/notes", json={"title": "Test"})
+    assert resp.status_code == 401
+
+@pytest.mark.asyncio
+async def test_get_note_ownership(async_client, auth_headers):
+    # Create as user A, try to GET as user B → 404
+    ...
+```
+
+### Pattern for tool executor test
+```python
+@pytest.mark.asyncio
+async def test_execute_create_note_happy_path():
+    async with get_test_session() as db:
+        user_id = uuid.uuid4()
+        result = await execute_create_note(db, user_id, {"title": "Test"})
+        assert result["success"] is True
+        assert result["data"]["title"] == "Test"
+```
+
+### Pattern for LLM/orchestrator test
+```python
+@pytest.mark.asyncio
+async def test_something_with_llm(async_client, auth_headers, mock_llm):
+    # mock_llm fixture patches orchestrator.run
+    resp = await async_client.post("/v1/chat/send", json={...}, headers=auth_headers)
+    assert resp.status_code == 200
+```
+
+---
+
+## What's NOT Tested Yet
+
+- Frontend vitest unit tests (components, hooks) — Sprint 3
+- Playwright E2E tests — Sprint 6
+- Eval set (10 prompt cases) — Sprint 6
+- Memory/RAG (Sprint 4)
+- Reminder + push (Sprint 5)
+- Rate limiting behavior
+- Token refresh race condition
+- LLM actual API calls (all mocked in tests)
