@@ -12,19 +12,22 @@
 | 001 | `001_init_extensions.py` | — (extensions only) | Applied |
 | 002 | `002_create_core_tables.py` | users, auth_sessions, conversations, messages + ENUM message_role | Applied |
 | 003 | `003_sprint2_todos_tool_logs.py` | todos, tool_execution_logs, llm_call_logs + ENUMs todo_status, todo_priority, tool_status | Applied |
-| 004 | `004_sprint3_notes.py` | notes | Sprint 3 (pending apply) |
+| 004 | `004_sprint3_notes.py` | notes | Applied (Sprint 3 done) |
+| 005 | `005_sprint4_memories.py` | memories + ENUM memory_type + HNSW index | **Sprint 4 — to create** |
+| 006 | `006_sprint4_conv_summary.py` | ADD COLUMN conversations.summary TEXT | Sprint 4 stretch |
 
-**Not yet created (future sprints):** memories (S4), reminders (S5), notifications (S5)
+**Not yet created:** reminders (S5), notifications (S5)
 
 ---
 
-## ENUMs (implemented)
+## ENUMs (implemented + planned)
 
 ```
 message_role:  user | assistant | system | tool
 todo_status:   pending | in_progress | completed | cancelled
 todo_priority: low | medium | high | urgent
 tool_status:   success | failed | timeout
+memory_type:   fact | preference | rule | relation | goal | other  ← Sprint 4
 ```
 
 ---
@@ -38,7 +41,8 @@ tool_status:   success | failed | timeout
 | conversations | YES (`deleted_at`) | |
 | messages | NO | Retention policy only |
 | todos | YES (`deleted_at`) | |
-| notes | YES (`deleted_at`) | Sprint 3 |
+| notes | YES (`deleted_at`) | |
+| memories | YES (`deleted_at` + `is_active`) | Sprint 4 — also has is_active flag |
 | tool_execution_logs | NO | |
 | llm_call_logs | NO | |
 
@@ -48,14 +52,51 @@ tool_status:   success | failed | timeout
 
 | Model class | File | Relationships |
 |---|---|---|
-| `User` | `models/user.py` | → sessions, conversations, todos, notes |
+| `User` | `models/user.py` | → sessions, conversations, todos, notes, memories |
 | `AuthSession` | `models/user.py` | → user |
 | `Conversation` | `models/conversation.py` | → user, messages |
 | `Message` | `models/conversation.py` | → conversation |
 | `Todo` | `models/todo.py` | → user |
-| `Note` | `models/note.py` | → user — Sprint 3 |
+| `Note` | `models/note.py` | → user |
+| `Memory` | `models/memory.py` | → user — **Sprint 4** |
 | `ToolExecutionLog` | `models/tool_log.py` | → user |
 | `LLMCallLog` | `models/tool_log.py` | → user |
+
+---
+
+## Memory Table (Sprint 4)
+
+```sql
+CREATE TABLE memories (
+    id           UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id      UUID          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    memory_type  memory_type   NOT NULL DEFAULT 'fact',
+    content      TEXT          NOT NULL,
+    embedding    vector(1536),              -- NULL until background embed task runs
+    importance   INTEGER       NOT NULL DEFAULT 5 CHECK (importance BETWEEN 1 AND 10),
+    is_active    BOOLEAN       NOT NULL DEFAULT TRUE,
+    created_at   TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    deleted_at   TIMESTAMPTZ
+);
+-- idx_memories_user_active: (user_id) WHERE is_active=TRUE AND deleted_at IS NULL
+-- idx_memories_type: (user_id, memory_type) WHERE is_active=TRUE AND deleted_at IS NULL
+-- idx_memories_hnsw: USING hnsw(embedding vector_cosine_ops) WHERE embedding IS NOT NULL AND deleted_at IS NULL AND is_active=TRUE
+-- trg_memory_updated_at: BEFORE UPDATE EXECUTE FUNCTION set_updated_at()
+```
+
+**ORM `embedding` column:** `Column(sa.JSON, nullable=True)` — SQLite stores as JSON list; Postgres stores actual `vector(1536)` via migration DDL (Alembic controls the column type in production).
+
+**Semantic search query (Postgres only):**
+```sql
+SELECT * FROM memories
+WHERE user_id = :uid AND is_active = TRUE AND deleted_at IS NULL
+  AND embedding IS NOT NULL
+  AND 1 - (embedding <=> :query_vec) >= :min_similarity
+ORDER BY embedding <=> :query_vec
+LIMIT :k
+```
+→ `memory_repo.semantic_search()` detects SQLite dialect → returns `[]` (mocked in tests).
 
 ---
 
@@ -68,11 +109,12 @@ Tests use `sqlite+aiosqlite:///:memory:`. These diverge from Postgres:
 | `postgresql.UUID` | `sa.Uuid` | All models |
 | `JSONB` | `sa.JSON` | All models |
 | `ENUM` (pre-defined) | `sa.Enum(..., create_type=False)` | Models with ENUMs |
-| `TEXT[]` arrays | `sa.JSON` (same in both envs now) | `models/todo.py` |
+| `TEXT[]` arrays | `sa.JSON` | `models/todo.py` |
+| `vector(1536)` | `sa.JSON` (store as float list) | `models/memory.py` — Sprint 4 |
 | `pool_size`/`max_overflow` | Omitted for SQLite | `database.py` |
-| `server_default="true"` for BOOLEAN | Must also set `default=True` in Python | `models/user.py` |
+| `server_default="true"` for BOOLEAN | Must also set `default=True` in Python | `models/user.py`, `models/memory.py` |
 
-**Reason for last point:** `server_default` stores TEXT `"true"` in SQLite, which fails `.is_(True)` filter.
+**Note on vector:** HNSW index and `<=>` operator not available in SQLite. `semantic_search()` short-circuits on SQLite. Tests mock `embedding_service.embed_text()` and `memory_repo.semantic_search()`.
 
 ---
 
@@ -86,3 +128,4 @@ Defined in `repositories/llm_call_log_repo.py` → `_COST_PER_M`:
 | gpt-4o-mini | $0.15 | $0.60 |
 | gpt-5.4-nano | $0.075 | $0.30 |
 | gpt-5-mini | $0.25 | $2.00 |
+| text-embedding-3-small | $0.02 | — |
