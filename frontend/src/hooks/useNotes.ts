@@ -1,11 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { NoteCreate, NoteUpdate } from "@/lib/types/api";
 
 export function useNotes(q?: string) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ["notes", q ?? ""],
-    queryFn: () => api.listNotes({ q }),
+    queryFn: ({ pageParam }) => api.listNotes({ q, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
     staleTime: 30_000,
   });
 }

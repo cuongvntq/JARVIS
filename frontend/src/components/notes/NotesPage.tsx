@@ -19,13 +19,13 @@ export default function NotesPage() {
   const user = useAuthStore((s) => s.user);
   const timezone = user?.timezone ?? "UTC";
 
-  const { data, isLoading, isError } = useNotes(searchQuery || undefined);
+  const { data, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } = useNotes(searchQuery || undefined);
   const createNote = useCreateNote();
   const updateNote = useUpdateNote();
   const pinNote = usePinNote();
   const deleteNote = useDeleteNote();
 
-  const notes: NoteOut[] = data?.items ?? [];
+  const notes: NoteOut[] = data?.pages.flatMap((p) => p.items) ?? [];
 
   // Update selectedNoteData when the note appears in the current list (e.g. after
   // a save/invalidation) but do NOT clear it just because the search hides it.
@@ -111,7 +111,7 @@ export default function NotesPage() {
               className="text-[9px] px-1.5 py-0.5 rounded-full"
               style={{ backgroundColor: "rgba(0,180,216,0.15)", color: "#5e8a9e" }}
             >
-              {notes.length}
+              {hasNextPage ? `${notes.length}+` : notes.length}
             </span>
           )}
         </div>
@@ -150,16 +150,31 @@ export default function NotesPage() {
               Không tải được. Thử lại.
             </p>
           ) : (
-            <NoteList
-              notes={notes}
-              selectedId={showEditor && !isCreating ? selectedId : null}
-              timezone={timezone}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              onSelect={handleSelectNote}
-              onPin={handlePin}
-              onDelete={handleDelete}
-            />
+            <>
+              <NoteList
+                notes={notes}
+                selectedId={showEditor && !isCreating ? selectedId : null}
+                timezone={timezone}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                onSelect={handleSelectNote}
+                onPin={handlePin}
+                onDelete={handleDelete}
+              />
+              {hasNextPage && (
+                <div className="px-3 pb-3 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    className="w-full py-1.5 rounded-lg border text-[10px] tracking-[0.1em] transition-colors hover:border-jarvis-accent/30 hover:text-jarvis-accent disabled:opacity-50"
+                    style={{ color: "#5e8a9e", borderColor: "rgba(94,138,158,0.2)" }}
+                  >
+                    {isFetchingNextPage ? "Đang tải..." : "Tải thêm"}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
 

@@ -132,7 +132,7 @@ export default function TodoCard({
         type="button"
         onClick={() => onDelete(todo.id)}
         disabled={isDeletePending}
-        className="flex-shrink-0 mt-3 mr-3 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:text-jarvis-danger"
+        className="flex-shrink-0 mt-3 mr-3 p-1 rounded opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity hover:text-jarvis-danger focus:text-jarvis-danger focus:outline-none"
         style={{ color: "#3a6a7e" }}
       >
         <Trash2 size={12} />

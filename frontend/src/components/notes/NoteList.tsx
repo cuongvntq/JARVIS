@@ -80,7 +80,7 @@ function NoteItem({
       </button>
 
       {/* Action buttons */}
-      <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 py-2.5 pr-2">
+      <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex-shrink-0 py-2.5 pr-2">
         <button
           type="button"
           onClick={onPin}

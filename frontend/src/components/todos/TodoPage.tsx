@@ -24,11 +24,11 @@ export default function TodoPage() {
   const user = useAuthStore((s) => s.user);
   const timezone = user?.timezone ?? "UTC";
 
-  const { data, isLoading, isError } = useTodos(filter);
+  const { data, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } = useTodos(filter);
   const completeTodo = useCompleteTodo();
   const deleteTodo = useDeleteTodo();
 
-  const todos = data?.items ?? [];
+  const todos = data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: "#0b1929" }}>
@@ -50,7 +50,7 @@ export default function TodoPage() {
               className="text-[9px] px-1.5 py-0.5 rounded-full"
               style={{ backgroundColor: "rgba(0,180,216,0.15)", color: "#5e8a9e" }}
             >
-              {todos.length}
+              {hasNextPage ? `${todos.length}+` : todos.length}
             </span>
           )}
         </div>
@@ -150,6 +150,19 @@ export default function TodoPage() {
                 isDeletePending={deleteTodo.isPending}
               />
             ))}
+            {hasNextPage && (
+              <div className="flex justify-center pt-2 pb-1">
+                <button
+                  type="button"
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  className="px-4 py-1.5 rounded-lg border text-[10px] tracking-[0.1em] transition-colors hover:border-jarvis-accent/30 hover:text-jarvis-accent disabled:opacity-50"
+                  style={{ color: "#5e8a9e", borderColor: "rgba(94,138,158,0.2)" }}
+                >
+                  {isFetchingNextPage ? "Đang tải..." : "Tải thêm"}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

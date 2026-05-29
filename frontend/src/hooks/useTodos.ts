@@ -1,11 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { TodoCreate, TodoFilter } from "@/lib/types/api";
 
 export function useTodos(filter: TodoFilter = "all") {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ["todos", filter],
-    queryFn: () => api.listTodos({ filter }),
+    queryFn: ({ pageParam }) => api.listTodos({ filter, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
     staleTime: 30_000,
   });
 }
