@@ -8,6 +8,7 @@ import {
   type NoteListOut,
   type NoteOut,
   type NoteUpdate,
+  type SSEEvent,
   type TodoCreate,
   type TodoFilter,
   type TodoListOut,
@@ -107,6 +108,63 @@ class ApiClient {
 
   async sendMessage(data: ChatSendRequest): Promise<ChatSendResponse> {
     return this.request("/v1/chat/send", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  async *sendMessageStream(data: ChatSendRequest): AsyncGenerator<SSEEvent> {
+    const doFetch = async (retry: boolean): Promise<Response> => {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (_accessToken) headers.Authorization = `Bearer ${_accessToken}`;
+      const res = await fetch(`${BASE_URL}/v1/chat/send`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ ...data, stream: true }),
+      });
+      if (res.status === 401 && retry) {
+        const refreshed = await this.silentRefresh();
+        if (refreshed) return doFetch(false);
+      }
+      return res;
+    };
+
+    const res = await doFetch(true);
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({
+        error: { code: "unknown", message: res.statusText, details: {}, request_id: "" },
+      }));
+      throw new ApiException(res.status, body.error);
+    }
+
+    if (!res.body) {
+      throw new ApiException(500, {
+        code: "stream_error",
+        message: "Response body is null",
+        details: {},
+        request_id: "",
+      });
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() ?? "";
+      for (const part of parts) {
+        if (part.startsWith("data: ")) {
+          try {
+            yield JSON.parse(part.slice(6)) as SSEEvent;
+          } catch {
+            // skip malformed chunk
+          }
+        }
+      }
+    }
   }
 
   async listConversations(limit = 20, cursor?: string): Promise<ConversationListResponse> {

@@ -1,8 +1,11 @@
 """Chat endpoints."""
 
+import json
 import uuid
 
+import structlog
 from fastapi import APIRouter, Depends, Query, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user
@@ -16,6 +19,7 @@ from app.schemas.chat import (
 )
 from app.services import chat_service
 
+log = structlog.get_logger()
 router = APIRouter()
 
 
@@ -25,6 +29,22 @@ async def send_message(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if req.stream:
+        async def _event_gen():
+            try:
+                async for event in chat_service.stream_message(db, req, current_user):
+                    yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            except Exception:
+                log.exception("chat.stream.unexpected_error")
+                await db.rollback()
+                yield f"data: {json.dumps({'type': 'error', 'code': 'internal_error', 'message': 'Lỗi không mong đợi'})}\n\n"
+
+        return StreamingResponse(
+            _event_gen(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
     return await chat_service.send_message(db, req, current_user)
 
 

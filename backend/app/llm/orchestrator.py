@@ -15,6 +15,7 @@ Safety limits (per rules/04_ai_llm.md):
 
 import time
 import uuid
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 
 import structlog
@@ -32,6 +33,20 @@ log = structlog.get_logger()
 settings = get_settings()
 
 _MAX_TOOL_CALLS = 5
+
+_TOOL_LABELS: dict[str, str] = {
+    "create_todo": "Đang tạo todo...",
+    "list_todos": "Đang tìm todos...",
+    "update_todo": "Đang cập nhật todo...",
+    "create_note": "Đang tạo ghi chú...",
+    "search_notes": "Đang tìm ghi chú...",
+    "create_reminder": "Đang tạo nhắc nhở...",
+    "list_reminders": "Đang tìm nhắc nhở...",
+    "save_memory": "Đang lưu vào bộ nhớ...",
+    "search_memory": "Đang tìm kiếm bộ nhớ...",
+    "forget_memory": "Đang xóa bộ nhớ...",
+    "get_today_summary": "Đang tổng hợp hôm nay...",
+}
 
 
 @dataclass
@@ -256,6 +271,207 @@ async def run(
         total_tokens_out=total_tokens_out,
         total_llm_calls=total_llm_calls,
     )
+
+
+async def run_stream(
+    *,
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    user_message: str,
+    system_prompt: str,
+    history: list[dict],
+    message_id: uuid.UUID | None = None,
+    all_tools: list[dict],
+    user_tz: str = "UTC",
+) -> AsyncGenerator[dict, None]:
+    """
+    Streaming version of run(). Yields event dicts for SSE:
+      tool_start / tool_done / delta (one char) / orchestrator_done (last, internal).
+    """
+    # ── Stage 0+1: Route ────────────────────────────────────────────────────────
+    route_result = await route(user_message, all_tools)
+
+    if route_result.classify_source == "classifier" and route_result.classifier_tokens_in > 0:
+        try:
+            await llm_call_log_repo.log_call(
+                db,
+                user_id=user_id,
+                message_id=message_id,
+                intent=route_result.intent.value,
+                classify_source="classifier",
+                model_used=route_result.classifier_model,
+                tokens_in=route_result.classifier_tokens_in,
+                tokens_out=route_result.classifier_tokens_out,
+                duration_ms=route_result.classifier_duration_ms,
+                success=True,
+            )
+        except Exception:
+            log.warning("orchestrator.classifier_log_failed")
+
+    messages: list[dict] = [
+        {"role": "system", "content": system_prompt},
+        *history,
+        {"role": "user", "content": user_message},
+    ]
+
+    tools_to_send = route_result.effective_tools or None
+    call_model = None if route_result.model == settings.llm_primary else route_result.model
+
+    total_tokens_in = 0
+    total_tokens_out = 0
+    total_llm_calls = 0
+    tool_results: list[dict] = []
+    tool_call_count = 0
+    recent_tool_names: list[str] = []
+    llm_response: LLMResponse | None = None
+
+    while True:
+        total_llm_calls += 1
+        t0 = time.monotonic()
+        try:
+            llm_response = await chat_completion(
+                messages=messages,
+                model=call_model,
+                tools=tools_to_send,
+            )
+            call_duration_ms = int((time.monotonic() - t0) * 1000)
+            total_tokens_in += llm_response.tokens_in
+            total_tokens_out += llm_response.tokens_out
+
+            try:
+                await llm_call_log_repo.log_call(
+                    db,
+                    user_id=user_id,
+                    message_id=message_id,
+                    intent=route_result.intent.value,
+                    classify_source="orchestrator",
+                    model_used=llm_response.model,
+                    tokens_in=llm_response.tokens_in,
+                    tokens_out=llm_response.tokens_out,
+                    duration_ms=call_duration_ms,
+                    success=True,
+                )
+            except Exception:
+                log.warning("orchestrator.llm_log_failed")
+
+        except RuntimeError:
+            call_duration_ms = int((time.monotonic() - t0) * 1000)
+            try:
+                await llm_call_log_repo.log_call(
+                    db,
+                    user_id=user_id,
+                    message_id=message_id,
+                    intent=route_result.intent.value,
+                    classify_source="orchestrator",
+                    model_used=route_result.model,
+                    tokens_in=0,
+                    tokens_out=0,
+                    duration_ms=call_duration_ms,
+                    success=False,
+                    error_code="llm_error",
+                )
+            except Exception:
+                log.warning("orchestrator.llm_log_failed")
+            raise
+
+        if not llm_response.has_tool_calls:
+            break
+
+        # ── Execute tool calls ──────────────────────────────────────────────────
+        assistant_msg: dict = {"role": "assistant", "content": llm_response.content}
+        if llm_response.tool_calls:
+            assistant_msg["tool_calls"] = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tc.name, "arguments": _dumps(tc.arguments)},
+                }
+                for tc in llm_response.tool_calls
+            ]
+        messages.append(assistant_msg)
+
+        for tc in llm_response.tool_calls:
+            if tool_call_count >= _MAX_TOOL_CALLS:
+                log.warning(
+                    "orchestrator.tool_cap_exceeded",
+                    user_id=str(user_id),
+                    tool_call_count=tool_call_count,
+                )
+                llm_response = LLMResponse(
+                    content="Xin lỗi, tôi đã thực hiện quá nhiều hành động trong lượt này. Bạn hãy thử chia nhỏ yêu cầu.",
+                    model=llm_response.model,
+                    tokens_in=0,
+                    tokens_out=0,
+                )
+                tool_call_count = _MAX_TOOL_CALLS + 1
+                break
+
+            tool_call_count += 1
+
+            recent_tool_names.append(tc.name)
+            if len(recent_tool_names) > 3:
+                recent_tool_names.pop(0)
+            if len(recent_tool_names) == 3 and len(set(recent_tool_names)) == 1:
+                log.warning(
+                    "orchestrator.loop_detected",
+                    tool=tc.name,
+                    user_id=str(user_id),
+                )
+                messages.append(
+                    _tool_result_msg(
+                        tc,
+                        {
+                            "success": False,
+                            "error": {
+                                "code": "loop_detected",
+                                "message": "Phát hiện vòng lặp tool.",
+                            },
+                            "data": None,
+                        },
+                    )
+                )
+                llm_response = LLMResponse(
+                    content="Có vẻ tôi đang bị lặp. Bạn có thể nói rõ hơn yêu cầu không?",
+                    model=llm_response.model,
+                    tokens_in=0,
+                    tokens_out=0,
+                )
+                tool_call_count = _MAX_TOOL_CALLS + 1
+                break
+
+            label = _TOOL_LABELS.get(tc.name, f"Đang thực thi {tc.name}...")
+            yield {"type": "tool_start", "tool": tc.name, "label": label}
+
+            result = await _execute_tool(db, user_id, tc, message_id, user_tz)
+            tool_results.append({"tool": tc.name, "result": result})
+            messages.append(_tool_result_msg(tc, result))
+
+            summary: str
+            if result.get("success"):
+                summary = result.get("summary", "Xong")
+            else:
+                summary = result.get("error", {}).get("message", "Có lỗi xảy ra")
+            yield {"type": "tool_done", "tool": tc.name, "summary": summary}
+
+        if tool_call_count > _MAX_TOOL_CALLS:
+            break
+
+    assert llm_response is not None
+
+    # Stream final response character by character
+    for char in llm_response.content:
+        yield {"type": "delta", "content": char}
+
+    yield {
+        "type": "orchestrator_done",
+        "content": llm_response.content,
+        "model": llm_response.model,
+        "route": route_result,
+        "tool_results": tool_results,
+        "total_tokens_in": total_tokens_in,
+        "total_tokens_out": total_tokens_out,
+        "total_llm_calls": total_llm_calls,
+    }
 
 
 async def _execute_tool(

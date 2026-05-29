@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Bot, Loader2 } from "lucide-react";
-import MessageBubble, { type Message } from "./MessageBubble";
-import ChatInput from "./ChatInput";
-import { useSendMessage } from "@/hooks/useChatMutation";
 import { useConversationDetail } from "@/hooks/useConversations";
+import { api } from "@/lib/api";
 import { ApiException } from "@/lib/types/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { Bot, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import ChatInput from "./ChatInput";
+import MessageBubble, { type Message } from "./MessageBubble";
 
 const WELCOME: Message = {
   id: "welcome",
@@ -27,13 +28,16 @@ export default function ChatInterface({
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const { mutate: sendMessage, isPending } = useSendMessage();
+  const queryClient = useQueryClient();
 
-  // Load conversation history when conversationId changes
+  // Guards to prevent message wipe / spinner when conversation is freshly created mid-stream
+  const justCreatedConvIdRef = useRef<string | null>(null);
+  const skipNextHistoryLoadRef = useRef(false);
+
   const { data: convDetail, isLoading: isLoadingHistory } = useConversationDetail(conversationId);
 
-  // When switching to an existing conversation, populate messages from history
   const prevConvId = useRef<string | null>(null);
   useEffect(() => {
     if (conversationId === prevConvId.current) return;
@@ -43,12 +47,21 @@ export default function ChatInterface({
       setMessages([WELCOME]);
       return;
     }
-    // History will arrive via convDetail — handled below
+    // Skip reset when this is the conversation we just created during streaming
+    if (conversationId === justCreatedConvIdRef.current) {
+      justCreatedConvIdRef.current = null;
+      return;
+    }
     setMessages([]);
   }, [conversationId]);
 
   useEffect(() => {
     if (!convDetail || convDetail.id !== conversationId) return;
+    // Skip history load for just-created conversations — streaming messages are already in state
+    if (skipNextHistoryLoadRef.current) {
+      skipNextHistoryLoadRef.current = false;
+      return;
+    }
     setMessages(
       convDetail.messages.map((m) => ({
         id: m.id,
@@ -60,73 +73,135 @@ export default function ChatInterface({
   }, [convDetail, conversationId]);
 
   useEffect(() => {
-    if (messages.length > 0 || isPending) {
+    if (messages.length > 0 || isStreaming) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, isPending]);
+  }, [messages, isStreaming]);
 
-  function handleSend() {
-    if (!input.trim() || isPending) return;
+  async function handleSend() {
+    if (!input.trim() || isStreaming) return;
 
     const content = input.trim();
     setInput("");
+    setIsStreaming(true);
 
-    const tempUserMsg: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content,
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, tempUserMsg]);
+    const tempUserId = `temp-user-${crypto.randomUUID()}`;
+    const tempAssistantId = `temp-assistant-${crypto.randomUUID()}`;
 
-    sendMessage(
-      { content, conversation_id: conversationId, stream: false },
+    // Track new conversation id from meta event; only passed to parent after stream ends
+    let newConvId: string | null = null;
+    // Only call onConversationCreated if stream completed successfully (done event received).
+    // If stream errors after meta, backend rolls back → conv_id no longer exists in DB.
+    let streamSucceeded = false;
+
+    setMessages((prev) => [
+      ...prev,
+      { id: tempUserId, role: "user", content, timestamp: new Date() },
       {
-        onSuccess: (data) => {
-          if (!conversationId) {
-            onConversationCreated(data.conversation_id);
-          }
-          setMessages((prev) => {
-            const withoutTemp = prev.filter((m) => m.id !== tempUserMsg.id);
-            return [
-              ...withoutTemp,
-              {
-                id: data.user_message.id,
-                role: "user",
-                content: data.user_message.content,
-                timestamp: new Date(data.user_message.created_at),
-              } satisfies Message,
-              {
-                id: data.assistant_message.id,
-                role: "assistant",
-                content: data.assistant_message.content,
-                timestamp: new Date(data.assistant_message.created_at),
-              } satisfies Message,
-            ];
-          });
-        },
-        onError: (err) => {
-          let errorText = "Xin lỗi, tôi gặp sự cố. Vui lòng thử lại.";
-          if (err instanceof ApiException) {
-            if (err.error.code === "llm_error") {
-              errorText = "Dịch vụ AI tạm thời không khả dụng. Vui lòng thử lại sau ít phút.";
-            } else if (err.statusCode === 429) {
-              errorText = "Bạn đang gửi quá nhiều tin nhắn. Vui lòng đợi một chút.";
-            }
-          }
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: crypto.randomUUID(),
-              role: "assistant",
-              content: errorText,
-              timestamp: new Date(),
-            } satisfies Message,
-          ]);
-        },
+        id: tempAssistantId,
+        role: "assistant",
+        content: "",
+        timestamp: new Date(),
+        streaming: true,
+        toolStatus: null,
       },
-    );
+    ]);
+
+    try {
+      for await (const event of api.sendMessageStream({
+        content,
+        conversation_id: conversationId,
+        stream: true,
+      })) {
+        switch (event.type) {
+          case "meta":
+            // Save new conv id but do NOT call onConversationCreated yet —
+            // doing so would change the prop and trigger setMessages([]) mid-stream
+            if (!conversationId) {
+              newConvId = event.conversation_id;
+            }
+            setMessages((prev) =>
+              prev.map((m) => (m.id === tempUserId ? { ...m, id: event.user_message_id } : m)),
+            );
+            break;
+
+          case "tool_start":
+            setMessages((prev) =>
+              prev.map((m) => (m.id === tempAssistantId ? { ...m, toolStatus: event.label } : m)),
+            );
+            break;
+
+          case "tool_done":
+            setMessages((prev) =>
+              prev.map((m) => (m.id === tempAssistantId ? { ...m, toolStatus: null } : m)),
+            );
+            break;
+
+          case "delta":
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === tempAssistantId ? { ...m, content: m.content + event.content } : m,
+              ),
+            );
+            bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+            break;
+
+          case "done":
+            streamSucceeded = true;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === tempAssistantId
+                  ? { ...m, id: event.assistant_message_id, streaming: false, toolStatus: null }
+                  : m,
+              ),
+            );
+            queryClient.invalidateQueries({ queryKey: ["todos"] });
+            queryClient.invalidateQueries({ queryKey: ["notes"] });
+            break;
+
+          case "error":
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === tempAssistantId
+                  ? { ...m, content: event.message, streaming: false, toolStatus: null }
+                  : m,
+              ),
+            );
+            break;
+        }
+      }
+    } catch (err) {
+      let errorText = "Xin lỗi, tôi gặp sự cố. Vui lòng thử lại.";
+      if (err instanceof ApiException) {
+        if (err.statusCode === 429) {
+          errorText = "Bạn đang gửi quá nhiều tin nhắn. Vui lòng đợi một chút.";
+        }
+      }
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempAssistantId
+            ? { ...m, content: errorText, streaming: false, toolStatus: null }
+            : m,
+        ),
+      );
+    } finally {
+      setIsStreaming(false);
+      // Notify parent only after stream ends AND stream succeeded — prevents navigating to
+      // a rolled-back conversation_id when LLM errors after meta event
+      if (newConvId && streamSucceeded) {
+        justCreatedConvIdRef.current = newConvId;
+        skipNextHistoryLoadRef.current = true;
+        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        onConversationCreated(newConvId);
+      } else {
+        // Existing conversation — just refresh the sidebar
+        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      }
+    }
   }
+
+  // Suppress loading spinner for just-created conversations (messages already in state)
+  const showHistorySpinner = isLoadingHistory && !skipNextHistoryLoadRef.current;
 
   return (
     <div className="flex flex-col h-full">
@@ -153,7 +228,10 @@ export default function ChatInterface({
           >
             J.A.R.V.I.S
           </h2>
-          <p className="text-[10px] tracking-[0.15em] flex items-center gap-1.5" style={{ color: "#00e676" }}>
+          <p
+            className="text-[10px] tracking-[0.15em] flex items-center gap-1.5"
+            style={{ color: "#00e676" }}
+          >
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-jarvis-success status-online" />
             READY
           </p>
@@ -162,46 +240,27 @@ export default function ChatInterface({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-5">
-        {isLoadingHistory ? (
-          <div className="flex items-center justify-center h-full gap-2" style={{ color: "#5e8a9e" }}>
+        {showHistorySpinner ? (
+          <div
+            className="flex items-center justify-center h-full gap-2"
+            style={{ color: "#5e8a9e" }}
+          >
             <Loader2 size={16} className="animate-spin" />
-            <span className="text-xs tracking-widest" style={{ fontFamily: "var(--font-orbitron)" }}>
+            <span
+              className="text-xs tracking-widest"
+              style={{ fontFamily: "var(--font-orbitron)" }}
+            >
               LOADING
             </span>
           </div>
         ) : (
-          messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
-          ))
-        )}
-
-        {isPending && (
-          <div className="flex items-start gap-2.5 mb-5 msg-appear">
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{
-                background: "radial-gradient(circle, rgba(0, 180, 216, 0.55) 0%, rgba(0, 95, 138, 0.3) 100%)",
-                border: "1px solid rgba(0, 180, 216, 0.35)",
-                boxShadow: "0 0 8px rgba(0, 180, 216, 0.25)",
-              }}
-            >
-              <Bot size={13} className="text-white" />
-            </div>
-            <div
-              className="px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1.5"
-              style={{ background: "rgba(15, 34, 53, 0.85)", border: "1px solid rgba(0, 180, 216, 0.15)" }}
-            >
-              <span className="dot-1 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
-              <span className="dot-2 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
-              <span className="dot-3 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
-            </div>
-          </div>
+          messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)
         )}
 
         <div ref={bottomRef} />
       </div>
 
-      <ChatInput value={input} onChange={setInput} onSend={handleSend} loading={isPending} />
+      <ChatInput value={input} onChange={setInput} onSend={handleSend} loading={isStreaming} />
     </div>
   );
 }

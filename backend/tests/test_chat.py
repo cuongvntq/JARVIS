@@ -1,6 +1,7 @@
 """Chat endpoint integration tests."""
 
 import asyncio
+import json
 
 import pytest
 
@@ -212,6 +213,66 @@ async def test_delete_conversation_not_found(async_client, auth_headers):
 
     resp = await async_client.delete(f"/v1/chat/conversations/{uuid.uuid4()}", headers=auth_headers)
     assert resp.status_code == 404
+
+
+# ── Pagination anchor isolation ────────────────────────────────────────────────
+
+
+# ── Streaming (stream=True) ───────────────────────────────────────────────────
+
+
+async def _collect_sse(resp) -> list[dict]:
+    events = []
+    async for line in resp.aiter_lines():
+        if line.startswith("data: "):
+            events.append(json.loads(line[6:]))
+    return events
+
+
+@pytest.mark.asyncio
+async def test_stream_message_success(async_client, auth_headers, mock_llm_stream):
+    """Streaming happy path: meta → delta* → done; conversation persisted in DB."""
+    async with async_client.stream(
+        "POST",
+        "/v1/chat/send",
+        json={"content": "Xin chào JARVIS", "conversation_id": None, "stream": True},
+        headers=auth_headers,
+    ) as resp:
+        assert resp.status_code == 200
+        assert "text/event-stream" in resp.headers["content-type"]
+        events = await _collect_sse(resp)
+
+    types = [e["type"] for e in events]
+    assert types[0] == "meta"
+    assert "delta" in types
+    assert types[-1] == "done"
+
+    conv_id = events[0]["conversation_id"]
+    detail = await async_client.get(f"/v1/chat/conversations/{conv_id}", headers=auth_headers)
+    assert detail.status_code == 200
+    assert len(detail.json()["messages"]) == 2  # user + assistant
+
+
+@pytest.mark.asyncio
+async def test_stream_rollback_on_llm_error(async_client, auth_headers, mock_llm_stream_error):
+    """When LLM raises after meta, DB is rolled back and conversation does not persist."""
+    async with async_client.stream(
+        "POST",
+        "/v1/chat/send",
+        json={"content": "Gây lỗi LLM", "conversation_id": None, "stream": True},
+        headers=auth_headers,
+    ) as resp:
+        assert resp.status_code == 200
+        events = await _collect_sse(resp)
+
+    meta_events = [e for e in events if e["type"] == "meta"]
+    error_events = [e for e in events if e["type"] == "error"]
+    assert len(meta_events) == 1, "meta must be emitted before error"
+    assert len(error_events) >= 1, "error event must be emitted"
+
+    conv_id = meta_events[0]["conversation_id"]
+    detail = await async_client.get(f"/v1/chat/conversations/{conv_id}", headers=auth_headers)
+    assert detail.status_code == 404, "rolled-back conversation must not exist in DB"
 
 
 # ── Pagination anchor isolation ────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 """Chat business logic — orchestrates LLM + DB persistence."""
 
 import uuid
+from collections.abc import AsyncGenerator
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,13 +25,102 @@ from app.tools.definitions import TOOLS
 log = structlog.get_logger()
 
 
+async def stream_message(
+    db: AsyncSession,
+    req: ChatSendRequest,
+    current_user: User,
+) -> AsyncGenerator[dict, None]:
+    """Async generator yielding SSE event dicts for streaming chat."""
+    conv = await conversation_repo.get_or_create(db, current_user.id, req.conversation_id)
+
+    prior_msgs, _ = await conversation_repo.get_messages_page(db, conv.id, None, 20)
+    history = [{"role": m.role, "content": m.content} for m in prior_msgs]
+
+    user_msg = await conversation_repo.add_message(
+        db, conv.id, current_user.id, "user", req.content, 0, 0, {}
+    )
+    await db.flush()
+
+    if not prior_msgs:
+        auto_title = req.content.strip()[:50]
+        await conversation_repo.update_title(db, conv.id, auto_title)
+
+    yield {"type": "meta", "conversation_id": str(conv.id), "user_message_id": str(user_msg.id)}
+
+    system_prompt, prompt_version = build_system_prompt(current_user)
+
+    orch_done: dict | None = None
+
+    try:
+        async for event in orchestrator.run_stream(
+            db=db,
+            user_id=current_user.id,
+            user_message=req.content,
+            system_prompt=system_prompt,
+            history=history,
+            message_id=user_msg.id,
+            all_tools=TOOLS,
+            user_tz=current_user.timezone,
+        ):
+            if event["type"] == "orchestrator_done":
+                orch_done = event
+            else:
+                yield event
+    except Exception as e:
+        log.error("chat.stream.llm_error", error=str(e), user_id=str(current_user.id))
+        await db.rollback()
+        yield {"type": "error", "code": "llm_error", "message": "Dịch vụ AI tạm thời không khả dụng, vui lòng thử lại"}
+        return
+
+    if orch_done is None:
+        await db.rollback()
+        yield {"type": "error", "code": "internal_error", "message": "Lỗi nội bộ"}
+        return
+
+    assistant_msg = await conversation_repo.add_message(
+        db,
+        conv.id,
+        current_user.id,
+        "assistant",
+        orch_done["content"],
+        orch_done["total_tokens_in"],
+        orch_done["total_tokens_out"],
+        {
+            "model": orch_done["model"],
+            "intent": orch_done["route"].intent.value,
+            "llm_calls": orch_done["total_llm_calls"],
+            "prompt_version": prompt_version,
+        },
+    )
+
+    await conversation_repo.increment_message_count(db, conv.id)
+    await conversation_repo.increment_message_count(db, conv.id)
+    await db.commit()
+
+    log.info(
+        "chat.stream.sent",
+        conversation_id=str(conv.id),
+        intent=orch_done["route"].intent.value,
+        model=orch_done["model"],
+        tokens_in=orch_done["total_tokens_in"],
+        tokens_out=orch_done["total_tokens_out"],
+        tool_calls=len(orch_done["tool_results"]),
+    )
+
+    yield {
+        "type": "done",
+        "assistant_message_id": str(assistant_msg.id),
+        "tokens_in": orch_done["total_tokens_in"],
+        "tokens_out": orch_done["total_tokens_out"],
+        "model": orch_done["model"],
+    }
+
+
 async def send_message(
     db: AsyncSession,
     req: ChatSendRequest,
     current_user: User,
 ) -> ChatSendResponse:
-    if req.stream:
-        raise JarvisError(422, "stream_not_supported", "Streaming sẽ được hỗ trợ ở Sprint 3")
 
     conv = await conversation_repo.get_or_create(db, current_user.id, req.conversation_id)
 
