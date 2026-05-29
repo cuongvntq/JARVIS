@@ -1,7 +1,7 @@
 # API Contract — Implemented Endpoints
 
 > Full planned spec (including future endpoints): `docs/02_API_Specification.md`
-> This file covers only what's **currently implemented and working** as of Sprint 2.
+> This file covers what's **currently implemented and working** + what's planned for the active sprint.
 
 Base URL: `http://localhost:8000` (dev)
 Auth: `Authorization: Bearer <access_token>`
@@ -12,11 +12,10 @@ Error format: `{ "error": { "code", "message", "details", "request_id" } }`
 ## Not yet implemented (in docs/02 but not built)
 
 - `POST /auth/google` — Google OAuth (removed from MVP 1 scope)
-- `PATCH /auth/me` — profile update
+- `PATCH /auth/me` — profile update **(Sprint 4 S4-4)**
+- `/v1/memories/*` — **(Sprint 4 S4-2)**
 - `/v1/reminders/*` — Sprint 5
-- `/v1/memories/*` — Sprint 4
 - `/v1/dashboard/*` — Sprint 5
-- `stream: true` in `/v1/chat/send` — Sprint 3 stretch
 - Idempotency-Key header — post-MVP 1
 - Rate limiting (429) — Sprint 5
 
@@ -53,6 +52,10 @@ Errors: `401 invalid_refresh_token`, `403 forbidden` (CSRF origin mismatch)
 ### POST /auth/logout → 204
 ### GET /auth/me → 200 UserOut
 
+### PATCH /auth/me → 200 UserOut *(Sprint 4)*
+Request: `{ "name"?, "timezone"?, "locale"?, "assistant_name"? }`
+Errors: `422 invalid_timezone` (if timezone not a valid IANA string)
+
 **UserOut:** `{ id, email, name, timezone, assistant_name, locale, avatar_url }`
 
 ---
@@ -61,16 +64,25 @@ Errors: `401 invalid_refresh_token`, `403 forbidden` (CSRF origin mismatch)
 
 ### POST /v1/chat/send
 ```json
-{ "conversation_id": "uuid|null", "content": "...(1-4000 chars)", "stream": false }
+{ "conversation_id": "uuid|null", "content": "...(1-4000 chars)", "stream": false|true }
 ```
-Response 200:
+**Non-streaming** (`stream: false`) Response 200:
 ```json
 { "conversation_id": "uuid", "user_message": MessageOut, "assistant_message": MessageOut }
 ```
-**MessageOut:** `{ id, role, content, tokens_in, tokens_out, created_at }`
-Errors: `404 conversation_not_found`, `422 stream_not_supported`, `502 llm_error`
+**Streaming** (`stream: true`) Response 200 `text/event-stream`:
+```
+data: {"type":"meta","conversation_id":"uuid","message_id":"uuid"}\n\n
+data: {"type":"delta","content":"X"}\n\n   (multiple)
+data: {"type":"done","content":"full text","model":"gemini-*","tokens_in":N,"tokens_out":N}\n\n
+```
+Error event: `{"type":"error","code":"llm_error","message":"..."}`
 
-Note: `conversation_id: null` → creates new conversation.
+Note: stream error after `meta` event → backend rolls back DB, `conversation_id` becomes invalid.
+Use `streamSucceeded` flag on FE to guard `onConversationCreated()` call.
+
+**MessageOut:** `{ id, role, content, tokens_in, tokens_out, created_at }`
+Errors: `404 conversation_not_found`, `502 llm_error`
 
 ### GET /v1/chat/conversations?limit=20&cursor=
 Response: `{ "items": [ConversationOut], "next_cursor": "base64|null" }`
@@ -104,9 +116,7 @@ Errors: `400 invalid_status`, `400 invalid_filter`
 ```
 
 ### GET /v1/todos/{id} → 200 TodoOut | 404
-
 ### PUT /v1/todos/{id} → 200 (full replace, title required)
-
 ### PATCH /v1/todos/{id}/complete → 200 (sets status=completed, completed_at=now)
 ### PATCH /v1/todos/{id}/uncomplete → 200 (sets status=pending, completed_at=null)
 ### DELETE /v1/todos/{id} → 204 (soft delete)
@@ -115,7 +125,7 @@ Errors: `400 invalid_status`, `400 invalid_filter`
 
 ---
 
-## Notes (`/v1/notes`) — Sprint 3
+## Notes (`/v1/notes`)
 
 ### GET /v1/notes
 Query: `pinned?` (bool), `q?`, `limit=20`, `cursor?`
@@ -127,17 +137,40 @@ Query: `pinned?` (bool), `q?`, `limit=20`, `cursor?`
 ```
 
 ### GET /v1/notes/{id} → 200 NoteOut | 404
-
 ### PATCH /v1/notes/{id} → 200 (partial update — all fields optional)
 ```json
 { "title"?, "content"?, "tags"?, "pinned"? }
 ```
-
-### PATCH /v1/notes/{id}/pin → 200 (set pinned=true)
-### PATCH /v1/notes/{id}/unpin → 200 (set pinned=false)
+### PATCH /v1/notes/{id}/pin → 200
+### PATCH /v1/notes/{id}/unpin → 200
 ### DELETE /v1/notes/{id} → 204 (soft delete)
 
 **NoteOut:** `{ id, user_id, title, content, tags, pinned, source, created_at, updated_at }`
+
+---
+
+## Memories (`/v1/memories`) — Sprint 4
+
+### GET /v1/memories
+Query: `type?` (fact|preference|rule|relation|goal|other), `limit=20`, `cursor?`
+Response: `{ "items": [MemoryOut], "next_cursor": "base64|null" }`
+
+### POST /v1/memories → 201
+```json
+{ "memory_type": "fact", "content": "(3-500 chars)", "importance": 5 }
+```
+Note: embedding generated async via `asyncio.create_task()` — may be null briefly after create.
+
+### POST /v1/memories/search
+Request: `{ "query": "...", "limit": 5, "min_similarity": 0.7 }`
+Response: `{ "items": [MemoryOut], "count": N }`
+
+### GET /v1/memories/{id} → 200 MemoryOut | 404
+### PATCH /v1/memories/{id} → 200 (partial: content?, importance?, memory_type?)
+### DELETE /v1/memories/{id} → 204 (soft delete: sets is_active=false, deleted_at=now)
+
+**MemoryOut:** `{ id, memory_type, content, importance, is_active, created_at, updated_at }`
+Error codes: `memory_not_found` (404)
 
 ---
 
@@ -151,15 +184,22 @@ Params: `{ filter?: today|upcoming|overdue|completed|all, limit?: 1-50, q?: stri
 
 ### update_todo
 Params: `{ todo_id* (uuid), title?, description?, due_at?, priority?, status?, add_tags?, remove_tags? }`
-- `status: "completed"` → `complete_todo()` (sets completed_at)
-- `status: "pending"` → `uncomplete_todo()` (clears completed_at)
-- `status: "in_progress"|"cancelled"` → direct patch
 
-### create_note — Sprint 3
-Params: `{ title* (1-500), content?, tags?, pinned? }`
+### create_note
+Params: `{ content* (1+), title?, tags?, pinned? }`
 
-### search_notes — Sprint 3
-Params: `{ q?, pinned_only?, limit? (1-50) }`
+### search_notes
+Params: `{ query* (1+), tag?, limit? (1-20) }`
+
+### save_memory *(Sprint 4)*
+Params: `{ memory_type* (enum), content* (3-500), importance? (1-10, default 5) }`
+
+### search_memory *(Sprint 4)*
+Params: `{ query* (1+), memory_type? (enum|null), limit? (1-10), min_similarity? (0-1, default 0.7) }`
+Note: called by orchestrator automatically before each LLM turn (RAG).
+
+### forget_memory *(Sprint 4)*
+Params: `{ memory_id* (uuid) }`
 
 All tool responses: `{ success, data, summary, warnings }` or `{ success: false, error: {code, message}, data: null }`
 
@@ -178,9 +218,10 @@ All tool responses: `{ success, data, summary, warnings }` or `{ success: false,
 | `conversation_not_found` | 404 | Conversation missing or belongs to other user |
 | `todo_not_found` | 404 | Todo missing or belongs to other user |
 | `note_not_found` | 404 | Note missing or belongs to other user |
+| `memory_not_found` | 404 | Memory missing or belongs to other user *(Sprint 4)* |
 | `invalid_status` | 400 | Unknown status query param |
 | `invalid_filter` | 400 | Unknown filter query param |
-| `stream_not_supported` | 422 | stream=true in chat request |
+| `invalid_timezone` | 422 | PATCH /auth/me with invalid IANA timezone *(Sprint 4)* |
 | `llm_error` | 502 | All LLM providers failed |
 | `validation_error` | 422 | Pydantic schema failure |
 
