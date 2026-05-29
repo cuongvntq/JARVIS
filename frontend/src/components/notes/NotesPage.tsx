@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, FileText, Loader2 } from "lucide-react";
 import { useNotes, useCreateNote, useUpdateNote, usePinNote, useDeleteNote } from "@/hooks/useNotes";
 import { useAuthStore } from "@/stores/authStore";
@@ -10,6 +10,9 @@ import type { NoteOut } from "@/lib/types/api";
 
 export default function NotesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Keeps the last known note data so the editor doesn't reset when the
+  // search query filters the selected note out of the visible list.
+  const [selectedNoteData, setSelectedNoteData] = useState<NoteOut | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -23,23 +26,34 @@ export default function NotesPage() {
   const deleteNote = useDeleteNote();
 
   const notes: NoteOut[] = data?.items ?? [];
-  const selectedNote = notes.find((n) => n.id === selectedId) ?? null;
 
-  const editorNote = isCreating ? null : selectedNote;
+  // Update selectedNoteData when the note appears in the current list (e.g. after
+  // a save/invalidation) but do NOT clear it just because the search hides it.
+  useEffect(() => {
+    if (!selectedId) return;
+    const found = notes.find((n) => n.id === selectedId);
+    if (found) setSelectedNoteData(found);
+  }, [notes, selectedId]);
+
+  const editorNote = isCreating ? null : selectedNoteData;
   const showEditor = isCreating || selectedId !== null;
 
   function handleSelectNote(id: string) {
+    const note = notes.find((n) => n.id === id) ?? null;
     setSelectedId(id);
+    setSelectedNoteData(note);
     setIsCreating(false);
   }
 
   function handleNewNote() {
     setSelectedId(null);
+    setSelectedNoteData(null);
     setIsCreating(true);
   }
 
   function handleCloseEditor() {
     setSelectedId(null);
+    setSelectedNoteData(null);
     setIsCreating(false);
   }
 
@@ -53,11 +67,13 @@ export default function NotesPage() {
       });
       setIsCreating(false);
       setSelectedId(created.id);
+      setSelectedNoteData(created);
     } else if (selectedId) {
-      await updateNote.mutateAsync({
+      const updated = await updateNote.mutateAsync({
         id: selectedId,
         data: { title: data.title, content: data.content, tags: data.tags },
       });
+      setSelectedNoteData(updated);
     }
   }
 
@@ -67,7 +83,10 @@ export default function NotesPage() {
 
   function handleDelete(id: string) {
     deleteNote.mutate(id);
-    if (selectedId === id) setSelectedId(null);
+    if (selectedId === id) {
+      setSelectedId(null);
+      setSelectedNoteData(null);
+    }
   }
 
   const isSaving = createNote.isPending || updateNote.isPending;

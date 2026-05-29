@@ -56,7 +56,7 @@ export default function TodoCard({
   return (
     <div
       className={cn(
-        "flex items-start gap-0 rounded-lg overflow-hidden border transition-all duration-150",
+        "group flex items-start gap-0 rounded-lg overflow-hidden border transition-all duration-150",
         isDone ? "opacity-50" : "hover:border-jarvis-accent/30",
       )}
       style={{
