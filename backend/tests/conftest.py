@@ -130,3 +130,43 @@ async def auth_headers(async_client):
     assert resp.status_code == 201, resp.text
     token = resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def mock_llm_stream():
+    """Patch orchestrator.run_stream with a fake async generator (success path)."""
+    _route = RouteResult(
+        intent=Intent.CHITCHAT,
+        model="gemini-mock",
+        confidence=1.0,
+        classify_source="prefilter",
+        effective_tools=[],
+    )
+
+    async def _fake_stream(**kwargs):
+        for char in "Xin chào! Tôi là JARVIS.":
+            yield {"type": "delta", "content": char}
+        yield {
+            "type": "orchestrator_done",
+            "content": "Xin chào! Tôi là JARVIS.",
+            "model": "gemini-mock",
+            "route": _route,
+            "total_tokens_in": 10,
+            "total_tokens_out": 20,
+            "total_llm_calls": 1,
+            "tool_results": [],
+        }
+
+    with patch("app.llm.orchestrator.run_stream", new=_fake_stream):
+        yield
+
+
+@pytest.fixture
+def mock_llm_stream_error():
+    """Patch orchestrator.run_stream to raise RuntimeError after yielding one delta."""
+    async def _fake_stream_error(**kwargs):
+        yield {"type": "delta", "content": "Partial"}
+        raise RuntimeError("LLM timeout")
+
+    with patch("app.llm.orchestrator.run_stream", new=_fake_stream_error):
+        yield

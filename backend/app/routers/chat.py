@@ -36,6 +36,7 @@ async def send_message(
                     yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
             except Exception:
                 log.exception("chat.stream.unexpected_error")
+                await db.rollback()
                 yield f"data: {json.dumps({'type': 'error', 'code': 'internal_error', 'message': 'Lỗi không mong đợi'})}\n\n"
 
         return StreamingResponse(

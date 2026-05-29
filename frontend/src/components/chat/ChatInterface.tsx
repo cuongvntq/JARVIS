@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Bot, Loader2 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
-import MessageBubble, { type Message } from "./MessageBubble";
-import ChatInput from "./ChatInput";
 import { useConversationDetail } from "@/hooks/useConversations";
 import { api } from "@/lib/api";
 import { ApiException } from "@/lib/types/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { Bot, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import ChatInput from "./ChatInput";
+import MessageBubble, { type Message } from "./MessageBubble";
 
 const WELCOME: Message = {
   id: "welcome",
@@ -90,15 +90,29 @@ export default function ChatInterface({
 
     // Track new conversation id from meta event; only passed to parent after stream ends
     let newConvId: string | null = null;
+    // Only call onConversationCreated if stream completed successfully (done event received).
+    // If stream errors after meta, backend rolls back → conv_id no longer exists in DB.
+    let streamSucceeded = false;
 
     setMessages((prev) => [
       ...prev,
       { id: tempUserId, role: "user", content, timestamp: new Date() },
-      { id: tempAssistantId, role: "assistant", content: "", timestamp: new Date(), streaming: true, toolStatus: null },
+      {
+        id: tempAssistantId,
+        role: "assistant",
+        content: "",
+        timestamp: new Date(),
+        streaming: true,
+        toolStatus: null,
+      },
     ]);
 
     try {
-      for await (const event of api.sendMessageStream({ content, conversation_id: conversationId, stream: true })) {
+      for await (const event of api.sendMessageStream({
+        content,
+        conversation_id: conversationId,
+        stream: true,
+      })) {
         switch (event.type) {
           case "meta":
             // Save new conv id but do NOT call onConversationCreated yet —
@@ -107,40 +121,33 @@ export default function ChatInterface({
               newConvId = event.conversation_id;
             }
             setMessages((prev) =>
-              prev.map((m) =>
-                m.id === tempUserId ? { ...m, id: event.user_message_id } : m,
-              ),
+              prev.map((m) => (m.id === tempUserId ? { ...m, id: event.user_message_id } : m)),
             );
             break;
 
           case "tool_start":
             setMessages((prev) =>
-              prev.map((m) =>
-                m.id === tempAssistantId ? { ...m, toolStatus: event.label } : m,
-              ),
+              prev.map((m) => (m.id === tempAssistantId ? { ...m, toolStatus: event.label } : m)),
             );
             break;
 
           case "tool_done":
             setMessages((prev) =>
-              prev.map((m) =>
-                m.id === tempAssistantId ? { ...m, toolStatus: null } : m,
-              ),
+              prev.map((m) => (m.id === tempAssistantId ? { ...m, toolStatus: null } : m)),
             );
             break;
 
           case "delta":
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === tempAssistantId
-                  ? { ...m, content: m.content + event.content }
-                  : m,
+                m.id === tempAssistantId ? { ...m, content: m.content + event.content } : m,
               ),
             );
             bottomRef.current?.scrollIntoView({ behavior: "smooth" });
             break;
 
           case "done":
+            streamSucceeded = true;
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === tempAssistantId
@@ -179,8 +186,9 @@ export default function ChatInterface({
       );
     } finally {
       setIsStreaming(false);
-      // Notify parent only after stream ends — prevents mid-stream setMessages([]) reset
-      if (newConvId) {
+      // Notify parent only after stream ends AND stream succeeded — prevents navigating to
+      // a rolled-back conversation_id when LLM errors after meta event
+      if (newConvId && streamSucceeded) {
         justCreatedConvIdRef.current = newConvId;
         skipNextHistoryLoadRef.current = true;
         queryClient.invalidateQueries({ queryKey: ["conversations"] });
@@ -220,7 +228,10 @@ export default function ChatInterface({
           >
             J.A.R.V.I.S
           </h2>
-          <p className="text-[10px] tracking-[0.15em] flex items-center gap-1.5" style={{ color: "#00e676" }}>
+          <p
+            className="text-[10px] tracking-[0.15em] flex items-center gap-1.5"
+            style={{ color: "#00e676" }}
+          >
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-jarvis-success status-online" />
             READY
           </p>
@@ -230,16 +241,20 @@ export default function ChatInterface({
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-5">
         {showHistorySpinner ? (
-          <div className="flex items-center justify-center h-full gap-2" style={{ color: "#5e8a9e" }}>
+          <div
+            className="flex items-center justify-center h-full gap-2"
+            style={{ color: "#5e8a9e" }}
+          >
             <Loader2 size={16} className="animate-spin" />
-            <span className="text-xs tracking-widest" style={{ fontFamily: "var(--font-orbitron)" }}>
+            <span
+              className="text-xs tracking-widest"
+              style={{ fontFamily: "var(--font-orbitron)" }}
+            >
               LOADING
             </span>
           </div>
         ) : (
-          messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
-          ))
+          messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)
         )}
 
         <div ref={bottomRef} />
