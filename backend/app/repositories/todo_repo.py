@@ -1,11 +1,12 @@
 """Todo repository — DB queries only."""
 
 import base64
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.todo import Todo
@@ -81,20 +82,37 @@ async def list_todos(
 
     if cursor:
         try:
-            cursor_str = base64.b64decode(cursor).decode()
-            cursor_dt = datetime.fromisoformat(cursor_str)
-            query = query.where(Todo.created_at < cursor_dt)
+            raw = base64.b64decode(cursor).decode()
+            cursor_data = json.loads(raw)
+            cursor_dt = datetime.fromisoformat(cursor_data["created_at"])
+            cursor_id: uuid.UUID | None = (
+                uuid.UUID(cursor_data["id"]) if cursor_data.get("id") else None
+            )
+            # Composite cursor: (created_at DESC, id DESC)
+            same_ts = Todo.created_at == cursor_dt
+            id_tiebreak = (
+                and_(same_ts, Todo.id < cursor_id) if cursor_id is not None else None
+            )
+            conditions = [Todo.created_at < cursor_dt]
+            if id_tiebreak is not None:
+                conditions.append(id_tiebreak)
+            query = query.where(or_(*conditions))
         except Exception:
             pass
 
-    query = query.order_by(Todo.created_at.desc()).limit(limit + 1)
+    # id desc as tie-breaker so rows with identical created_at are stable across pages
+    query = query.order_by(Todo.created_at.desc(), Todo.id.desc()).limit(limit + 1)
     result = await db.execute(query)
     rows = list(result.scalars())
 
     next_cursor = None
     if len(rows) > limit:
         rows = rows[:limit]
-        next_cursor = base64.b64encode(rows[-1].created_at.isoformat().encode()).decode()
+        last = rows[-1]
+        cursor_payload = json.dumps(
+            {"created_at": last.created_at.isoformat(), "id": str(last.id)}
+        )
+        next_cursor = base64.b64encode(cursor_payload.encode()).decode()
 
     return rows, next_cursor
 

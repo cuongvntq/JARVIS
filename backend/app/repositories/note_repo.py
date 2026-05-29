@@ -47,20 +47,29 @@ async def list_notes(
             cursor_data = json.loads(base64.b64decode(cursor).decode())
             cursor_pinned: bool = cursor_data["pinned"]
             cursor_dt = datetime.fromisoformat(cursor_data["created_at"])
-            # Composite cursor matching pinned DESC, created_at DESC ordering:
-            # next page starts after (cursor_pinned, cursor_dt) — either pinned is lower
-            # (False < True when going DESC) or same pinned group with older created_at.
-            query = query.where(
-                or_(
-                    Note.pinned < cursor_pinned,
-                    and_(Note.pinned == cursor_pinned, Note.created_at < cursor_dt),
-                )
+            cursor_id: uuid.UUID | None = (
+                uuid.UUID(cursor_data["id"]) if cursor_data.get("id") else None
             )
+            # Composite cursor: (pinned DESC, created_at DESC, id DESC)
+            # Move past the last seen row using strict ordering conditions.
+            same_ts = and_(Note.pinned == cursor_pinned, Note.created_at == cursor_dt)
+            id_tiebreak = (
+                and_(same_ts, Note.id < cursor_id) if cursor_id is not None else None
+            )
+            conditions = [
+                Note.pinned < cursor_pinned,
+                and_(Note.pinned == cursor_pinned, Note.created_at < cursor_dt),
+            ]
+            if id_tiebreak is not None:
+                conditions.append(id_tiebreak)
+            query = query.where(or_(*conditions))
         except Exception:
             pass
 
-    # Pinned notes first, then by created_at desc
-    query = query.order_by(Note.pinned.desc(), Note.created_at.desc()).limit(limit + 1)
+    # Pinned notes first, then by created_at desc, then id desc as tie-breaker
+    query = query.order_by(
+        Note.pinned.desc(), Note.created_at.desc(), Note.id.desc()
+    ).limit(limit + 1)
     result = await db.execute(query)
     rows = list(result.scalars())
 
@@ -69,7 +78,11 @@ async def list_notes(
         rows = rows[:limit]
         last = rows[-1]
         cursor_payload = json.dumps(
-            {"pinned": last.pinned, "created_at": last.created_at.isoformat()}
+            {
+                "pinned": last.pinned,
+                "created_at": last.created_at.isoformat(),
+                "id": str(last.id),
+            }
         )
         next_cursor = base64.b64encode(cursor_payload.encode()).decode()
 

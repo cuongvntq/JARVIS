@@ -4,6 +4,14 @@ import {
   type ChatSendResponse,
   type ConversationDetailOut,
   type ConversationListResponse,
+  type NoteCreate,
+  type NoteListOut,
+  type NoteOut,
+  type NoteUpdate,
+  type TodoCreate,
+  type TodoFilter,
+  type TodoListOut,
+  type TodoOut,
   type TokenResponse,
   type UserOut,
 } from "@/lib/types/api";
@@ -109,6 +117,76 @@ class ApiClient {
 
   async getConversation(id: string, limit = 50): Promise<ConversationDetailOut> {
     return this.request(`/v1/chat/conversations/${id}?limit=${limit}`);
+  }
+
+  // ── Todo ───────────────────────────────────────────────────────────────────
+
+  async listTodos(params?: {
+    filter?: TodoFilter;
+    status?: string;
+    q?: string;
+    limit?: number;
+    cursor?: string;
+  }): Promise<TodoListOut> {
+    const p = new URLSearchParams();
+    if (params?.filter) p.set("filter", params.filter);
+    if (params?.status) p.set("status", params.status);
+    if (params?.q) p.set("q", params.q);
+    if (params?.limit) p.set("limit", String(params.limit));
+    if (params?.cursor) p.set("cursor", params.cursor);
+    return this.request(`/v1/todos?${p}`);
+  }
+
+  async createTodo(data: TodoCreate): Promise<TodoOut> {
+    return this.request("/v1/todos", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  async completeTodo(id: string): Promise<TodoOut> {
+    return this.request(`/v1/todos/${id}/complete`, { method: "PATCH" });
+  }
+
+  async uncompleteTodo(id: string): Promise<TodoOut> {
+    return this.request(`/v1/todos/${id}/uncomplete`, { method: "PATCH" });
+  }
+
+  async deleteTodo(id: string): Promise<void> {
+    return this.request(`/v1/todos/${id}`, { method: "DELETE" });
+  }
+
+  // ── Note ───────────────────────────────────────────────────────────────────
+
+  async listNotes(params?: {
+    pinned?: boolean;
+    q?: string;
+    limit?: number;
+    cursor?: string;
+  }): Promise<NoteListOut> {
+    const p = new URLSearchParams();
+    if (params?.pinned !== undefined) p.set("pinned", String(params.pinned));
+    if (params?.q) p.set("q", params.q);
+    if (params?.limit) p.set("limit", String(params.limit));
+    if (params?.cursor) p.set("cursor", params.cursor);
+    return this.request(`/v1/notes?${p}`);
+  }
+
+  async createNote(data: NoteCreate): Promise<NoteOut> {
+    return this.request("/v1/notes", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  async updateNote(id: string, data: NoteUpdate): Promise<NoteOut> {
+    return this.request(`/v1/notes/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+  }
+
+  async pinNote(id: string): Promise<NoteOut> {
+    return this.request(`/v1/notes/${id}/pin`, { method: "PATCH" });
+  }
+
+  async unpinNote(id: string): Promise<NoteOut> {
+    return this.request(`/v1/notes/${id}/unpin`, { method: "PATCH" });
+  }
+
+  async deleteNote(id: string): Promise<void> {
+    return this.request(`/v1/notes/${id}`, { method: "DELETE" });
   }
 }
 

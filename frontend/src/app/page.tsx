@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Sidebar, { type Section } from "@/components/layout/Sidebar";
 import ChatInterface from "@/components/chat/ChatInterface";
+import TodoPage from "@/components/todos/TodoPage";
+import NotesPage from "@/components/notes/NotesPage";
 
 function ComingSoon({ name }: { name: string }) {
   return (
@@ -22,7 +24,7 @@ function ComingSoon({ name }: { name: string }) {
           style={{ background: "rgba(0, 180, 216, 0.2)" }}
         />
         <p className="text-sm" style={{ color: "#5e8a9e" }}>
-          Sprint 1+ — đang phát triển
+          Đang phát triển...
         </p>
       </div>
     </div>
@@ -51,12 +53,15 @@ export default function HomePage() {
         className="flex-1 flex flex-col min-w-0 overflow-hidden"
         style={{ backgroundColor: "#0b1929" }}
       >
-        {section === "chat" ? (
+        {section === "chat" && (
           <ChatInterface
             conversationId={conversationId}
             onConversationCreated={(id) => setConversationId(id)}
           />
-        ) : (
+        )}
+        {section === "todo" && <TodoPage />}
+        {section === "notes" && <NotesPage />}
+        {section !== "chat" && section !== "todo" && section !== "notes" && (
           <ComingSoon name={section} />
         )}
       </main>
