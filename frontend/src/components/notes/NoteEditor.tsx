@@ -20,11 +20,15 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
   const [content, setContent] = useState("");
   const [tagsInput, setTagsInput] = useState("");
 
+  // Re-initialize only when the selected note id changes, not on every
+  // refetch of the same note — this preserves unsaved drafts across
+  // React Query invalidations (focus, chat mutation, pin/delete another note).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional dep on id only
   useEffect(() => {
     setTitle(note?.title ?? "");
     setContent(note?.content ?? "");
     setTagsInput(note?.tags.join(", ") ?? "");
-  }, [note]);
+  }, [note?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isDirty =
     title !== (note?.title ?? "") ||
