@@ -77,3 +77,72 @@ export class ApiException extends Error {
     this.name = "ApiException";
   }
 }
+
+// ── Todo ─────────────────────────────────────────────────────────────────────
+
+export type TodoStatus = "pending" | "in_progress" | "completed" | "cancelled";
+export type TodoPriority = "low" | "medium" | "high" | "urgent";
+export type TodoFilter = "today" | "upcoming" | "overdue" | "completed" | "all";
+
+export interface TodoOut {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  status: TodoStatus;
+  priority: TodoPriority;
+  due_at: string | null;
+  completed_at: string | null;
+  tags: string[];
+  source: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TodoCreate {
+  title: string;
+  description?: string | null;
+  priority?: TodoPriority;
+  due_at?: string | null;
+  tags?: string[];
+  source?: "ui" | "chat";
+}
+
+export interface TodoListOut {
+  items: TodoOut[];
+  next_cursor: string | null;
+}
+
+// ── Note ─────────────────────────────────────────────────────────────────────
+
+export interface NoteOut {
+  id: string;
+  user_id: string;
+  title: string;
+  content: string;
+  tags: string[];
+  pinned: boolean;
+  source: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NoteCreate {
+  title: string;
+  content?: string;
+  tags?: string[];
+  pinned?: boolean;
+  source?: "ui" | "chat";
+}
+
+export interface NoteUpdate {
+  title?: string | null;
+  content?: string | null;
+  tags?: string[] | null;
+  pinned?: boolean | null;
+}
+
+export interface NoteListOut {
+  items: NoteOut[];
+  next_cursor: string | null;
+}

@@ -13,6 +13,9 @@ export function useSendMessage() {
       if (convId) {
         queryClient.invalidateQueries({ queryKey: ["conversation", convId] });
       }
+      // AI may have called create_todo / create_note tools — keep lists in sync
+      queryClient.invalidateQueries({ queryKey: ["todos"] });
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
     },
   });
 }
