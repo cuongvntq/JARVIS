@@ -111,15 +111,23 @@ class ApiClient {
   }
 
   async *sendMessageStream(data: ChatSendRequest): AsyncGenerator<SSEEvent> {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (_accessToken) headers.Authorization = `Bearer ${_accessToken}`;
+    const doFetch = async (retry: boolean): Promise<Response> => {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (_accessToken) headers.Authorization = `Bearer ${_accessToken}`;
+      const res = await fetch(`${BASE_URL}/v1/chat/send`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ ...data, stream: true }),
+      });
+      if (res.status === 401 && retry) {
+        const refreshed = await this.silentRefresh();
+        if (refreshed) return doFetch(false);
+      }
+      return res;
+    };
 
-    const res = await fetch(`${BASE_URL}/v1/chat/send`, {
-      method: "POST",
-      headers,
-      credentials: "include",
-      body: JSON.stringify({ ...data, stream: true }),
-    });
+    const res = await doFetch(true);
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({
@@ -128,7 +136,16 @@ class ApiClient {
       throw new ApiException(res.status, body.error);
     }
 
-    const reader = res.body!.getReader();
+    if (!res.body) {
+      throw new ApiException(500, {
+        code: "stream_error",
+        message: "Response body is null",
+        details: {},
+        request_id: "",
+      });
+    }
+
+    const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
 

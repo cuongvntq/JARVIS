@@ -32,7 +32,10 @@ export default function ChatInterface({
   const bottomRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
-  // Load conversation history when conversationId changes
+  // Guards to prevent message wipe / spinner when conversation is freshly created mid-stream
+  const justCreatedConvIdRef = useRef<string | null>(null);
+  const skipNextHistoryLoadRef = useRef(false);
+
   const { data: convDetail, isLoading: isLoadingHistory } = useConversationDetail(conversationId);
 
   const prevConvId = useRef<string | null>(null);
@@ -44,11 +47,21 @@ export default function ChatInterface({
       setMessages([WELCOME]);
       return;
     }
+    // Skip reset when this is the conversation we just created during streaming
+    if (conversationId === justCreatedConvIdRef.current) {
+      justCreatedConvIdRef.current = null;
+      return;
+    }
     setMessages([]);
   }, [conversationId]);
 
   useEffect(() => {
     if (!convDetail || convDetail.id !== conversationId) return;
+    // Skip history load for just-created conversations — streaming messages are already in state
+    if (skipNextHistoryLoadRef.current) {
+      skipNextHistoryLoadRef.current = false;
+      return;
+    }
     setMessages(
       convDetail.messages.map((m) => ({
         id: m.id,
@@ -75,6 +88,9 @@ export default function ChatInterface({
     const tempUserId = `temp-user-${crypto.randomUUID()}`;
     const tempAssistantId = `temp-assistant-${crypto.randomUUID()}`;
 
+    // Track new conversation id from meta event; only passed to parent after stream ends
+    let newConvId: string | null = null;
+
     setMessages((prev) => [
       ...prev,
       { id: tempUserId, role: "user", content, timestamp: new Date() },
@@ -85,8 +101,10 @@ export default function ChatInterface({
       for await (const event of api.sendMessageStream({ content, conversation_id: conversationId, stream: true })) {
         switch (event.type) {
           case "meta":
+            // Save new conv id but do NOT call onConversationCreated yet —
+            // doing so would change the prop and trigger setMessages([]) mid-stream
             if (!conversationId) {
-              onConversationCreated(event.conversation_id);
+              newConvId = event.conversation_id;
             }
             setMessages((prev) =>
               prev.map((m) =>
@@ -130,7 +148,6 @@ export default function ChatInterface({
                   : m,
               ),
             );
-            queryClient.invalidateQueries({ queryKey: ["conversations"] });
             queryClient.invalidateQueries({ queryKey: ["todos"] });
             queryClient.invalidateQueries({ queryKey: ["notes"] });
             break;
@@ -162,8 +179,21 @@ export default function ChatInterface({
       );
     } finally {
       setIsStreaming(false);
+      // Notify parent only after stream ends — prevents mid-stream setMessages([]) reset
+      if (newConvId) {
+        justCreatedConvIdRef.current = newConvId;
+        skipNextHistoryLoadRef.current = true;
+        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        onConversationCreated(newConvId);
+      } else {
+        // Existing conversation — just refresh the sidebar
+        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      }
     }
   }
+
+  // Suppress loading spinner for just-created conversations (messages already in state)
+  const showHistorySpinner = isLoadingHistory && !skipNextHistoryLoadRef.current;
 
   return (
     <div className="flex flex-col h-full">
@@ -199,7 +229,7 @@ export default function ChatInterface({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-5">
-        {isLoadingHistory ? (
+        {showHistorySpinner ? (
           <div className="flex items-center justify-center h-full gap-2" style={{ color: "#5e8a9e" }}>
             <Loader2 size={16} className="animate-spin" />
             <span className="text-xs tracking-widest" style={{ fontFamily: "var(--font-orbitron)" }}>
