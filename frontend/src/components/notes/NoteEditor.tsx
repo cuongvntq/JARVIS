@@ -8,7 +8,7 @@ import type { NoteOut } from "@/lib/types/api";
 interface NoteEditorProps {
   note: NoteOut | null;
   isSaving: boolean;
-  onSave: (data: { title: string; content: string; tags: string[] }) => void;
+  onSave: (data: { title: string; content: string; tags: string[] }) => Promise<void>;
   onClose: () => void;
 }
 
@@ -35,12 +35,18 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
     content !== (note?.content ?? "") ||
     tagsInput !== (note?.tags.join(", ") ?? "");
 
-  function handleSave() {
+  async function handleSave() {
     if (!title.trim()) return;
+    const normalizedTitle = title.trim();
     const tags = tagsInput
       ? tagsInput.split(",").map((t) => t.trim()).filter(Boolean)
       : [];
-    onSave({ title: title.trim(), content, tags });
+    await onSave({ title: normalizedTitle, content, tags });
+    // Sync normalized values back so isDirty is accurate after save —
+    // without this, raw input (" hello", "a,b") stays in local state while
+    // the server stores the trimmed form, keeping the Save button visible.
+    setTitle(normalizedTitle);
+    setTagsInput(tags.join(", "));
   }
 
   return (
