@@ -150,31 +150,19 @@ export default function NotesPage() {
               Không tải được. Thử lại.
             </p>
           ) : (
-            <>
-              <NoteList
-                notes={notes}
-                selectedId={showEditor && !isCreating ? selectedId : null}
-                timezone={timezone}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                onSelect={handleSelectNote}
-                onPin={handlePin}
-                onDelete={handleDelete}
-              />
-              {hasNextPage && (
-                <div className="px-3 pb-3 flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => fetchNextPage()}
-                    disabled={isFetchingNextPage}
-                    className="w-full py-1.5 rounded-lg border text-[10px] tracking-[0.1em] transition-colors hover:border-jarvis-accent/30 hover:text-jarvis-accent disabled:opacity-50"
-                    style={{ color: "#5e8a9e", borderColor: "rgba(94,138,158,0.2)" }}
-                  >
-                    {isFetchingNextPage ? "Đang tải..." : "Tải thêm"}
-                  </button>
-                </div>
-              )}
-            </>
+            <NoteList
+              notes={notes}
+              selectedId={showEditor && !isCreating ? selectedId : null}
+              timezone={timezone}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onSelect={handleSelectNote}
+              onPin={handlePin}
+              onDelete={handleDelete}
+              hasNextPage={hasNextPage}
+              onLoadMore={() => fetchNextPage()}
+              isLoadingMore={isFetchingNextPage}
+            />
           )}
         </div>
 

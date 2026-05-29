@@ -14,6 +14,9 @@ interface NoteListProps {
   onSelect: (id: string) => void;
   onPin: (id: string, pinned: boolean) => void;
   onDelete: (id: string) => void;
+  hasNextPage?: boolean;
+  onLoadMore?: () => void;
+  isLoadingMore?: boolean;
 }
 
 function NoteItem({
@@ -113,6 +116,9 @@ export default function NoteList({
   onSelect,
   onPin,
   onDelete,
+  hasNextPage,
+  onLoadMore,
+  isLoadingMore,
 }: NoteListProps) {
   const pinned = notes.filter((n) => n.pinned);
   const unpinned = notes.filter((n) => !n.pinned);
@@ -204,6 +210,20 @@ export default function NoteList({
               </>
             )}
           </>
+        )}
+
+        {hasNextPage && (
+          <div className="pt-2 pb-1">
+            <button
+              type="button"
+              onClick={onLoadMore}
+              disabled={isLoadingMore}
+              className="w-full py-1.5 rounded-lg border text-[10px] tracking-[0.1em] transition-colors hover:border-jarvis-accent/30 hover:text-jarvis-accent disabled:opacity-50"
+              style={{ color: "#5e8a9e", borderColor: "rgba(94,138,158,0.2)" }}
+            >
+              {isLoadingMore ? "Đang tải..." : "Tải thêm"}
+            </button>
+          </div>
         )}
       </div>
     </div>
