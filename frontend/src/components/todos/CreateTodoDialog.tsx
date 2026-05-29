@@ -87,7 +87,7 @@ export default function CreateTodoDialog({ open, onClose }: CreateTodoDialogProp
           borderColor: "rgba(0,180,216,0.25)",
         }}
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => { if (e.key === "Escape") onClose(); else e.stopPropagation(); }}
       >
         {/* Header */}
         <div
