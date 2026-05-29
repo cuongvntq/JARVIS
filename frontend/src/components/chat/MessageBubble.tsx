@@ -6,6 +6,8 @@ export interface Message {
   content: string;
   model?: string;
   timestamp: Date;
+  streaming?: boolean;
+  toolStatus?: string | null;
 }
 
 function formatTime(date: Date): string {
@@ -53,6 +55,10 @@ export default function MessageBubble({ message }: { message: Message }) {
     );
   }
 
+  const showDots = message.streaming && !message.content && !message.toolStatus;
+  const showToolOnly = message.streaming && !message.content && !!message.toolStatus;
+  const showContent = !!message.content;
+
   return (
     <div className="flex items-start gap-2.5 mb-5 msg-appear">
       <div
@@ -75,7 +81,36 @@ export default function MessageBubble({ message }: { message: Message }) {
             color: "#dff3fd",
           }}
         >
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          {showDots && (
+            <div className="flex items-center gap-1">
+              <span className="dot-1 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
+              <span className="dot-2 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
+              <span className="dot-3 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
+            </div>
+          )}
+          {showToolOnly && (
+            <p className="text-[11px] tracking-wide animate-pulse" style={{ color: "#5e8a9e" }}>
+              {message.toolStatus}
+            </p>
+          )}
+          {showContent && (
+            <>
+              <p className="whitespace-pre-wrap">
+                {message.content}
+                {message.streaming && (
+                  <span
+                    className="inline-block w-[2px] h-[14px] ml-0.5 -mb-0.5 animate-pulse"
+                    style={{ backgroundColor: "#00b4d8" }}
+                  />
+                )}
+              </p>
+              {message.streaming && message.toolStatus && (
+                <p className="text-[10px] mt-1.5 tracking-wide animate-pulse" style={{ color: "#5e8a9e" }}>
+                  {message.toolStatus}
+                </p>
+              )}
+            </>
+          )}
         </div>
         <div className="flex items-center gap-2 mt-1 pl-1">
           <p
