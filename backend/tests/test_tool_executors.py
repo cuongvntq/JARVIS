@@ -80,6 +80,18 @@ async def test_save_memory_invalid_importance(db_session):
     assert result["error"]["code"] == "invalid_importance"
 
 
+@pytest.mark.asyncio
+async def test_save_memory_non_numeric_importance(db_session):
+    """LLM sends importance as string 'high' — must return friendly error, not crash."""
+    result = await execute_save_memory(
+        db=db_session,
+        user_id=uuid.uuid4(),
+        params={"content": "valid content here", "memory_type": "fact", "importance": "high"},
+    )
+    assert result["success"] is False
+    assert result["error"]["code"] == "invalid_importance"
+
+
 # ── execute_search_memory ──────────────────────────────────────────────────────
 
 
@@ -128,6 +140,18 @@ async def test_search_memory_null_memory_type_treated_as_all(db_session):
         params={"query": "test", "memory_type": None},
     )
     assert result["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_search_memory_non_numeric_limit(db_session):
+    """LLM sends limit as string 'many' — must return friendly error, not crash."""
+    result = await execute_search_memory(
+        db=db_session,
+        user_id=uuid.uuid4(),
+        params={"query": "test", "limit": "many"},
+    )
+    assert result["success"] is False
+    assert result["error"]["code"] == "invalid_params"
 
 
 # ── execute_forget_memory ──────────────────────────────────────────────────────

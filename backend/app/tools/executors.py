@@ -234,7 +234,10 @@ async def execute_save_memory(
     if memory_type not in valid_types:
         return _err("invalid_memory_type", f"memory_type phải là một trong: {', '.join(valid_types)}.")
 
-    importance = int(params.get("importance", 5))
+    try:
+        importance = int(params.get("importance", 5))
+    except (TypeError, ValueError):
+        return _err("invalid_importance", "importance phải là số nguyên từ 1 đến 10.")
     if not (1 <= importance <= 10):
         return _err("invalid_importance", "importance phải từ 1 đến 10.")
 
@@ -255,9 +258,11 @@ async def execute_search_memory(
     if not query:
         return _err("missing_query", "query là bắt buộc.")
 
-    limit = min(int(params.get("limit", 5)), 10)
-    min_similarity = float(params.get("min_similarity", 0.7))
-    min_similarity = max(0.0, min(1.0, min_similarity))
+    try:
+        limit = min(int(params.get("limit", 5)), 10)
+        min_similarity = max(0.0, min(1.0, float(params.get("min_similarity", 0.7))))
+    except (TypeError, ValueError):
+        return _err("invalid_params", "limit phải là số nguyên, min_similarity phải là số thực 0-1.")
     memory_type = params.get("memory_type") or None
 
     memories = await memory_service.search_semantic(db, user_id, query, limit, min_similarity, memory_type)
