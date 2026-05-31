@@ -259,10 +259,12 @@ async def execute_search_memory(
         return _err("missing_query", "query là bắt buộc.")
 
     try:
-        limit = min(int(params.get("limit", 5)), 10)
+        limit = int(params.get("limit", 5))
         min_similarity = max(0.0, min(1.0, float(params.get("min_similarity", 0.7))))
     except (TypeError, ValueError):
         return _err("invalid_params", "limit phải là số nguyên, min_similarity phải là số thực 0-1.")
+    if not (1 <= limit <= 10):
+        return _err("invalid_params", "limit phải là số nguyên từ 1 đến 10.")
     memory_type = params.get("memory_type") or None
 
     memories = await memory_service.search_semantic(db, user_id, query, limit, min_similarity, memory_type)

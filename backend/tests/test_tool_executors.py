@@ -154,6 +154,29 @@ async def test_search_memory_non_numeric_limit(db_session):
     assert result["error"]["code"] == "invalid_params"
 
 
+@pytest.mark.asyncio
+async def test_search_memory_negative_limit(db_session):
+    """limit=-1 must be rejected before reaching semantic search."""
+    result = await execute_search_memory(
+        db=db_session,
+        user_id=uuid.uuid4(),
+        params={"query": "test", "limit": -1},
+    )
+    assert result["success"] is False
+    assert result["error"]["code"] == "invalid_params"
+
+
+@pytest.mark.asyncio
+async def test_search_memory_zero_limit(db_session):
+    result = await execute_search_memory(
+        db=db_session,
+        user_id=uuid.uuid4(),
+        params={"query": "test", "limit": 0},
+    )
+    assert result["success"] is False
+    assert result["error"]["code"] == "invalid_params"
+
+
 # ── execute_forget_memory ──────────────────────────────────────────────────────
 
 
