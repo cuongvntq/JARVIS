@@ -31,12 +31,18 @@ async def _build_prompt_with_rag(
     user: User,
     content: str,
 ) -> tuple[str, str]:
-    """Fetch top-5 relevant memories then build system prompt. Shared by send_message and stream_message."""
-    relevant_memories = await memory_service.search_semantic(
-        db, user.id, content, limit=5, min_similarity=0.7
-    )
-    memories_dict = [m.model_dump() for m in relevant_memories]
-    return build_system_prompt(user, memories=memories_dict or None)
+    """Fetch top-5 relevant memories then build system prompt. Shared by send_message and stream_message.
+    RAG failure is non-fatal — falls back to prompt without memories so chat is never blocked.
+    """
+    try:
+        relevant_memories = await memory_service.search_semantic(
+            db, user.id, content, limit=5, min_similarity=0.7
+        )
+        memories_dict = [m.model_dump() for m in relevant_memories] or None
+    except Exception:
+        log.warning("chat.rag_failed", user_id=str(user.id))
+        memories_dict = None
+    return build_system_prompt(user, memories=memories_dict)
 
 
 async def stream_message(

@@ -258,8 +258,9 @@ async def execute_search_memory(
     limit = min(int(params.get("limit", 5)), 10)
     min_similarity = float(params.get("min_similarity", 0.7))
     min_similarity = max(0.0, min(1.0, min_similarity))
+    memory_type = params.get("memory_type") or None
 
-    memories = await memory_service.search_semantic(db, user_id, query, limit, min_similarity)
+    memories = await memory_service.search_semantic(db, user_id, query, limit, min_similarity, memory_type)
     return _ok(
         {"memories": [m.model_dump(mode="json") for m in memories], "count": len(memories)},
         f"Tìm thấy {len(memories)} memory liên quan đến '{query}'.",
