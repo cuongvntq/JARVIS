@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 import sqlalchemy as sa
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Uuid, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -32,7 +32,10 @@ class Memory(Base):
         server_default="fact",
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    # vector(1536) in Postgres via migration DDL; sa.JSON for SQLite test compatibility
+    # Intentionally sa.JSON (not pgvector.Vector) for SQLite test compat.
+    # Postgres column is vector(1536) via migration DDL.
+    # NEVER assign embedding via ORM (SQLAlchemy binds as JSON, breaks Postgres).
+    # All writes MUST go through memory_repo.update_embedding() which uses raw SQL + ::vector cast.
     embedding: Mapped[list | None] = mapped_column(sa.JSON, nullable=True)
     importance: Mapped[int] = mapped_column(Integer, nullable=False, default=5, server_default="5")
     is_active: Mapped[bool] = mapped_column(
