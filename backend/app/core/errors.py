@@ -46,6 +46,18 @@ async def jarvis_exception_handler(request: Request, exc: JarvisError) -> JSONRe
     )
 
 
+def _sanitize_validation_errors(errors: list) -> list:
+    """Pydantic v2 model_validator raises put the Exception instance in ctx.error —
+    not JSON-serializable. Convert to string so JSONResponse doesn't blow up."""
+    sanitized = []
+    for err in errors:
+        clean = {k: v for k, v in err.items() if k != "url"}
+        if "ctx" in clean and isinstance(clean["ctx"].get("error"), Exception):
+            clean = {**clean, "ctx": {"error": str(clean["ctx"]["error"])}}
+        sanitized.append(clean)
+    return sanitized
+
+
 async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
@@ -56,7 +68,7 @@ async def validation_exception_handler(
             "error": {
                 "code": "validation_error",
                 "message": "Dữ liệu đầu vào không hợp lệ",
-                "details": {"errors": exc.errors()},
+                "details": {"errors": _sanitize_validation_errors(exc.errors())},
                 "request_id": request_id,
             }
         },
