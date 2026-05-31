@@ -147,6 +147,15 @@ export interface NoteListOut {
   next_cursor: string | null;
 }
 
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+export interface UserUpdateRequest {
+  name?: string | null;
+  timezone?: string | null;
+  assistant_name?: string | null;
+  locale?: string | null;
+}
+
 // ── SSE streaming events ──────────────────────────────────────────────────────
 
 export type SSEEvent =

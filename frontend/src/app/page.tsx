@@ -5,6 +5,7 @@ import Sidebar, { type Section } from "@/components/layout/Sidebar";
 import ChatInterface from "@/components/chat/ChatInterface";
 import TodoPage from "@/components/todos/TodoPage";
 import NotesPage from "@/components/notes/NotesPage";
+import SettingsPage from "@/components/settings/SettingsPage";
 
 function ComingSoon({ name }: { name: string }) {
   return (
@@ -61,7 +62,8 @@ export default function HomePage() {
         )}
         {section === "todo" && <TodoPage />}
         {section === "notes" && <NotesPage />}
-        {section !== "chat" && section !== "todo" && section !== "notes" && (
+        {section === "settings" && <SettingsPage />}
+        {section !== "chat" && section !== "todo" && section !== "notes" && section !== "settings" && (
           <ComingSoon name={section} />
         )}
       </main>

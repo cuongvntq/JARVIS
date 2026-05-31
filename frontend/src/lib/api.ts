@@ -15,6 +15,7 @@ import {
   type TodoOut,
   type TokenResponse,
   type UserOut,
+  type UserUpdateRequest,
 } from "@/lib/types/api";
 
 export interface LoginRequest {
@@ -104,6 +105,10 @@ class ApiClient {
 
   async me(): Promise<UserOut> {
     return this.request("/auth/me");
+  }
+
+  async updateProfile(data: UserUpdateRequest): Promise<UserOut> {
+    return this.request("/auth/me", { method: "PATCH", body: JSON.stringify(data) });
   }
 
   async sendMessage(data: ChatSendRequest): Promise<ChatSendResponse> {
