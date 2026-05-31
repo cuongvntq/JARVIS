@@ -166,7 +166,7 @@ Request: `{ "query": "...", "limit": 5, "min_similarity": 0.7 }`
 Response: `{ "items": [MemoryOut], "count": N }` — no cursor (bounded by limit, no pagination)
 
 ### GET /v1/memories/{id} → 200 MemoryOut | 404
-### PATCH /v1/memories/{id} → 200 (partial: content?, importance?, memory_type?)
+### PATCH /v1/memories/{id} → 200 (partial: content?, importance?, memory_type? — explicit null rejected with 422)
 ### DELETE /v1/memories/{id} → 204 (soft delete: sets is_active=false, deleted_at=now)
 
 **MemoryOut:** `{ id, memory_type, content, importance, is_active, created_at, updated_at }`

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 MemoryType = Literal["fact", "preference", "rule", "relation", "goal", "other"]
 
@@ -16,12 +16,20 @@ class MemoryCreate(BaseModel):
 
 
 class MemoryUpdate(BaseModel):
-    """REST PATCH /memories/{id} — all fields optional."""
+    """REST PATCH /memories/{id} — all fields optional. Omit a field to leave it unchanged."""
 
     content: str | None = Field(default=None, min_length=1, max_length=2000)
     memory_type: MemoryType | None = None
     importance: int | None = Field(default=None, ge=1, le=10)
-    is_active: bool | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_explicit_null(cls, data: object) -> object:
+        if isinstance(data, dict):
+            for field in ("content", "memory_type", "importance"):
+                if field in data and data[field] is None:
+                    raise ValueError(f"'{field}' cannot be null; omit the field to leave it unchanged")
+        return data
 
 
 class MemoryOut(BaseModel):

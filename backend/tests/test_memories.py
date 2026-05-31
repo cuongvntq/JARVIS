@@ -164,17 +164,29 @@ async def test_update_memory_not_found(async_client, auth_headers):
 
 
 @pytest.mark.asyncio
-async def test_update_memory_is_active_false(async_client, auth_headers):
-    create_resp = await _create_memory(async_client, auth_headers, "Memory to deactivate")
+async def test_update_memory_explicit_null_content_rejected(async_client, auth_headers):
+    create_resp = await _create_memory(async_client, auth_headers, "Memory content")
     memory_id = create_resp.json()["id"]
 
     resp = await async_client.patch(
         f"/v1/memories/{memory_id}",
-        json={"is_active": False},
+        json={"content": None},
         headers=auth_headers,
     )
-    assert resp.status_code == 200
-    assert resp.json()["is_active"] is False
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_memory_explicit_null_importance_rejected(async_client, auth_headers):
+    create_resp = await _create_memory(async_client, auth_headers, "Memory content")
+    memory_id = create_resp.json()["id"]
+
+    resp = await async_client.patch(
+        f"/v1/memories/{memory_id}",
+        json={"importance": None},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
 
 
 # ── DELETE /v1/memories/{id} ──────────────────────────────────────────────────
