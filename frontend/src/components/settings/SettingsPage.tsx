@@ -26,12 +26,13 @@ const LOCALES = [
 
 export default function SettingsPage() {
   const user = useAuthStore((s) => s.user);
-  const { mutate: updateProfile, isPending, isSuccess, isError, error } = useUpdateProfile();
+  const { mutate: updateProfile, reset: resetMutation, isPending, isSuccess, isError, error } = useUpdateProfile();
 
   const [name, setName] = useState("");
   const [assistantName, setAssistantName] = useState("");
   const [timezone, setTimezone] = useState("");
   const [locale, setLocale] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -42,13 +43,29 @@ export default function SettingsPage() {
     }
   }, [user]);
 
+  function handleFieldChange(setter: (v: string) => void) {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      setter(e.target.value);
+      resetMutation();
+      setValidationError(null);
+    };
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!name.trim()) {
+      setValidationError("Tên hiển thị không được để trống");
+      return;
+    }
+    if (!assistantName.trim()) {
+      setValidationError("Tên trợ lý không được để trống");
+      return;
+    }
     updateProfile({
-      name: name.trim() || undefined,
-      assistant_name: assistantName.trim() || undefined,
-      timezone: timezone || undefined,
-      locale: locale || undefined,
+      name: name.trim(),
+      assistant_name: assistantName.trim(),
+      timezone,
+      locale,
     });
   }
 
@@ -105,7 +122,7 @@ export default function SettingsPage() {
                 id="settings-name"
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={handleFieldChange(setName)}
                 minLength={1}
                 maxLength={100}
                 className={inputClass}
@@ -160,7 +177,7 @@ export default function SettingsPage() {
                 id="settings-assistant-name"
                 type="text"
                 value={assistantName}
-                onChange={(e) => setAssistantName(e.target.value)}
+                onChange={handleFieldChange(setAssistantName)}
                 minLength={1}
                 maxLength={50}
                 className={inputClass}
@@ -196,7 +213,7 @@ export default function SettingsPage() {
               <select
                 id="settings-timezone"
                 value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
+                onChange={handleFieldChange(setTimezone)}
                 className={inputClass}
                 style={{ ...inputStyle, ...inputFocusStyle }}
               >
@@ -219,7 +236,7 @@ export default function SettingsPage() {
               <select
                 id="settings-locale"
                 value={locale}
-                onChange={(e) => setLocale(e.target.value)}
+                onChange={handleFieldChange(setLocale)}
                 className={inputClass}
                 style={{ ...inputStyle, ...inputFocusStyle }}
               >
@@ -233,6 +250,15 @@ export default function SettingsPage() {
           </section>
 
           {/* Status messages */}
+          {validationError && (
+            <div
+              className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs"
+              style={{ backgroundColor: "rgba(255, 68, 68, 0.08)", color: "#ff4444" }}
+            >
+              <AlertCircle size={13} />
+              {validationError}
+            </div>
+          )}
           {isSuccess && (
             <div
               className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs"
