@@ -18,6 +18,8 @@ class MemoryCreate(BaseModel):
 class MemoryUpdate(BaseModel):
     """REST PATCH /memories/{id} — all fields optional. Omit a field to leave it unchanged."""
 
+    model_config = ConfigDict(extra="forbid")
+
     content: str | None = Field(default=None, min_length=1, max_length=2000)
     memory_type: MemoryType | None = None
     importance: int | None = Field(default=None, ge=1, le=10)

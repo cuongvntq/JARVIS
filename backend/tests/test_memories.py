@@ -189,6 +189,19 @@ async def test_update_memory_explicit_null_importance_rejected(async_client, aut
     assert resp.status_code == 422
 
 
+@pytest.mark.asyncio
+async def test_update_memory_unknown_field_rejected(async_client, auth_headers):
+    create_resp = await _create_memory(async_client, auth_headers, "Memory content")
+    memory_id = create_resp.json()["id"]
+
+    resp = await async_client.patch(
+        f"/v1/memories/{memory_id}",
+        json={"is_active": False},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
+
+
 # ── DELETE /v1/memories/{id} ──────────────────────────────────────────────────
 
 
