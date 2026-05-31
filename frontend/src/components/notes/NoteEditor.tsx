@@ -117,8 +117,9 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
           type="text"
           value={title}
           onChange={(e) => { setTitle(e.target.value); setValidationError(null); }}
+          disabled={isSaving}
           placeholder="Tiêu đề ghi chú..."
-          className={cn(inputBase, "text-lg font-semibold")}
+          className={cn(inputBase, "text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed")}
           style={{ color: "#dff3fd" }}
           onKeyDown={(e) => {
             if (e.key === "Enter") e.preventDefault();
@@ -131,9 +132,10 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
         {/* Content */}
         <textarea
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => { setContent(e.target.value); setValidationError(null); }}
+          disabled={isSaving}
           placeholder="Nội dung ghi chú... (markdown hỗ trợ)"
-          className={cn(inputBase, "flex-1 resize-none text-sm leading-relaxed")}
+          className={cn(inputBase, "flex-1 resize-none text-sm leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed")}
           style={{ color: "#c0dde8", minHeight: 0 }}
         />
 
@@ -151,9 +153,10 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
           <input
             type="text"
             value={tagsInput}
-            onChange={(e) => setTagsInput(e.target.value)}
+            onChange={(e) => { setTagsInput(e.target.value); setValidationError(null); }}
+            disabled={isSaving}
             placeholder="tag1, tag2, tag3"
-            className={cn(inputBase, "text-[11px]")}
+            className={cn(inputBase, "text-[11px] disabled:opacity-50 disabled:cursor-not-allowed")}
             style={{ color: "#5e8a9e" }}
           />
         </div>
