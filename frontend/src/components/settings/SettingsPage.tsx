@@ -123,9 +123,10 @@ export default function SettingsPage() {
                 type="text"
                 value={name}
                 onChange={handleFieldChange(setName)}
+                disabled={isPending}
                 minLength={1}
                 maxLength={100}
-                className={inputClass}
+                className={`${inputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
                 style={{ ...inputStyle, ...inputFocusStyle }}
                 placeholder="Nhập tên của bạn"
               />
@@ -178,9 +179,10 @@ export default function SettingsPage() {
                 type="text"
                 value={assistantName}
                 onChange={handleFieldChange(setAssistantName)}
+                disabled={isPending}
                 minLength={1}
                 maxLength={50}
-                className={inputClass}
+                className={`${inputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
                 style={{ ...inputStyle, ...inputFocusStyle }}
                 placeholder="J.A.R.V.I.S"
               />
@@ -214,7 +216,8 @@ export default function SettingsPage() {
                 id="settings-timezone"
                 value={timezone}
                 onChange={handleFieldChange(setTimezone)}
-                className={inputClass}
+                disabled={isPending}
+                className={`${inputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
                 style={{ ...inputStyle, ...inputFocusStyle }}
               >
                 {TIMEZONES.map((tz) => (
@@ -237,7 +240,8 @@ export default function SettingsPage() {
                 id="settings-locale"
                 value={locale}
                 onChange={handleFieldChange(setLocale)}
-                className={inputClass}
+                disabled={isPending}
+                className={`${inputClass} disabled:opacity-50 disabled:cursor-not-allowed`}
                 style={{ ...inputStyle, ...inputFocusStyle }}
               >
                 {LOCALES.map((l) => (
