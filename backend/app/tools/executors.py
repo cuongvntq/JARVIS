@@ -232,7 +232,9 @@ async def execute_save_memory(
     memory_type = params.get("memory_type", "fact")
     valid_types = {"fact", "preference", "rule", "relation", "goal", "other"}
     if memory_type not in valid_types:
-        return _err("invalid_memory_type", f"memory_type phải là một trong: {', '.join(valid_types)}.")
+        return _err(
+            "invalid_memory_type", f"memory_type phải là một trong: {', '.join(valid_types)}."
+        )
 
     try:
         importance = int(params.get("importance", 5))
@@ -243,7 +245,10 @@ async def execute_save_memory(
 
     data = MemoryCreate(content=content, memory_type=memory_type, importance=importance)
     out = await memory_service.create_committed(user_id, data)
-    return _ok(out.model_dump(mode="json"), f"Đã ghi nhớ: {content[:60]}{'...' if len(content) > 60 else ''}.")
+    return _ok(
+        out.model_dump(mode="json"),
+        f"Đã ghi nhớ: {content[:60]}{'...' if len(content) > 60 else ''}.",
+    )
 
 
 # ── search_memory ─────────────────────────────────────────────────────────────
@@ -262,12 +267,16 @@ async def execute_search_memory(
         limit = int(params.get("limit", 5))
         min_similarity = max(0.0, min(1.0, float(params.get("min_similarity", 0.7))))
     except (TypeError, ValueError):
-        return _err("invalid_params", "limit phải là số nguyên, min_similarity phải là số thực 0-1.")
+        return _err(
+            "invalid_params", "limit phải là số nguyên, min_similarity phải là số thực 0-1."
+        )
     if not (1 <= limit <= 10):
         return _err("invalid_params", "limit phải là số nguyên từ 1 đến 10.")
     memory_type = params.get("memory_type") or None
 
-    memories = await memory_service.search_semantic(db, user_id, query, limit, min_similarity, memory_type)
+    memories = await memory_service.search_semantic(
+        db, user_id, query, limit, min_similarity, memory_type
+    )
     return _ok(
         {"memories": [m.model_dump(mode="json") for m in memories], "count": len(memories)},
         f"Tìm thấy {len(memories)} memory liên quan đến '{query}'.",

@@ -27,9 +27,7 @@ async def create(db: AsyncSession, user_id: uuid.UUID, data: MemoryCreate) -> Me
     return memory
 
 
-async def get_by_id(
-    db: AsyncSession, memory_id: uuid.UUID, user_id: uuid.UUID
-) -> Memory | None:
+async def get_by_id(db: AsyncSession, memory_id: uuid.UUID, user_id: uuid.UUID) -> Memory | None:
     result = await db.execute(
         select(Memory).where(
             Memory.id == memory_id,
@@ -105,9 +103,9 @@ async def update_embedding(
 
 async def soft_delete(db: AsyncSession, memory_id: uuid.UUID) -> None:
     await db.execute(
-        update(Memory).where(Memory.id == memory_id).values(
-            deleted_at=datetime.now(UTC), is_active=False
-        )
+        update(Memory)
+        .where(Memory.id == memory_id)
+        .values(deleted_at=datetime.now(UTC), is_active=False)
     )
 
 
@@ -127,9 +125,9 @@ def _build_semantic_search_stmt(
             Memory.is_active.is_(True),
             Memory.deleted_at.is_(None),
             Memory.embedding.isnot(None),
-            sa.text(
-                f"1 - (embedding <=> '{vec_literal}'::vector) >= :min_sim"
-            ).bindparams(min_sim=min_similarity),
+            sa.text(f"1 - (embedding <=> '{vec_literal}'::vector) >= :min_sim").bindparams(
+                min_sim=min_similarity
+            ),
         )
         .order_by(sa.text(f"embedding <=> '{vec_literal}'::vector"))
         .limit(limit)

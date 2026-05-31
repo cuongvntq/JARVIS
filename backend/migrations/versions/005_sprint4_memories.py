@@ -14,7 +14,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute("CREATE TYPE memory_type AS ENUM ('fact','preference','rule','relation','goal','other')")
+    op.execute(
+        "CREATE TYPE memory_type AS ENUM ('fact','preference','rule','relation','goal','other')"
+    )
     op.execute("""
         CREATE TABLE memories (
             id           UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),

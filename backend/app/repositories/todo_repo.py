@@ -90,9 +90,7 @@ async def list_todos(
             )
             # Composite cursor: (created_at DESC, id DESC)
             same_ts = Todo.created_at == cursor_dt
-            id_tiebreak = (
-                and_(same_ts, Todo.id < cursor_id) if cursor_id is not None else None
-            )
+            id_tiebreak = and_(same_ts, Todo.id < cursor_id) if cursor_id is not None else None
             conditions = [Todo.created_at < cursor_dt]
             if id_tiebreak is not None:
                 conditions.append(id_tiebreak)
@@ -109,9 +107,7 @@ async def list_todos(
     if len(rows) > limit:
         rows = rows[:limit]
         last = rows[-1]
-        cursor_payload = json.dumps(
-            {"created_at": last.created_at.isoformat(), "id": str(last.id)}
-        )
+        cursor_payload = json.dumps({"created_at": last.created_at.isoformat(), "id": str(last.id)})
         next_cursor = base64.b64encode(cursor_payload.encode()).decode()
 
     return rows, next_cursor

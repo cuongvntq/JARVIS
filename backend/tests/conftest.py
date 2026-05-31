@@ -164,6 +164,7 @@ def mock_llm_stream():
 @pytest.fixture
 def mock_llm_stream_error():
     """Patch orchestrator.run_stream to raise RuntimeError after yielding one delta."""
+
     async def _fake_stream_error(**kwargs):
         yield {"type": "delta", "content": "Partial"}
         raise RuntimeError("LLM timeout")

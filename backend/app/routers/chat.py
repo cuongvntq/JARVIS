@@ -30,6 +30,7 @@ async def send_message(
     db: AsyncSession = Depends(get_db),
 ):
     if req.stream:
+
         async def _event_gen():
             try:
                 async for event in chat_service.stream_message(db, req, current_user):

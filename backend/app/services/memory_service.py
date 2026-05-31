@@ -134,5 +134,7 @@ async def search_semantic(
     if engine.dialect.name == "sqlite":
         return []
     query_vec = await embed_text(query)
-    memories = await memory_repo.semantic_search(db, user_id, query_vec, limit, min_similarity, memory_type)
+    memories = await memory_repo.semantic_search(
+        db, user_id, query_vec, limit, min_similarity, memory_type
+    )
     return [MemoryOut.model_validate(m) for m in memories]
