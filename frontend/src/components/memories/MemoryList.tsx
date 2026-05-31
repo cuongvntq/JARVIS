@@ -20,6 +20,7 @@ interface MemoryListProps {
   onTypeFilterChange: (type: MemoryType | "all") => void;
   onEdit: (memory: MemoryOut) => void;
   onDelete: (id: string) => void;
+  isSaving: boolean;
   hasNextPage: boolean | undefined;
   onLoadMore: () => void;
   isLoadingMore: boolean;
@@ -31,6 +32,7 @@ export default function MemoryList({
   onTypeFilterChange,
   onEdit,
   onDelete,
+  isSaving,
   hasNextPage,
   onLoadMore,
   isLoadingMore,
@@ -85,6 +87,7 @@ export default function MemoryList({
                   memory={m}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  isSaving={isSaving}
                 />
               ))}
             </div>

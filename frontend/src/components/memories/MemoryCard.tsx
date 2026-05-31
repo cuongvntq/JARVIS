@@ -16,9 +16,10 @@ interface MemoryCardProps {
   memory: MemoryOut;
   onEdit: (memory: MemoryOut) => void;
   onDelete: (id: string) => void;
+  isSaving: boolean;
 }
 
-export default function MemoryCard({ memory, onEdit, onDelete }: MemoryCardProps) {
+export default function MemoryCard({ memory, onEdit, onDelete, isSaving }: MemoryCardProps) {
   const meta = TYPE_META[memory.memory_type as MemoryType] ?? TYPE_META.other;
 
   return (
@@ -59,7 +60,8 @@ export default function MemoryCard({ memory, onEdit, onDelete }: MemoryCardProps
             <button
               type="button"
               onClick={() => onEdit(memory)}
-              className="p-1 rounded transition-colors hover:bg-white/10"
+              disabled={isSaving}
+              className="p-1 rounded transition-colors hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
               title="Sửa"
             >
               <Pencil size={11} style={{ color: "#5e8a9e" }} />
@@ -67,7 +69,8 @@ export default function MemoryCard({ memory, onEdit, onDelete }: MemoryCardProps
             <button
               type="button"
               onClick={() => onDelete(memory.id)}
-              className="p-1 rounded transition-colors hover:bg-white/10"
+              disabled={isSaving}
+              className="p-1 rounded transition-colors hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
               title="Xóa"
             >
               <Trash2 size={11} style={{ color: "#ff4444" }} />

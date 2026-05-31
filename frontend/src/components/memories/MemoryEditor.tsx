@@ -76,7 +76,8 @@ export default function MemoryEditor({ memory, isSaving, onSave, onClose }: Memo
         <button
           type="button"
           onClick={onClose}
-          className="p-1 rounded hover:bg-white/5 transition-colors"
+          disabled={isSaving}
+          className="p-1 rounded hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           <X size={14} style={{ color: "#5e8a9e" }} />
         </button>

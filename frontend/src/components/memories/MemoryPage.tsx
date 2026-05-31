@@ -7,10 +7,14 @@ import type { MemoryOut, MemoryType } from "@/lib/types/api";
 import MemoryList from "./MemoryList";
 import MemoryEditor from "./MemoryEditor";
 
+type EditorState =
+  | { mode: "closed" }
+  | { mode: "create" }
+  | { mode: "edit"; memory: MemoryOut };
+
 export default function MemoryPage() {
   const [typeFilter, setTypeFilter] = useState<MemoryType | "all">("all");
-  const [isCreating, setIsCreating] = useState(false);
-  const [editingMemory, setEditingMemory] = useState<MemoryOut | null>(null);
+  const [editor, setEditor] = useState<EditorState>({ mode: "closed" });
 
   const { data, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } = useMemories(
     typeFilter === "all" ? undefined : typeFilter,
@@ -20,22 +24,22 @@ export default function MemoryPage() {
   const deleteMemory = useDeleteMemory();
 
   const memories: MemoryOut[] = data?.pages.flatMap((p) => p.items) ?? [];
-  const showEditor = isCreating || editingMemory !== null;
+  const showEditor = editor.mode !== "closed";
   const isSaving = createMemory.isPending || updateMemory.isPending;
 
   function handleNew() {
-    setEditingMemory(null);
-    setIsCreating(true);
+    if (isSaving) return;
+    setEditor({ mode: "create" });
   }
 
   function handleEdit(memory: MemoryOut) {
-    setIsCreating(false);
-    setEditingMemory(memory);
+    if (isSaving) return;
+    setEditor({ mode: "edit", memory });
   }
 
   function handleCloseEditor() {
-    setIsCreating(false);
-    setEditingMemory(null);
+    if (isSaving) return;
+    setEditor({ mode: "closed" });
   }
 
   async function handleSave(data: {
@@ -43,18 +47,21 @@ export default function MemoryPage() {
     memory_type: MemoryType;
     importance: number;
   }) {
-    if (isCreating) {
+    if (editor.mode === "create") {
       await createMemory.mutateAsync(data);
-      setIsCreating(false);
-    } else if (editingMemory) {
-      await updateMemory.mutateAsync({ id: editingMemory.id, data });
-      setEditingMemory(null);
+      setEditor({ mode: "closed" });
+    } else if (editor.mode === "edit") {
+      await updateMemory.mutateAsync({ id: editor.memory.id, data });
+      setEditor({ mode: "closed" });
     }
   }
 
   function handleDelete(id: string) {
+    if (isSaving) return;
     deleteMemory.mutate(id);
-    if (editingMemory?.id === id) setEditingMemory(null);
+    if (editor.mode === "edit" && editor.memory.id === id) {
+      setEditor({ mode: "closed" });
+    }
   }
 
   return (
@@ -85,7 +92,8 @@ export default function MemoryPage() {
         <button
           type="button"
           onClick={handleNew}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold tracking-[0.12em] transition-all hover:scale-105"
+          disabled={isSaving}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold tracking-[0.12em] transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           style={{
             fontFamily: "var(--font-orbitron)",
             background: "linear-gradient(135deg, rgba(0,180,216,0.7), rgba(0,95,138,0.7))",
@@ -123,6 +131,7 @@ export default function MemoryPage() {
               onTypeFilterChange={setTypeFilter}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              isSaving={isSaving}
               hasNextPage={hasNextPage}
               onLoadMore={() => fetchNextPage()}
               isLoadingMore={isFetchingNextPage}
@@ -134,7 +143,7 @@ export default function MemoryPage() {
         {showEditor && (
           <div className="flex-1 min-w-0">
             <MemoryEditor
-              memory={editingMemory}
+              memory={editor.mode === "edit" ? editor.memory : null}
               isSaving={isSaving}
               onSave={handleSave}
               onClose={handleCloseEditor}
