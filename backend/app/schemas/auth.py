@@ -32,10 +32,12 @@ class RefreshRequest(BaseModel):
 
 
 class UpdateProfileRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = Field(default=None, min_length=1, max_length=100)
     timezone: str | None = None
     assistant_name: str | None = Field(default=None, min_length=1, max_length=50)
-    locale: str | None = None
+    locale: str | None = Field(default=None, min_length=2, max_length=10)
 
     @field_validator("timezone", mode="after")
     @classmethod

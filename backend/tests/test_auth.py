@@ -272,3 +272,23 @@ async def test_update_profile_empty_body_is_noop(async_client, auth_headers):
 async def test_update_profile_unauthenticated(async_client):
     resp = await async_client.patch("/auth/me", json={"name": "Hacker"})
     assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_update_profile_locale_too_long(async_client, auth_headers):
+    resp = await async_client.patch(
+        "/auth/me",
+        json={"locale": "x" * 20},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_profile_unknown_field_rejected(async_client, auth_headers):
+    resp = await async_client.patch(
+        "/auth/me",
+        json={"unknown_field": "value"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
