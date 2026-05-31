@@ -1,6 +1,7 @@
 """Auth request/response schemas."""
 
 import uuid
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
@@ -35,6 +36,17 @@ class UpdateProfileRequest(BaseModel):
     timezone: str | None = None
     assistant_name: str | None = Field(default=None, min_length=1, max_length=50)
     locale: str | None = None
+
+    @field_validator("timezone", mode="after")
+    @classmethod
+    def validate_timezone(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        try:
+            ZoneInfo(v)
+        except (ZoneInfoNotFoundError, KeyError):
+            raise ValueError(f"Timezone không hợp lệ: {v!r}") from None
+        return v
 
 
 class UserOut(BaseModel):

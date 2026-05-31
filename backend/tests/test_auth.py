@@ -222,3 +222,53 @@ async def test_csrf_blocked_origin_prefix_bypass(async_client):
         )
     assert resp.status_code == 403
     assert resp.json()["error"]["code"] == "forbidden"
+
+
+# ── PATCH /auth/me ─────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_update_profile_name(async_client, auth_headers):
+    resp = await async_client.patch(
+        "/auth/me",
+        json={"name": "Tên Mới"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "Tên Mới"
+
+
+@pytest.mark.asyncio
+async def test_update_profile_timezone(async_client, auth_headers):
+    resp = await async_client.patch(
+        "/auth/me",
+        json={"timezone": "Asia/Ho_Chi_Minh"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["timezone"] == "Asia/Ho_Chi_Minh"
+
+
+@pytest.mark.asyncio
+async def test_update_profile_invalid_timezone(async_client, auth_headers):
+    resp = await async_client.patch(
+        "/auth/me",
+        json={"timezone": "Invalid/Nowhere"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_profile_empty_body_is_noop(async_client, auth_headers):
+    """PATCH with empty body must return 200 with unchanged profile."""
+    me_before = await async_client.get("/auth/me", headers=auth_headers)
+    resp = await async_client.patch("/auth/me", json={}, headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["email"] == me_before.json()["email"]
+
+
+@pytest.mark.asyncio
+async def test_update_profile_unauthenticated(async_client):
+    resp = await async_client.patch("/auth/me", json={"name": "Hacker"})
+    assert resp.status_code == 401

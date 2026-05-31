@@ -10,7 +10,14 @@ from app.config import get_settings
 from app.core.deps import get_current_user
 from app.core.errors import JarvisError
 from app.database import get_db
-from app.schemas.auth import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse, UserOut
+from app.schemas.auth import (
+    LoginRequest,
+    RefreshRequest,
+    RegisterRequest,
+    TokenResponse,
+    UpdateProfileRequest,
+    UserOut,
+)
 from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -105,3 +112,12 @@ async def logout(
 @router.get("/me", response_model=UserOut)
 async def me(current_user=Depends(get_current_user)):
     return UserOut.model_validate(current_user)
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_me(
+    req: UpdateProfileRequest,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await auth_service.update_profile(db, current_user.id, req)
