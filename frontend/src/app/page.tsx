@@ -6,6 +6,7 @@ import ChatInterface from "@/components/chat/ChatInterface";
 import TodoPage from "@/components/todos/TodoPage";
 import NotesPage from "@/components/notes/NotesPage";
 import SettingsPage from "@/components/settings/SettingsPage";
+import MemoryPage from "@/components/memories/MemoryPage";
 
 function ComingSoon({ name }: { name: string }) {
   return (
@@ -63,7 +64,8 @@ export default function HomePage() {
         {section === "todo" && <TodoPage />}
         {section === "notes" && <NotesPage />}
         {section === "settings" && <SettingsPage />}
-        {section !== "chat" && section !== "todo" && section !== "notes" && section !== "settings" && (
+        {section === "memory" && <MemoryPage />}
+        {section !== "chat" && section !== "todo" && section !== "notes" && section !== "settings" && section !== "memory" && (
           <ComingSoon name={section} />
         )}
       </main>

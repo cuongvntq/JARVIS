@@ -4,6 +4,13 @@ import {
   type ChatSendResponse,
   type ConversationDetailOut,
   type ConversationListResponse,
+  type MemoryCreate,
+  type MemoryListOut,
+  type MemoryOut,
+  type MemorySearchOut,
+  type MemorySearchRequest,
+  type MemoryType,
+  type MemoryUpdate,
   type NoteCreate,
   type NoteListOut,
   type NoteOut,
@@ -214,6 +221,36 @@ class ApiClient {
 
   async deleteTodo(id: string): Promise<void> {
     return this.request(`/v1/todos/${id}`, { method: "DELETE" });
+  }
+
+  // ── Memory ─────────────────────────────────────────────────────────────────
+
+  async listMemories(params?: {
+    type?: MemoryType;
+    limit?: number;
+    cursor?: string;
+  }): Promise<MemoryListOut> {
+    const p = new URLSearchParams();
+    if (params?.type) p.set("type", params.type);
+    if (params?.limit) p.set("limit", String(params.limit));
+    if (params?.cursor) p.set("cursor", params.cursor);
+    return this.request(`/v1/memories?${p}`);
+  }
+
+  async createMemory(data: MemoryCreate): Promise<MemoryOut> {
+    return this.request("/v1/memories", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  async updateMemory(id: string, data: MemoryUpdate): Promise<MemoryOut> {
+    return this.request(`/v1/memories/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+  }
+
+  async deleteMemory(id: string): Promise<void> {
+    return this.request(`/v1/memories/${id}`, { method: "DELETE" });
+  }
+
+  async searchMemories(data: MemorySearchRequest): Promise<MemorySearchOut> {
+    return this.request("/v1/memories/search", { method: "POST", body: JSON.stringify(data) });
   }
 
   // ── Note ───────────────────────────────────────────────────────────────────
