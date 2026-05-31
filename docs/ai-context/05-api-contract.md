@@ -6,14 +6,13 @@
 Base URL: `http://localhost:8000` (dev)
 Auth: `Authorization: Bearer <access_token>`
 Error format: `{ "error": { "code", "message", "details", "request_id" } }`
+Note: ALL exceptions (including FastAPI `HTTPException`) now return the unified envelope — `http_exception_handler` registered in `main.py` (Sprint 4 review fix).
 
 ---
 
-## Not yet implemented (in docs/02 but not built)
+## Not yet implemented (planned Sprint 5+)
 
 - `POST /auth/google` — Google OAuth (removed from MVP 1 scope)
-- `PATCH /auth/me` — profile update **(Sprint 4 S4-4)**
-- `/v1/memories/*` — **(Sprint 4 S4-2)**
 - `/v1/reminders/*` — Sprint 5
 - `/v1/dashboard/*` — Sprint 5
 - Idempotency-Key header — post-MVP 1

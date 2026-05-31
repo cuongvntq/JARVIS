@@ -4,7 +4,7 @@
 
 **Backend:** pytest + pytest-asyncio, SQLite in-memory (real DB, no mocks for DB layer)
 **Frontend:** vitest (unit), Playwright (E2E) — minimal coverage currently
-**Test count (Sprint 3 backend):** 117 tests, all passing
+**Test count (Sprint 4 backend):** 167 tests, all passing
 
 ---
 
@@ -34,6 +34,11 @@ _test_engine = create_async_engine(
 | `async_client` | function | `AsyncClient` via `ASGITransport` |
 | `auth_headers` | function | Register TEST_USER, return `{"Authorization": "Bearer ..."}` |
 | `mock_llm` | function | Patch `orchestrator.run` to return fixed OrchestratorResult |
+| `mock_llm_stream` | function | Patch `stream_message` generator (Sprint 3) |
+| `mock_llm_stream_error` | function | Patch stream generator to raise (Sprint 3) |
+| `mock_embedding` | function | Patch `embed_text` → `[0.1] * 1536` (Sprint 4) |
+| `mock_semantic_search` | function | Patch `memory_repo.semantic_search` → `[]` (Sprint 4) |
+| `auth_headers_user_b` | function | Second test user for ownership isolation (Sprint 4) |
 
 ### TEST_USER
 ```python
@@ -66,7 +71,7 @@ _orch = OrchestratorResult(
 
 ## Test Files & Coverage
 
-### `tests/test_auth.py`
+### `tests/test_auth.py` (23 tests — Sprint 4 added 7)
 - register happy path
 - duplicate email → 409
 - weak password → 422
@@ -76,8 +81,10 @@ _orch = OrchestratorResult(
 - logout
 - `/auth/me` with/without token
 - CSRF origin rejection
+- **Sprint 4:** PATCH /auth/me (name, timezone, locale, assistant_name)
+- **Sprint 4:** invalid timezone → 422, locale too long → 422, unknown field → 422
 
-### `tests/test_chat.py`
+### `tests/test_chat.py` (18 tests — Sprint 4 added 3 RAG tests)
 - send message authenticated
 - creates conversation when `conversation_id=null`
 - resumes existing conversation
@@ -121,7 +128,7 @@ _orch = OrchestratorResult(
   - invalid TZ falls back to UTC
 - **Regression:** today filter includes current moment, excludes far future
 
-### `tests/test_orchestrator.py` (16 tests)
+### `tests/test_orchestrator.py` (28 tests — Sprint 4 added memory tool + RAG tests)
 - route pre-filter: chitchat patterns (empty tools list)
 - route pre-filter: tool intent patterns (full tools list)
 - route classifier (mocked LiteLLM)
@@ -148,6 +155,27 @@ _orch = OrchestratorResult(
 - time only (future resolve)
 - LLM fallback (mocked)
 - `ParseDatetimeError` when all fail
+
+### `tests/test_memories.py` (22 tests) — Sprint 4
+- POST /memories happy path (all fields)
+- POST missing content → 422
+- POST unauthenticated → 401
+- GET /memories/{id} happy path
+- GET not found → 404, ownership isolation → 404
+- GET /memories list, filter by memory_type
+- PATCH /memories/{id} update content/importance/type
+- PATCH not found → 404
+- DELETE soft delete (then 404 on GET)
+- DELETE ownership isolation
+- POST /memories/search (mocked semantic_search)
+- **Unit:** `test_semantic_search_query_structure` — SQL builder correctness without DB
+
+### `tests/test_tool_executors.py` (17 tests) — Sprint 4
+- execute_create_todo, execute_list_todos, execute_update_todo
+- execute_create_note, execute_search_notes
+- execute_save_memory, execute_search_memory, execute_forget_memory
+- execute_get_today_summary
+- Error paths: not found, ownership
 
 ### `tests/test_notes.py` (19 tests) — Sprint 3
 - POST /notes happy path (all fields)
@@ -254,11 +282,11 @@ async def test_something_with_llm(async_client, auth_headers, mock_llm):
 
 ## What's NOT Tested Yet
 
-- Frontend vitest unit tests (components, hooks) — Sprint 3
+- Frontend vitest unit tests (components, hooks) — Sprint 6
 - Playwright E2E tests — Sprint 6
 - Eval set (10 prompt cases) — Sprint 6
-- Memory/RAG (Sprint 4)
-- Reminder + push (Sprint 5)
-- Rate limiting behavior
+- RAG end-to-end on real Postgres (SQLite tests mock semantic_search → `[]`) — manual test only
+- Reminder + push notification (Sprint 5)
+- Rate limiting behavior (Sprint 5)
 - Token refresh race condition
 - LLM actual API calls (all mocked in tests)

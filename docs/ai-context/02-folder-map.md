@@ -35,7 +35,7 @@ backend/
 │   │
 │   ├── core/
 │   │   ├── deps.py             # get_current_user() FastAPI dependency (JWT → User)
-│   │   ├── errors.py           # JarvisError, RequestIDMiddleware, exception handlers
+│   │   ├── errors.py           # JarvisError, RequestIDMiddleware, exception handlers; Sprint 4: + http_exception_handler (unified HTTPException → { error: ... })
 │   │   └── security.py         # JWT encode/decode, bcrypt hash/verify, token helpers
 │   │
 │   ├── models/                 # SQLAlchemy ORM models (table definitions)
@@ -43,7 +43,7 @@ backend/
 │   │   ├── conversation.py     # Conversation, Message; Sprint 4 stretch: +summary column
 │   │   ├── todo.py             # Todo
 │   │   ├── note.py             # Note
-│   │   ├── memory.py           # Memory — embedding=sa.JSON (SQLite compat) — SPRINT 4 [CREATE]
+│   │   ├── memory.py           # Memory — embedding=sa.JSON (SQLite compat)
 │   │   └── tool_log.py         # ToolExecutionLog, LLMCallLog
 │   │
 │   ├── schemas/                # Pydantic request/response schemas
@@ -52,14 +52,14 @@ backend/
 │   │   ├── chat.py             # ChatSendRequest/Response, ConversationOut/Detail/List, MessageOut
 │   │   ├── todo.py             # TodoCreate, TodoReplace, TodoPartialUpdate, TodoOut, TodoListOut
 │   │   ├── note.py             # NoteCreate, NoteUpdate, NotePatch, NoteOut, NoteListOut
-│   │   └── memory.py           # MemoryCreate, MemoryUpdate, MemoryOut, MemoryListOut — SPRINT 4 [CREATE]
+│   │   └── memory.py           # MemoryCreate, MemoryUpdate, MemoryOut, MemoryListOut
 │   │
 │   ├── routers/                # FastAPI route handlers (thin: validate → service → return)
 │   │   ├── auth.py             # /auth/register, login, refresh, logout, me; Sprint 4: + PATCH /auth/me
 │   │   ├── chat.py             # /v1/chat/send (non-stream + SSE stream), conversations CRUD
 │   │   ├── todos.py            # /v1/todos CRUD
 │   │   ├── notes.py            # /v1/notes CRUD + pin/unpin
-│   │   ├── memories.py         # /v1/memories CRUD + /search — SPRINT 4 [CREATE]
+│   │   ├── memories.py         # /v1/memories CRUD + /search
 │   │   └── health.py           # /health, /health/ready
 │   │
 │   ├── services/               # Business logic
@@ -68,8 +68,8 @@ backend/
 │   │   │                       # Sprint 4: + RAG call (search_semantic) before build_system_prompt
 │   │   ├── todo_service.py     # create, get, list, replace, patch, complete, uncomplete, delete
 │   │   ├── note_service.py     # create, get, list, update, patch, pin, unpin, delete
-│   │   ├── embedding_service.py # embed_text(text) → list[float] via LiteLLM aembedding — SPRINT 4 [CREATE]
-│   │   └── memory_service.py   # create (+async embed task), search_semantic, get, list, update, forget — SPRINT 4 [CREATE]
+│   │   ├── embedding_service.py # embed_text(text) → list[float] via LiteLLM aembedding
+│   │   └── memory_service.py   # create (+async embed task), create_committed (tool path), search_semantic, get, list, update, forget
 │   │
 │   ├── repositories/           # DB queries (SQLAlchemy 2.0, no business logic)
 │   │   ├── user_repo.py        # get_by_email, get_by_id, create, update_last_login; Sprint 4: + update_fields()
@@ -79,7 +79,7 @@ backend/
 │   │   ├── todo_repo.py        # get_by_id, list_todos, create, update_fields, complete, uncomplete, soft_delete, _today_range_utc()
 │   │   ├── note_repo.py        # get_by_id, list_notes (pinned/q/cursor), create, update_fields, soft_delete
 │   │   ├── memory_repo.py      # create, get_by_id, list_memories, update_fields, update_embedding,
-│   │   │                       # soft_delete, semantic_search (SQLite→[]) — SPRINT 4 [CREATE]
+│   │   │                       # soft_delete, _build_semantic_search_stmt(), semantic_search (SQLite→[])
 │   │   ├── tool_log_repo.py    # log_execution()
 │   │   └── llm_call_log_repo.py # log_call() + _calc_cost()
 │   │
@@ -107,22 +107,22 @@ backend/
 │       ├── 002_create_core_tables.py       # users, auth_sessions, conversations, messages + ENUM message_role
 │       ├── 003_sprint2_todos_tool_logs.py  # todos, tool_execution_logs, llm_call_logs + ENUMs
 │       ├── 004_sprint3_notes.py            # notes table
-│       ├── 005_sprint4_memories.py         # memories + ENUM memory_type + HNSW index — SPRINT 4 [CREATE]
-│       └── 006_sprint4_conv_summary.py     # ADD COLUMN conversations.summary — SPRINT 4 stretch [CREATE]
+│       ├── 005_sprint4_memories.py         # memories + ENUM memory_type + HNSW index
+│       └── 006_sprint4_conv_summary.py     # ADD COLUMN conversations.summary — deferred (not yet applied)
 │
 └── tests/
     ├── conftest.py             # SQLite in-memory, fixtures: async_client, auth_headers, mock_llm,
-    │                           # mock_llm_stream, mock_llm_stream_error;
-    │                           # Sprint 4: + mock_embedding, mock_semantic_search
-    ├── test_auth.py            # Auth endpoint tests (16 tests)
-    ├── test_chat.py            # Chat + conversation CRUD + streaming tests (15 tests)
-    ├── test_todos.py           # Todo CRUD + filter + ownership (21 tests)
+    │                           # mock_llm_stream, mock_llm_stream_error,
+    │                           # mock_embedding, mock_semantic_search, auth_headers_user_b
+    ├── test_auth.py            # Auth endpoint tests (23 tests)
+    ├── test_chat.py            # Chat + conversation CRUD + streaming + RAG tests (18 tests)
+    ├── test_todos.py           # Todo CRUD + filter + ownership (26 tests)
     ├── test_notes.py           # Note CRUD + pin/unpin + search + ownership (19 tests)
-    ├── test_memories.py        # Memory CRUD + search + ownership — SPRINT 4 [CREATE] (~13 tests)
-    ├── test_orchestrator.py    # Orchestrator + router + fallback chain (26 tests);
-    │                           # Sprint 4: + RAG integration test
+    ├── test_memories.py        # Memory CRUD + search + ownership + query structure (22 tests)
+    ├── test_orchestrator.py    # Orchestrator + router + fallback chain + memory tools (28 tests)
+    ├── test_tool_executors.py  # Tool executor unit tests: todo/note/memory/summary (17 tests)
     ├── test_datetime_parser.py # Datetime parser tests (12 tests)
-    └── test_health.py          # Health endpoint tests
+    └── test_health.py          # Health endpoint tests (2 tests)
 ```
 
 ---
@@ -147,28 +147,31 @@ frontend/src/
 │   │   ├── ChatInterface.tsx   # Message list, history; for-await SSE loop; streamSucceeded guard
 │   │   ├── ChatInput.tsx       # Textarea + send button
 │   │   └── MessageBubble.tsx   # User/assistant message rendering; streaming/toolStatus props
-│   ├── memories/               # SPRINT 4 [CREATE folder]
-│   │   ├── MemoryCard.tsx      # Type badge, content, importance bar, edit/delete actions
-│   │   ├── MemoryList.tsx      # Filter chips by type, list of cards, empty state
-│   │   ├── MemoryEditor.tsx    # Dialog: content textarea, type select, importance slider (1-10)
-│   │   └── MemoryPage.tsx      # Section root: wire MemoryList + MemoryEditor — SPRINT 4 [CREATE]
-│   ├── settings/               # SPRINT 4 [CREATE folder]
-│   │   └── SettingsPage.tsx    # Form: name, assistant_name, timezone select, locale select — SPRINT 4 [CREATE]
+│   ├── memories/
+│   │   ├── MemoryCard.tsx      # Type badge (6 types), content, importance dots, edit/delete on hover
+│   │   ├── MemoryList.tsx      # Filter chips by type, grid list, empty state; isSaving prop → disable actions
+│   │   ├── MemoryEditor.tsx    # content textarea, type select, importance slider; validationError state; disable fields + close when isSaving
+│   │   └── MemoryPage.tsx      # Section root; EditorState discriminated union { mode: closed|create|edit }
+│   ├── settings/
+│   │   └── SettingsPage.tsx    # Form: name, assistant_name, timezone select (11 IANA), locale select (vi-VN/en-US); inputs disabled when isPending
+│   ├── notes/
+│   │   ├── NoteEditor.tsx      # title/content/tags inputs; validationError state; disable fields + close when isSaving
+│   │   ├── NoteList.tsx        # Search, pinned/all sections; isSaving prop → disable select/pin/delete
+│   │   └── NotesPage.tsx       # isSaving guards on all navigation handlers; MỚI button disabled when isSaving
 │   └── layout/
-│       └── Sidebar.tsx         # Conversation list + NEW CHAT + nav links;
-│                               # Sprint 4: add "settings" to Section type + Settings nav link
+│       └── Sidebar.tsx         # Conversation list + NEW CHAT + nav links (Chat|Todos|Notes|Memory|Settings)
 │
 ├── hooks/
 │   ├── useChatMutation.ts      # Tanstack useMutation → api.sendMessage()
 │   ├── useConversations.ts     # useQuery list + detail; invalidates on send
-│   ├── useMemories.ts          # useMemories, useCreateMemory, useUpdateMemory, useDeleteMemory — SPRINT 4 [CREATE]
-│   └── useSettings.ts          # useMutation → PATCH /auth/me + update authStore — SPRINT 4 [CREATE]
+│   ├── useMemories.ts          # useInfiniteQuery (cursor), useCreateMemory, useUpdateMemory, useDeleteMemory
+│   ├── useNotes.ts             # useInfiniteQuery (cursor), useCreateNote, useUpdateNote, usePinNote, useDeleteNote
+│   └── useSettings.ts          # useMutation → PATCH /auth/me + setAuth to update authStore
 │
 ├── lib/
-│   ├── api.ts                  # ApiClient; Sprint 4: + memory methods + PATCH /auth/me
+│   ├── api.ts                  # ApiClient; error normalization: body.error ?? { body.detail fallback }; memory + PATCH /auth/me methods
 │   ├── queryClient.ts          # Tanstack QueryClient singleton
-│   └── types/api.ts            # TypeScript types; Sprint 4: + MemoryOut, MemoryCreate, MemoryUpdate,
-│                               #   MemoryListOut, MemorySearchRequest, UserUpdateRequest
+│   └── types/api.ts            # TypeScript types: MemoryOut, MemoryCreate, MemoryUpdate, MemoryListOut, MemorySearchRequest, UserUpdateRequest
 │
 ├── providers/
 │   └── QueryProvider.tsx       # QueryClientProvider wrapper
@@ -190,46 +193,3 @@ frontend/src/
 | `.env.example` | All env var templates |
 | `.gitignore` | Excludes .env, .venv, node_modules, __pycache__ |
 
----
-
-## Sprint 4 — Files chính cần tạo/sửa
-
-**Tạo mới:**
-```
-backend/app/models/memory.py
-backend/app/schemas/memory.py
-backend/app/repositories/memory_repo.py        # incl. _build_semantic_search_stmt() testable fn
-backend/app/services/embedding_service.py
-backend/app/services/memory_service.py
-backend/app/routers/memories.py
-backend/migrations/versions/005_sprint4_memories.py
-backend/tests/test_memories.py
-frontend/src/hooks/useMemories.ts
-frontend/src/hooks/useSettings.ts
-frontend/src/components/memories/MemoryCard.tsx
-frontend/src/components/memories/MemoryList.tsx
-frontend/src/components/memories/MemoryEditor.tsx
-frontend/src/components/memories/MemoryPage.tsx  # section root (NOT a Next.js route)
-frontend/src/components/settings/SettingsPage.tsx # section root (NOT a Next.js route)
-```
-
-**Sửa:**
-```
-backend/app/config.py              (verify existing embedding_model, embedding_dim — no change needed)
-backend/app/main.py                (+import Memory, register memories router)
-backend/app/models/user.py         (+memories relationship)
-backend/app/schemas/auth.py        (+UserUpdateRequest)
-backend/app/repositories/user_repo.py (+update_fields)
-backend/app/services/auth_service.py  (+update_profile)
-backend/app/services/chat_service.py  (+_build_prompt_with_rag() helper; replace build_system_prompt in both send_message + stream_message)
-backend/app/routers/auth.py        (+PATCH /auth/me)
-backend/app/tools/definitions.py   (+3 memory tool schemas → 8 total)
-backend/app/tools/executors.py     (+3 memory executors, update dispatch)
-backend/app/llm/prompt.py          (+memory tools in _PART_C, bump PROMPT_VERSION)
-backend/tests/conftest.py          (+mock_embedding, mock_semantic_search fixtures)
-backend/tests/test_orchestrator.py (+RAG integration test)
-frontend/src/lib/api.ts            (+memory API methods, +PATCH /auth/me)
-frontend/src/lib/types/api.ts      (+Memory types, +UserUpdateRequest)
-frontend/src/components/layout/Sidebar.tsx (+settings to Section type + Settings nav link)
-frontend/src/app/page.tsx          (+memory + settings sections, replace ComingSoon for memory)
-```

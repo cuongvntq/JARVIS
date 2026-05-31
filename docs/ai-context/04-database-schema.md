@@ -12,11 +12,11 @@
 | 001 | `001_init_extensions.py` | — (extensions only) | Applied |
 | 002 | `002_create_core_tables.py` | users, auth_sessions, conversations, messages + ENUM message_role | Applied |
 | 003 | `003_sprint2_todos_tool_logs.py` | todos, tool_execution_logs, llm_call_logs + ENUMs todo_status, todo_priority, tool_status | Applied |
-| 004 | `004_sprint3_notes.py` | notes | Applied (Sprint 3 done) |
-| 005 | `005_sprint4_memories.py` | memories + ENUM memory_type + HNSW index | **Sprint 4 — to create** |
-| 006 | `006_sprint4_conv_summary.py` | ADD COLUMN conversations.summary TEXT | Sprint 4 stretch |
+| 004 | `004_sprint3_notes.py` | notes | Applied |
+| 005 | `005_sprint4_memories.py` | memories + ENUM memory_type + HNSW index | Applied (Sprint 4 done) |
+| 006 | — | reminders, notifications | Sprint 5 |
 
-**Not yet created:** reminders (S5), notifications (S5)
+**Not yet created:** reminders (S5), notifications (S5), conversations.summary (deferred S5/6)
 
 ---
 
@@ -27,7 +27,7 @@ message_role:  user | assistant | system | tool
 todo_status:   pending | in_progress | completed | cancelled
 todo_priority: low | medium | high | urgent
 tool_status:   success | failed | timeout
-memory_type:   fact | preference | rule | relation | goal | other  ← Sprint 4
+memory_type:   fact | preference | rule | relation | goal | other
 ```
 
 ---
@@ -42,7 +42,7 @@ memory_type:   fact | preference | rule | relation | goal | other  ← Sprint 4
 | messages | NO | Retention policy only |
 | todos | YES (`deleted_at`) | |
 | notes | YES (`deleted_at`) | |
-| memories | YES (`deleted_at` + `is_active`) | Sprint 4 — also has is_active flag |
+| memories | YES (`deleted_at` + `is_active`) | also has `is_active` flag for RAG filter |
 | tool_execution_logs | NO | |
 | llm_call_logs | NO | |
 
@@ -58,13 +58,13 @@ memory_type:   fact | preference | rule | relation | goal | other  ← Sprint 4
 | `Message` | `models/conversation.py` | → conversation |
 | `Todo` | `models/todo.py` | → user |
 | `Note` | `models/note.py` | → user |
-| `Memory` | `models/memory.py` | → user — **Sprint 4** |
+| `Memory` | `models/memory.py` | → user |
 | `ToolExecutionLog` | `models/tool_log.py` | → user |
 | `LLMCallLog` | `models/tool_log.py` | → user |
 
 ---
 
-## Memory Table (Sprint 4)
+## Memory Table
 
 ```sql
 CREATE TABLE memories (
@@ -110,7 +110,7 @@ Tests use `sqlite+aiosqlite:///:memory:`. These diverge from Postgres:
 | `JSONB` | `sa.JSON` | All models |
 | `ENUM` (pre-defined) | `sa.Enum(..., create_type=False)` | Models with ENUMs |
 | `TEXT[]` arrays | `sa.JSON` | `models/todo.py` |
-| `vector(1536)` | `sa.JSON` (store as float list) | `models/memory.py` — Sprint 4 |
+| `vector(1536)` | `sa.JSON` (store as float list) | `models/memory.py` |
 | `pool_size`/`max_overflow` | Omitted for SQLite | `database.py` |
 | `server_default="true"` for BOOLEAN | Must also set `default=True` in Python | `models/user.py`, `models/memory.py` |
 

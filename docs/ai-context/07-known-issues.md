@@ -1,11 +1,19 @@
 # Known Issues & Tech Debt
 
-## Active Limitations (Sprint 2)
+## Resolved (for reference)
 
-### Streaming not supported
-- `POST /v1/chat/send` với `stream: true` → 422 `stream_not_supported`
-- Vercel AI SDK `useChat` deferred to Sprint 3
-- **Workaround:** client sends `stream: false`
+| Issue | Fixed in | How |
+|---|---|---|
+| Streaming not supported | Sprint 3 (PR #7) | SSE `stream_message()` + `StreamingResponse` |
+| No conversation auto-title | Sprint 3 (PR #5) | `chat_service.py` sets title from first message |
+| Memory/RAG placeholder | Sprint 4 (PR #15) | `_build_prompt_with_rag()` + `save/search/forget_memory` tools |
+| Frontend no error boundary for editor | Sprint 4 (PR #14/#15) | `validationError` state + try/catch in Notes & Memory editors |
+| No optimistic assistant response | Sprint 3 (PR #7) | SSE streaming shows delta in real time |
+| HTTPException returns `{ detail }` (not unified envelope) | Sprint 4 (PR #15 review) | `http_exception_handler` registered in `main.py` |
+
+---
+
+## Active Limitations
 
 ### No rate limiting
 - Endpoints không có rate limit middleware
@@ -17,34 +25,27 @@
 - **Post-MVP 1**
 
 ### conversation.updated_at không auto-update trong SQLite test env
-- Postgres: có trigger `trg_conv_updated_at` (migration 002) — `updated_at` tự update khi bất kỳ UPDATE nào xảy ra
-- SQLite (test): không có DB trigger → `updated_at` không tự update khi `increment_message_count` chạy
+- Postgres: có trigger `trg_conv_updated_at` (migration 002)
+- SQLite (test): không có DB trigger → `updated_at` không tự update
 - **SQLite-only issue, không ảnh hưởng production**
 
 ### message_count double-increment
 - `chat_service.py` calls `increment_message_count` twice (user + assistant)
-- This is intentional but fragile — should be a single call with increment=2 or transactional
+- Intentional but fragile — should be single call with increment=2 or transactional
 - **Tech debt, low priority**
 
-### No conversation auto-title
-- Conversation title mãi là "Cuộc hội thoại mới"
-- Auto-title from first message not implemented
-- **Sprint 3**
+### Conversation summarization not implemented
+- `build_system_prompt()` nhận `summary` param nhưng never passed
+- Auto-summarize khi >20 messages: **Sprint 5 hoặc 6**
 
-### Memory/RAG placeholder
-- `build_system_prompt()` nhận `memories` param nhưng không có search_memory call
-- Hiện tại inject "(Không có memory liên quan.)"
-- **Sprint 4**
-
-### Conversation summary not implemented
-- `conversation_summary` param trong `build_system_prompt()` unused
-- Auto-summarize khi >20 messages: **Sprint 4**
+### RAG end-to-end requires real Postgres
+- `memory_repo.semantic_search()` trả `[]` trên SQLite
+- Unit tests mock semantic_search — không cover thực tế vector search trên Postgres
+- **Manual integration test required** khi deploy lên Postgres
 
 ---
 
 ## SQLite Test Compatibility Notes
-
-Những chỗ có special handling cho SQLite (test env) vs Postgres (production):
 
 | Issue | SQLite workaround | File |
 |---|---|---|
@@ -53,8 +54,9 @@ Những chỗ có special handling cho SQLite (test env) vs Postgres (production
 | ENUM CREATE TYPE | `create_type=False` | Models with ENUMs |
 | Boolean server_default | Both `default=True` AND `server_default="true"` | `models/user.py` |
 | pool_size/max_overflow | Skipped for SQLite (StaticPool) | `database.py` |
-| TEXT[] arrays | `sa.JSON` (both envs use JSON now) | `models/todo.py` |
+| TEXT[] arrays | `sa.JSON` | `models/todo.py` |
 | RETURNING clause | Works in SQLite 3.35+ (aiosqlite) | `auth_repo.py` |
+| vector(1536) + `<=>` operator | `sa.JSON` ORM column; `semantic_search()` short-circuits | `models/memory.py` |
 
 ---
 
@@ -69,7 +71,7 @@ Những chỗ có special handling cho SQLite (test env) vs Postgres (production
 - Sentry DSN integration: Sprint 6 (pre-deploy)
 
 ### No Redis (optional)
-- Idempotency keys, rate limiting, session cache: require Redis (Upstash)
+- Idempotency keys, rate limiting: require Redis (Upstash)
 - Currently all in-memory or DB-backed
 
 ### refresh_token not hashed in test
@@ -81,26 +83,16 @@ Những chỗ có special handling cho SQLite (test env) vs Postgres (production
 ## Performance Notes
 
 ### N+1 potential
-- `list_conversations` không load messages — acceptable (messages loaded per conversation)
+- `list_conversations` không load messages — acceptable
 - `list_todos` không load related data — acceptable (flat table)
 
 ### LLM timeout
 - Classifier: 3s hard timeout (asyncio.wait_for)
 - Main LLM call: 30s (`settings.llm_timeout_seconds`)
-- No streaming = user waits full response time (Sprint 3 addresses with SSE)
 
 ---
 
 ## Frontend Known Issues
-
-### No error boundary
-- API errors in hooks không được displayed properly
-- **Sprint 3**
-
-### No optimistic update cho assistant response
-- User message được append ngay lập tức (optimistic) tại `ChatInterface.tsx:74`
-- Assistant response vẫn phải chờ full response từ server — không streaming
-- **Sprint 3** (fix with SSE streaming)
 
 ### Token refresh race condition
 - Multiple simultaneous 401 responses could trigger multiple refresh attempts
@@ -113,14 +105,12 @@ Những chỗ có special handling cho SQLite (test env) vs Postgres (production
 
 | Item | Priority | Sprint |
 |---|---|---|
-| Streaming chat (SSE) | High | 3 |
-| Auto-title conversation from first message | Medium | 3 |
 | Rate limiting middleware | High | 5 |
-| Sentry integration | Medium | 6 |
+| VAPID + Web Push | High | 5 |
 | Redis for idempotency + rate limit | Medium | 5 |
+| Sentry integration | Medium | 6 |
 | 4-tier LLM routing | Low | 6 |
 | Playwright E2E tests | Medium | 6 |
 | Eval set automation (10 cases) | High | 6 |
-| Frontend vitest unit tests | Low | 3+ |
-| Conversation auto-summarize | Medium | 4 |
-| Updated_at trigger (DB-level) | Low | next migration |
+| Frontend vitest unit tests | Low | 6 |
+| Conversation auto-summarize | Medium | 5/6 |
