@@ -19,6 +19,7 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tagsInput, setTagsInput] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Re-initialize only when the selected note id changes, not on every
   // refetch of the same note — this preserves unsaved drafts across
@@ -28,6 +29,7 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
     setTitle(note?.title ?? "");
     setContent(note?.content ?? "");
     setTagsInput(note?.tags.join(", ") ?? "");
+    setValidationError(null);
   }, [note?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isDirty =
@@ -41,12 +43,16 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
     const tags = tagsInput
       ? tagsInput.split(",").map((t) => t.trim()).filter(Boolean)
       : [];
-    await onSave({ title: normalizedTitle, content, tags });
-    // Sync normalized values back so isDirty is accurate after save —
-    // without this, raw input (" hello", "a,b") stays in local state while
-    // the server stores the trimmed form, keeping the Save button visible.
-    setTitle(normalizedTitle);
-    setTagsInput(tags.join(", "));
+    try {
+      await onSave({ title: normalizedTitle, content, tags });
+      // Sync normalized values back so isDirty is accurate after save —
+      // without this, raw input (" hello", "a,b") stays in local state while
+      // the server stores the trimmed form, keeping the Save button visible.
+      setTitle(normalizedTitle);
+      setTagsInput(tags.join(", "));
+    } catch (err) {
+      setValidationError(err instanceof Error ? err.message : "Không thể lưu, thử lại sau");
+    }
   }
 
   return (
@@ -85,7 +91,8 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded hover:bg-white/5 transition-colors"
+            disabled={isSaving}
+            className="p-1 rounded hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             style={{ color: "#5e8a9e" }}
           >
             <X size={12} />
@@ -93,13 +100,23 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
         </div>
       </div>
 
+      {/* Error bar */}
+      {validationError && (
+        <div
+          className="px-5 py-2 text-[10px] flex-shrink-0"
+          style={{ backgroundColor: "rgba(255,68,68,0.08)", color: "#ff4444", borderBottom: "1px solid rgba(255,68,68,0.2)" }}
+        >
+          {validationError}
+        </div>
+      )}
+
       {/* Editor area */}
       <div className="flex-1 flex flex-col overflow-hidden px-6 py-4 gap-3">
         {/* Title */}
         <input
           type="text"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => { setTitle(e.target.value); setValidationError(null); }}
           placeholder="Tiêu đề ghi chú..."
           className={cn(inputBase, "text-lg font-semibold")}
           style={{ color: "#dff3fd" }}

@@ -39,6 +39,7 @@ export default function NotesPage() {
   const showEditor = isCreating || selectedId !== null;
 
   function handleSelectNote(id: string) {
+    if (isSaving) return;
     const note = notes.find((n) => n.id === id) ?? null;
     setSelectedId(id);
     setSelectedNoteData(note);
@@ -46,12 +47,14 @@ export default function NotesPage() {
   }
 
   function handleNewNote() {
+    if (isSaving) return;
     setSelectedId(null);
     setSelectedNoteData(null);
     setIsCreating(true);
   }
 
   function handleCloseEditor() {
+    if (isSaving) return;
     setSelectedId(null);
     setSelectedNoteData(null);
     setIsCreating(false);
@@ -78,10 +81,12 @@ export default function NotesPage() {
   }
 
   function handlePin(id: string, pinned: boolean) {
+    if (isSaving) return;
     pinNote.mutate({ id, pinned });
   }
 
   function handleDelete(id: string) {
+    if (isSaving) return;
     deleteNote.mutate(id);
     if (selectedId === id) {
       setSelectedId(null);
@@ -119,7 +124,8 @@ export default function NotesPage() {
         <button
           type="button"
           onClick={handleNewNote}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold tracking-[0.12em] transition-all hover:scale-105"
+          disabled={isSaving}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold tracking-[0.12em] transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           style={{
             background: "linear-gradient(135deg, rgba(0,180,216,0.7), rgba(0,95,138,0.7))",
             color: "#dff3fd",
@@ -159,6 +165,7 @@ export default function NotesPage() {
               onSelect={handleSelectNote}
               onPin={handlePin}
               onDelete={handleDelete}
+              isSaving={isSaving}
               hasNextPage={hasNextPage}
               onLoadMore={() => fetchNextPage()}
               isLoadingMore={isFetchingNextPage}

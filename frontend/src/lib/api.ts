@@ -68,7 +68,13 @@ class ApiClient {
       const body = await res.json().catch(() => ({
         error: { code: "unknown", message: res.statusText, details: {}, request_id: "" },
       }));
-      throw new ApiException(res.status, body.error);
+      const errorBody = body.error ?? {
+        code: `http_${res.status}`,
+        message: typeof body.detail === "string" ? body.detail : res.statusText,
+        details: {},
+        request_id: "",
+      };
+      throw new ApiException(res.status, errorBody);
     }
 
     if (res.status === 204) return undefined as T;
@@ -145,7 +151,13 @@ class ApiClient {
       const body = await res.json().catch(() => ({
         error: { code: "unknown", message: res.statusText, details: {}, request_id: "" },
       }));
-      throw new ApiException(res.status, body.error);
+      const errorBody = body.error ?? {
+        code: `http_${res.status}`,
+        message: typeof body.detail === "string" ? body.detail : res.statusText,
+        details: {},
+        request_id: "",
+      };
+      throw new ApiException(res.status, errorBody);
     }
 
     if (!res.body) {
