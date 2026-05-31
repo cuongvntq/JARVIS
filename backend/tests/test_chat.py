@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -276,6 +277,47 @@ async def test_stream_rollback_on_llm_error(async_client, auth_headers, mock_llm
 
 
 # ── Pagination anchor isolation ────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_send_message_rag_failure_is_non_fatal(async_client, auth_headers, mock_llm):
+    """RAG failure (embedding service down) must not break chat — fallback to no memories."""
+    with patch(
+        "app.services.memory_service.search_semantic",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("embedding service down"),
+    ):
+        resp = await async_client.post(
+            "/v1/chat/send",
+            json={"content": "Xin chào JARVIS", "conversation_id": None},
+            headers=auth_headers,
+        )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["assistant_message"]["role"] == "assistant"
+    assert len(data["assistant_message"]["content"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_stream_rag_failure_is_non_fatal(async_client, auth_headers, mock_llm_stream):
+    """Streaming path: RAG failure falls back gracefully — stream completes with done event."""
+    with patch(
+        "app.services.memory_service.search_semantic",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("embedding service down"),
+    ):
+        async with async_client.stream(
+            "POST",
+            "/v1/chat/send",
+            json={"content": "Xin chào JARVIS", "conversation_id": None, "stream": True},
+            headers=auth_headers,
+        ) as resp:
+            assert resp.status_code == 200
+            events = await _collect_sse(resp)
+
+    types = [e["type"] for e in events]
+    assert "done" in types
+    assert "error" not in types
 
 
 @pytest.mark.asyncio

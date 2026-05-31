@@ -116,10 +116,11 @@ def _build_semantic_search_stmt(
     query_vec: list[float],
     limit: int,
     min_similarity: float,
+    memory_type: str | None = None,
 ) -> sa.Select:
     """Build pgvector cosine similarity SELECT (Postgres only — not executable on SQLite)."""
     vec_literal = str(query_vec)  # "[0.1, 0.2, ...]" — valid pgvector array input
-    return (
+    stmt = (
         select(Memory)
         .where(
             Memory.user_id == user_id,
@@ -133,6 +134,9 @@ def _build_semantic_search_stmt(
         .order_by(sa.text(f"embedding <=> '{vec_literal}'::vector"))
         .limit(limit)
     )
+    if memory_type is not None:
+        stmt = stmt.where(Memory.memory_type == memory_type)
+    return stmt
 
 
 async def semantic_search(
@@ -141,10 +145,11 @@ async def semantic_search(
     query_vec: list[float],
     limit: int = 5,
     min_similarity: float = 0.7,
+    memory_type: str | None = None,
 ) -> list[Memory]:
     """Cosine similarity search. Returns [] on SQLite (test env)."""
     if engine.dialect.name == "sqlite":
         return []
-    stmt = _build_semantic_search_stmt(user_id, query_vec, limit, min_similarity)
+    stmt = _build_semantic_search_stmt(user_id, query_vec, limit, min_similarity, memory_type)
     result = await db.execute(stmt)
     return list(result.scalars())

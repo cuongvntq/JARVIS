@@ -1,4 +1,4 @@
-"""Tool JSON schemas for the 3 todo tools (Sprint 2).
+"""Tool JSON schemas (Sprint 2-4).
 
 Each entry is an OpenAI-compatible "type: function" tool object.
 LiteLLM accepts this format for all supported providers.
@@ -218,6 +218,120 @@ TOOLS: list[dict] = [
                         "description": "Số lượng tối đa trả về.",
                     },
                 },
+                "additionalProperties": False,
+            },
+        },
+    },
+    # ── Sprint 4: Memory tools ─────────────────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "save_memory",
+            "description": (
+                "Lưu thông tin dài hạn của người dùng vào bộ nhớ cá nhân. "
+                "Gọi khi người dùng tiết lộ fact, sở thích, quy tắc, quan hệ, hoặc mục tiêu quan trọng. "
+                "VD: 'Tôi dị ứng tôm', 'Nhớ là tôi thích cà phê đen', 'Tôi làm ca đêm'. "
+                "Content viết ngôi thứ ba: 'Người dùng dị ứng tôm'. "
+                "KHÔNG gọi khi chitchat đơn giản. KHÔNG lưu mật khẩu, OTP, dấu hiệu khủng hoảng."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "string",
+                        "minLength": 3,
+                        "maxLength": 500,
+                        "description": (
+                            "Nội dung memory viết ngôi thứ ba. "
+                            "VD: 'Người dùng dị ứng tôm', 'Người dùng thích cà phê đen không đường'."
+                        ),
+                    },
+                    "memory_type": {
+                        "type": "string",
+                        "enum": ["fact", "preference", "rule", "relation", "goal", "other"],
+                        "description": (
+                            "Loại memory: fact=sự thật/dị ứng/thông tin, "
+                            "preference=sở thích, rule=quy tắc cá nhân, "
+                            "relation=quan hệ với người khác, goal=mục tiêu."
+                        ),
+                    },
+                    "importance": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10,
+                        "default": 5,
+                        "description": (
+                            "Mức quan trọng 1-10. "
+                            "Dị ứng/sức khỏe/quy tắc cứng=8-10; sở thích thông thường=5; thông tin vặt=1-3."
+                        ),
+                    },
+                },
+                "required": ["content", "memory_type"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_memory",
+            "description": (
+                "Tìm kiếm bộ nhớ cá nhân bằng semantic search. "
+                "Gọi khi cần context cá nhân để trả lời: sở thích, dị ứng, thói quen, mục tiêu đã lưu. "
+                "RAG — orchestrator gọi tự động trước mỗi LLM turn khi cần."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Câu truy vấn để tìm memory liên quan.",
+                    },
+                    "memory_type": {
+                        "type": ["string", "null"],
+                        "enum": ["fact", "preference", "rule", "relation", "goal", "other", None],
+                        "description": "Lọc theo loại memory. Null để tìm tất cả loại.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10,
+                        "default": 5,
+                        "description": "Số lượng memory tối đa trả về.",
+                    },
+                    "min_similarity": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1,
+                        "default": 0.7,
+                        "description": "Ngưỡng cosine similarity tối thiểu (0-1). Mặc định 0.7.",
+                    },
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "forget_memory",
+            "description": (
+                "Xóa một memory khỏi bộ nhớ cá nhân (soft delete). "
+                "Gọi khi người dùng yêu cầu xóa/quên thông tin đã lưu. "
+                "Chỉ xóa 1 record/lần. Nếu không biết memory_id, gọi search_memory trước."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "memory_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "ID của memory cần xóa. Lấy từ kết quả search_memory.",
+                    },
+                },
+                "required": ["memory_id"],
                 "additionalProperties": False,
             },
         },

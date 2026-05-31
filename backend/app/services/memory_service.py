@@ -109,16 +109,30 @@ async def forget(db: AsyncSession, memory_id: uuid.UUID, user_id: uuid.UUID) -> 
     await db.commit()
 
 
+async def forget_committed(memory_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """Tool executor path — opens its own session to avoid committing the shared chat session.
+    Returns True if deleted, False if not found (caller decides how to surface this).
+    """
+    async with AsyncSessionLocal() as db:
+        memory = await memory_repo.get_by_id(db, memory_id, user_id)
+        if memory is None:
+            return False
+        await memory_repo.soft_delete(db, memory_id)
+        await db.commit()
+    return True
+
+
 async def search_semantic(
     db: AsyncSession,
     user_id: uuid.UUID,
     query: str,
     limit: int = 5,
     min_similarity: float = 0.7,
+    memory_type: str | None = None,
 ) -> list[MemoryOut]:
     """Embed query then run cosine similarity search. Returns [] on SQLite without calling LLM."""
     if engine.dialect.name == "sqlite":
         return []
     query_vec = await embed_text(query)
-    memories = await memory_repo.semantic_search(db, user_id, query_vec, limit, min_similarity)
+    memories = await memory_repo.semantic_search(db, user_id, query_vec, limit, min_similarity, memory_type)
     return [MemoryOut.model_validate(m) for m in memories]
