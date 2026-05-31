@@ -4,13 +4,14 @@ from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.core.errors import (
     JarvisError,
     RequestIDMiddleware,
+    http_exception_handler,
     jarvis_exception_handler,
     validation_exception_handler,
 )
@@ -48,6 +49,7 @@ app.add_middleware(
 
 # Exception handlers
 app.add_exception_handler(JarvisError, jarvis_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 # Routers

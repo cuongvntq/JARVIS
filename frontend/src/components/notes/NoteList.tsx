@@ -14,6 +14,7 @@ interface NoteListProps {
   onSelect: (id: string) => void;
   onPin: (id: string, pinned: boolean) => void;
   onDelete: (id: string) => void;
+  isSaving?: boolean;
   hasNextPage?: boolean;
   onLoadMore?: () => void;
   isLoadingMore?: boolean;
@@ -26,6 +27,7 @@ function NoteItem({
   onSelect,
   onPin,
   onDelete,
+  isSaving,
 }: {
   note: NoteOut;
   selected: boolean;
@@ -33,6 +35,7 @@ function NoteItem({
   onSelect: () => void;
   onPin: () => void;
   onDelete: () => void;
+  isSaving?: boolean;
 }) {
   const updatedAt = formatInTimeZone(
     new Date(note.updated_at),
@@ -56,7 +59,8 @@ function NoteItem({
       <button
         type="button"
         onClick={onSelect}
-        className="flex-1 min-w-0 text-left px-3 py-2.5"
+        disabled={isSaving}
+        className="flex-1 min-w-0 text-left px-3 py-2.5 disabled:cursor-not-allowed"
       >
         <div className="flex items-start justify-between gap-1">
           <p
@@ -87,7 +91,8 @@ function NoteItem({
         <button
           type="button"
           onClick={onPin}
-          className="p-0.5 rounded hover:text-jarvis-accent transition-colors"
+          disabled={isSaving}
+          className="p-0.5 rounded hover:text-jarvis-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           style={{ color: "#3a6a7e" }}
           title={note.pinned ? "Bỏ ghim" : "Ghim"}
         >
@@ -96,7 +101,8 @@ function NoteItem({
         <button
           type="button"
           onClick={onDelete}
-          className="p-0.5 rounded hover:text-jarvis-danger transition-colors"
+          disabled={isSaving}
+          className="p-0.5 rounded hover:text-jarvis-danger transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           style={{ color: "#3a6a7e" }}
           title="Xóa"
         >
@@ -116,6 +122,7 @@ export default function NoteList({
   onSelect,
   onPin,
   onDelete,
+  isSaving,
   hasNextPage,
   onLoadMore,
   isLoadingMore,
@@ -178,6 +185,7 @@ export default function NoteList({
                       onSelect={() => onSelect(note.id)}
                       onPin={() => onPin(note.id, note.pinned)}
                       onDelete={() => onDelete(note.id)}
+                      isSaving={isSaving}
                     />
                   ))}
                 </div>
@@ -204,6 +212,7 @@ export default function NoteList({
                       onSelect={() => onSelect(note.id)}
                       onPin={() => onPin(note.id, note.pinned)}
                       onDelete={() => onDelete(note.id)}
+                      isSaving={isSaving}
                     />
                   ))}
                 </div>

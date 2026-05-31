@@ -147,6 +147,49 @@ export interface NoteListOut {
   next_cursor: string | null;
 }
 
+// ── Memory ───────────────────────────────────────────────────────────────────
+
+export type MemoryType = "fact" | "preference" | "rule" | "relation" | "goal" | "other";
+
+export interface MemoryOut {
+  id: string;
+  user_id: string;
+  memory_type: MemoryType;
+  content: string;
+  importance: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MemoryCreate {
+  content: string;
+  memory_type?: MemoryType;
+  importance?: number;
+}
+
+export interface MemoryUpdate {
+  content?: string;
+  memory_type?: MemoryType;
+  importance?: number;
+}
+
+export interface MemoryListOut {
+  items: MemoryOut[];
+  next_cursor: string | null;
+}
+
+export interface MemorySearchRequest {
+  query: string;
+  limit?: number;
+  min_similarity?: number;
+}
+
+export interface MemorySearchOut {
+  items: MemoryOut[];
+  count: number;
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 export interface UserUpdateRequest {

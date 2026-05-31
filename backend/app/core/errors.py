@@ -3,7 +3,7 @@
 import uuid
 
 from fastapi import Request
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -29,6 +29,21 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers["X-Request-ID"] = request.state.request_id
         return response
+
+
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", "unknown")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "code": f"http_{exc.status_code}",
+                "message": str(exc.detail),
+                "details": {},
+                "request_id": request_id,
+            }
+        },
+    )
 
 
 async def jarvis_exception_handler(request: Request, exc: JarvisError) -> JSONResponse:
