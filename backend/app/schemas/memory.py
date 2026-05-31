@@ -30,7 +30,9 @@ class MemoryUpdate(BaseModel):
         if isinstance(data, dict):
             for field in ("content", "memory_type", "importance"):
                 if field in data and data[field] is None:
-                    raise ValueError(f"'{field}' cannot be null; omit the field to leave it unchanged")
+                    raise ValueError(
+                        f"'{field}' cannot be null; omit the field to leave it unchanged"
+                    )
         return data
 
 

@@ -26,7 +26,11 @@ async def test_save_memory_happy_path(db_session):
         result = await execute_save_memory(
             db=db_session,
             user_id=uuid.uuid4(),
-            params={"content": "Người dùng thích cà phê đen", "memory_type": "preference", "importance": 7},
+            params={
+                "content": "Người dùng thích cà phê đen",
+                "memory_type": "preference",
+                "importance": 7,
+            },
         )
     assert result["success"] is True
     assert result["data"]["content"] == "Người dùng thích cà phê đen"
@@ -187,7 +191,11 @@ async def test_forget_memory_happy_path(db_session):
         save_result = await execute_save_memory(
             db=db_session,
             user_id=user_id,
-            params={"content": "Người dùng dị ứng tôm biển", "memory_type": "fact", "importance": 9},
+            params={
+                "content": "Người dùng dị ứng tôm biển",
+                "memory_type": "fact",
+                "importance": 9,
+            },
         )
     assert save_result["success"] is True
     memory_id = save_result["data"]["id"]

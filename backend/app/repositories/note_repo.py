@@ -53,9 +53,7 @@ async def list_notes(
             # Composite cursor: (pinned DESC, created_at DESC, id DESC)
             # Move past the last seen row using strict ordering conditions.
             same_ts = and_(Note.pinned == cursor_pinned, Note.created_at == cursor_dt)
-            id_tiebreak = (
-                and_(same_ts, Note.id < cursor_id) if cursor_id is not None else None
-            )
+            id_tiebreak = and_(same_ts, Note.id < cursor_id) if cursor_id is not None else None
             conditions = [
                 Note.pinned < cursor_pinned,
                 and_(Note.pinned == cursor_pinned, Note.created_at < cursor_dt),
@@ -67,9 +65,9 @@ async def list_notes(
             pass
 
     # Pinned notes first, then by created_at desc, then id desc as tie-breaker
-    query = query.order_by(
-        Note.pinned.desc(), Note.created_at.desc(), Note.id.desc()
-    ).limit(limit + 1)
+    query = query.order_by(Note.pinned.desc(), Note.created_at.desc(), Note.id.desc()).limit(
+        limit + 1
+    )
     result = await db.execute(query)
     rows = list(result.scalars())
 

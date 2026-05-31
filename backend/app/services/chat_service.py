@@ -89,7 +89,11 @@ async def stream_message(
     except Exception as e:
         log.error("chat.stream.llm_error", error=str(e), user_id=str(current_user.id))
         await db.rollback()
-        yield {"type": "error", "code": "llm_error", "message": "Dịch vụ AI tạm thời không khả dụng, vui lòng thử lại"}
+        yield {
+            "type": "error",
+            "code": "llm_error",
+            "message": "Dịch vụ AI tạm thời không khả dụng, vui lòng thử lại",
+        }
         return
 
     if orch_done is None:

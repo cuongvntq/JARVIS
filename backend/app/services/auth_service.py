@@ -1,5 +1,6 @@
 """Auth business logic."""
 
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import structlog
@@ -19,7 +20,13 @@ from app.core.security import (
 )
 from app.models.user import User
 from app.repositories import auth_repo, user_repo
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserOut
+from app.schemas.auth import (
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UpdateProfileRequest,
+    UserOut,
+)
 
 log = structlog.get_logger()
 settings = get_settings()
@@ -90,6 +97,19 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> tuple[TokenRes
         user=UserOut.model_validate(user),
     )
     return token_resp, raw_refresh
+
+
+async def update_profile(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    data: UpdateProfileRequest,
+) -> UserOut:
+    fields = data.model_dump(exclude_unset=True, exclude_none=True)
+    if fields:
+        await user_repo.update_fields(db, user_id, **fields)
+        await db.commit()
+    user = await user_repo.get_by_id(db, user_id)
+    return UserOut.model_validate(user)
 
 
 async def logout(db: AsyncSession, refresh_token_raw: str) -> None:

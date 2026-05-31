@@ -3,7 +3,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -32,3 +32,9 @@ async def update_last_login(db: AsyncSession, user_id: uuid.UUID) -> None:
     if user:
         user.last_login_at = datetime.now(UTC)
         await db.flush()
+
+
+async def update_fields(db: AsyncSession, user_id: uuid.UUID, **kwargs) -> None:
+    kwargs["updated_at"] = datetime.now(UTC)
+    await db.execute(update(User).where(User.id == user_id).values(**kwargs))
+    await db.flush()

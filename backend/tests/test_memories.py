@@ -7,7 +7,9 @@ import pytest
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
-async def _create_memory(async_client, auth_headers, content="Người dùng thích cà phê đen", **extra):
+async def _create_memory(
+    async_client, auth_headers, content="Người dùng thích cà phê đen", **extra
+):
     payload = {"content": content, **extra}
     return await async_client.post("/v1/memories", json=payload, headers=auth_headers)
 
@@ -32,7 +34,8 @@ async def test_create_memory_happy_path(async_client, auth_headers):
 @pytest.mark.asyncio
 async def test_create_memory_all_fields(async_client, auth_headers):
     resp = await _create_memory(
-        async_client, auth_headers,
+        async_client,
+        auth_headers,
         "Người dùng dị ứng tôm",
         memory_type="fact",
         importance=9,
