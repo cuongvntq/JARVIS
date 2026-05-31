@@ -20,7 +20,8 @@ export type Section =
   | "notes"
   | "reminders"
   | "memory"
-  | "dashboard";
+  | "dashboard"
+  | "settings";
 
 interface SidebarProps {
   active: Section;
@@ -234,13 +235,23 @@ export default function Sidebar({
       >
         <button
           type="button"
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 hover:bg-white/5"
-          style={{ color: "#5e8a9e" }}
+          onClick={() => onNavigate("settings")}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150"
+          style={{
+            backgroundColor: active === "settings" ? "rgba(0, 180, 216, 0.1)" : "transparent",
+            borderLeft: active === "settings" ? "2px solid rgba(0, 180, 216, 0.7)" : "2px solid transparent",
+          }}
         >
-          <Settings size={14} style={{ flexShrink: 0 }} />
+          <Settings
+            size={14}
+            style={{ color: active === "settings" ? "#00b4d8" : "#5e8a9e", flexShrink: 0 }}
+          />
           <span
             className="text-[10px] font-semibold tracking-[0.15em]"
-            style={{ fontFamily: "var(--font-orbitron)" }}
+            style={{
+              fontFamily: "var(--font-orbitron)",
+              color: active === "settings" ? "#dff3fd" : "#5e8a9e",
+            }}
           >
             SETTINGS
           </span>
