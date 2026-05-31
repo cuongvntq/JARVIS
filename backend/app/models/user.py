@@ -46,6 +46,9 @@ class User(Base):
     notes: Mapped[list["Note"]] = relationship(  # noqa: F821
         "Note", back_populates="user", cascade="all, delete-orphan"
     )
+    memories: Mapped[list["Memory"]] = relationship(  # noqa: F821
+        "Memory", back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class AuthSession(Base):
