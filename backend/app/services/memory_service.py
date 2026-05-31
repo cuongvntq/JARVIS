@@ -109,6 +109,19 @@ async def forget(db: AsyncSession, memory_id: uuid.UUID, user_id: uuid.UUID) -> 
     await db.commit()
 
 
+async def forget_committed(memory_id: uuid.UUID, user_id: uuid.UUID) -> bool:
+    """Tool executor path — opens its own session to avoid committing the shared chat session.
+    Returns True if deleted, False if not found (caller decides how to surface this).
+    """
+    async with AsyncSessionLocal() as db:
+        memory = await memory_repo.get_by_id(db, memory_id, user_id)
+        if memory is None:
+            return False
+        await memory_repo.soft_delete(db, memory_id)
+        await db.commit()
+    return True
+
+
 async def search_semantic(
     db: AsyncSession,
     user_id: uuid.UUID,

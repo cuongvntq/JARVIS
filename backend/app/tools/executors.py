@@ -1,4 +1,4 @@
-"""Tool executors for the 3 todo tools (Sprint 2).
+"""Tool executors (Sprint 2-4).
 
 Each executor:
   - Accepts raw tool_call params dict from LLM
@@ -14,9 +14,10 @@ import structlog
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.schemas.memory import MemoryCreate
 from app.schemas.note import NoteCreate
 from app.schemas.todo import TodoCreate, TodoPartialUpdate
-from app.services import note_service, todo_service
+from app.services import memory_service, note_service, todo_service
 
 log = structlog.get_logger()
 
@@ -216,6 +217,74 @@ async def execute_search_notes(
     )
 
 
+# ── save_memory ───────────────────────────────────────────────────────────────
+
+
+async def execute_save_memory(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    params: dict,
+) -> ToolResult:
+    content = (params.get("content") or "").strip()
+    if len(content) < 3:
+        return _err("invalid_content", "content phải có ít nhất 3 ký tự.")
+
+    memory_type = params.get("memory_type", "fact")
+    valid_types = {"fact", "preference", "rule", "relation", "goal", "other"}
+    if memory_type not in valid_types:
+        return _err("invalid_memory_type", f"memory_type phải là một trong: {', '.join(valid_types)}.")
+
+    importance = int(params.get("importance", 5))
+    if not (1 <= importance <= 10):
+        return _err("invalid_importance", "importance phải từ 1 đến 10.")
+
+    data = MemoryCreate(content=content, memory_type=memory_type, importance=importance)
+    out = await memory_service.create_committed(user_id, data)
+    return _ok(out.model_dump(mode="json"), f"Đã ghi nhớ: {content[:60]}{'...' if len(content) > 60 else ''}.")
+
+
+# ── search_memory ─────────────────────────────────────────────────────────────
+
+
+async def execute_search_memory(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    params: dict,
+) -> ToolResult:
+    query = (params.get("query") or "").strip()
+    if not query:
+        return _err("missing_query", "query là bắt buộc.")
+
+    limit = min(int(params.get("limit", 5)), 10)
+    min_similarity = float(params.get("min_similarity", 0.7))
+    min_similarity = max(0.0, min(1.0, min_similarity))
+
+    memories = await memory_service.search_semantic(db, user_id, query, limit, min_similarity)
+    return _ok(
+        {"memories": [m.model_dump(mode="json") for m in memories], "count": len(memories)},
+        f"Tìm thấy {len(memories)} memory liên quan đến '{query}'.",
+    )
+
+
+# ── forget_memory ─────────────────────────────────────────────────────────────
+
+
+async def execute_forget_memory(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    params: dict,
+) -> ToolResult:
+    try:
+        memory_id = uuid.UUID(params["memory_id"])
+    except (KeyError, ValueError):
+        return _err("invalid_memory_id", "memory_id không hợp lệ hoặc thiếu.")
+
+    deleted = await memory_service.forget_committed(memory_id, user_id)
+    if not deleted:
+        return _err("memory_not_found", "Memory không tồn tại hoặc đã bị xóa.")
+    return _ok({"memory_id": str(memory_id)}, "Đã xóa memory.")
+
+
 # ── dispatch ──────────────────────────────────────────────────────────────────
 
 _EXECUTOR_MAP = {
@@ -224,6 +293,9 @@ _EXECUTOR_MAP = {
     "update_todo": execute_update_todo,
     "create_note": execute_create_note,
     "search_notes": execute_search_notes,
+    "save_memory": execute_save_memory,
+    "search_memory": execute_search_memory,
+    "forget_memory": execute_forget_memory,
 }
 
 

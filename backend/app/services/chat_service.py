@@ -20,9 +20,23 @@ from app.schemas.chat import (
     ConversationPatchRequest,
     MessageOut,
 )
+from app.services import memory_service
 from app.tools.definitions import TOOLS
 
 log = structlog.get_logger()
+
+
+async def _build_prompt_with_rag(
+    db: AsyncSession,
+    user: User,
+    content: str,
+) -> tuple[str, str]:
+    """Fetch top-5 relevant memories then build system prompt. Shared by send_message and stream_message."""
+    relevant_memories = await memory_service.search_semantic(
+        db, user.id, content, limit=5, min_similarity=0.7
+    )
+    memories_dict = [m.model_dump() for m in relevant_memories]
+    return build_system_prompt(user, memories=memories_dict or None)
 
 
 async def stream_message(
@@ -47,7 +61,7 @@ async def stream_message(
 
     yield {"type": "meta", "conversation_id": str(conv.id), "user_message_id": str(user_msg.id)}
 
-    system_prompt, prompt_version = build_system_prompt(current_user)
+    system_prompt, prompt_version = await _build_prompt_with_rag(db, current_user, req.content)
 
     orch_done: dict | None = None
 
@@ -138,7 +152,7 @@ async def send_message(
         auto_title = req.content.strip()[:50]
         await conversation_repo.update_title(db, conv.id, auto_title)
 
-    system_prompt, prompt_version = build_system_prompt(current_user)
+    system_prompt, prompt_version = await _build_prompt_with_rag(db, current_user, req.content)
 
     try:
         orch_result = await orchestrator.run(
