@@ -26,6 +26,8 @@ def _schedule_embed(memory_id: uuid.UUID, content: str) -> None:
 
 async def _embed_and_update(memory_id: uuid.UUID, content: str) -> None:
     """Background task: embed content and update DB. Uses own session, never touches request session."""
+    if engine.dialect.name == "sqlite":
+        return  # no-op in test env — no LiteLLM call, no vector cast on SQLite
     async with AsyncSessionLocal() as db:
         try:
             vec = await embed_text(content)

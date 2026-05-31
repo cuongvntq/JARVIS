@@ -152,18 +152,18 @@ Query: `pinned?` (bool), `q?`, `limit=20`, `cursor?`
 ## Memories (`/v1/memories`) — Sprint 4
 
 ### GET /v1/memories
-Query: `type?` (fact|preference|rule|relation|goal|other), `limit=20`, `cursor?`
+Query: `memory_type?` (fact|preference|rule|relation|goal|other), `limit=20`, `cursor?`
 Response: `{ "items": [MemoryOut], "next_cursor": "base64|null" }`
 
 ### POST /v1/memories → 201
 ```json
-{ "memory_type": "fact", "content": "(3-500 chars)", "importance": 5 }
+{ "memory_type": "fact", "content": "(1-2000 chars)", "importance": 5 }
 ```
-Note: embedding generated async via `asyncio.create_task()` — may be null briefly after create.
+Note: embedding generated async (background task) — may be null briefly after create.
 
 ### POST /v1/memories/search
 Request: `{ "query": "...", "limit": 5, "min_similarity": 0.7 }`
-Response: `{ "items": [MemoryOut], "count": N }`
+Response: `{ "items": [MemoryOut], "count": N }` — no cursor (bounded by limit, no pagination)
 
 ### GET /v1/memories/{id} → 200 MemoryOut | 404
 ### PATCH /v1/memories/{id} → 200 (partial: content?, importance?, memory_type?)

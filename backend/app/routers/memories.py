@@ -11,6 +11,7 @@ from app.schemas.memory import (
     MemoryCreate,
     MemoryListOut,
     MemoryOut,
+    MemorySearchOut,
     MemorySearchRequest,
     MemoryUpdate,
 )
@@ -42,7 +43,7 @@ async def create_memory(
     return await memory_service.create(db, current_user.id, data)
 
 
-@router.post("/search", response_model=MemoryListOut)
+@router.post("/search", response_model=MemorySearchOut)
 async def search_memories(
     data: MemorySearchRequest,
     current_user=Depends(get_current_user),
@@ -51,7 +52,7 @@ async def search_memories(
     items = await memory_service.search_semantic(
         db, current_user.id, data.query, limit=data.limit, min_similarity=data.min_similarity
     )
-    return MemoryListOut(items=items, next_cursor=None)
+    return MemorySearchOut(items=items, count=len(items))
 
 
 @router.get("/{memory_id}", response_model=MemoryOut)

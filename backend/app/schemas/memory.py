@@ -42,6 +42,11 @@ class MemoryListOut(BaseModel):
     next_cursor: str | None
 
 
+class MemorySearchOut(BaseModel):
+    items: list[MemoryOut]
+    count: int
+
+
 class MemorySearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=500)
     limit: int = Field(default=5, ge=1, le=20)
