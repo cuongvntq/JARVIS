@@ -231,7 +231,7 @@ class ApiClient {
     cursor?: string;
   }): Promise<MemoryListOut> {
     const p = new URLSearchParams();
-    if (params?.type) p.set("type", params.type);
+    if (params?.type) p.set("memory_type", params.type);
     if (params?.limit) p.set("limit", String(params.limit));
     if (params?.cursor) p.set("cursor", params.cursor);
     return this.request(`/v1/memories?${p}`);

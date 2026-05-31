@@ -16,7 +16,7 @@ const TYPE_OPTIONS: { value: MemoryType; label: string }[] = [
 interface MemoryEditorProps {
   memory: MemoryOut | null;
   isSaving: boolean;
-  onSave: (data: { content: string; memory_type: MemoryType; importance: number }) => void;
+  onSave: (data: { content: string; memory_type: MemoryType; importance: number }) => Promise<void>;
   onClose: () => void;
 }
 
@@ -39,13 +39,19 @@ export default function MemoryEditor({ memory, isSaving, onSave, onClose }: Memo
     setValidationError(null);
   }, [memory]);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!content.trim()) {
       setValidationError("Nội dung không được để trống");
       return;
     }
-    onSave({ content: content.trim(), memory_type: memoryType, importance });
+    try {
+      await onSave({ content: content.trim(), memory_type: memoryType, importance });
+    } catch (err) {
+      setValidationError(
+        err instanceof Error ? err.message : "Không thể lưu, thử lại sau",
+      );
+    }
   }
 
   const inputStyle = {
