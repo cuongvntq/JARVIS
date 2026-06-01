@@ -26,9 +26,7 @@ async def upsert(
 
     # Check if this endpoint belongs to a different user and delete it
     old = (
-        await db.execute(
-            select(PushSubscription).where(PushSubscription.endpoint == endpoint)
-        )
+        await db.execute(select(PushSubscription).where(PushSubscription.endpoint == endpoint))
     ).scalar_one_or_none()
     if old is not None and old.user_id != user_id:
         await db.delete(old)
