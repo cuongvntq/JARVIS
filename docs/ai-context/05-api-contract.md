@@ -10,13 +10,19 @@ Note: ALL exceptions (including FastAPI `HTTPException`) now return the unified 
 
 ---
 
-## Not yet implemented (planned Sprint 5+)
+## Not yet implemented (planned Sprint 6+)
 
 - `POST /auth/google` — Google OAuth (removed from MVP 1 scope)
-- `/v1/reminders/*` — Sprint 5
-- `/v1/dashboard/*` — Sprint 5
 - Idempotency-Key header — post-MVP 1
-- Rate limiting (429) — Sprint 5
+- Conversation summarization — Sprint 6
+
+---
+
+## Rate Limiting — Sprint 5
+
+- General endpoints: **60 req/min/user** (SlowAPI in-memory store)
+- `/v1/chat/send`: **20 req/min/user**
+- Error: `429` + `Retry-After` header, body: `{ "error": { "code": "rate_limit_exceeded", "message": "..." } }`
 
 ---
 
@@ -80,8 +86,10 @@ Error event: `{"type":"error","code":"llm_error","message":"..."}`
 Note: stream error after `meta` event → backend rolls back DB, `conversation_id` becomes invalid.
 Use `streamSucceeded` flag on FE to guard `onConversationCreated()` call.
 
+**Rate limit:** 20 req/min/user.
+
 **MessageOut:** `{ id, role, content, tokens_in, tokens_out, created_at }`
-Errors: `404 conversation_not_found`, `502 llm_error`
+Errors: `404 conversation_not_found`, `502 llm_error`, `429 rate_limit_exceeded`
 
 ### GET /v1/chat/conversations?limit=20&cursor=
 Response: `{ "items": [ConversationOut], "next_cursor": "base64|null" }`
@@ -140,11 +148,72 @@ Query: `pinned?` (bool), `q?`, `limit=20`, `cursor?`
 ```json
 { "title"?, "content"?, "tags"?, "pinned"? }
 ```
+Note: all fields reject explicit null (422) — omit field to leave unchanged. (Sprint 5 review fix)
+
 ### PATCH /v1/notes/{id}/pin → 200
 ### PATCH /v1/notes/{id}/unpin → 200
 ### DELETE /v1/notes/{id} → 204 (soft delete)
 
 **NoteOut:** `{ id, user_id, title, content, tags, pinned, source, created_at, updated_at }`
+
+---
+
+## Reminders (`/v1/reminders`) — Sprint 5
+
+### GET /v1/reminders
+Query: `status?` (pending|sending|sent|failed|cancelled), `limit=20`, `cursor?`
+Response: `{ "items": [ReminderOut], "next_cursor": "base64|null" }`
+
+### POST /v1/reminders → 201
+```json
+{ "title": "(required, 1-500)", "remind_at": "ISO UTC (required, must be future)", "description": null, "source": "ui" }
+```
+Errors: `422` if `remind_at` is in the past or missing
+
+### GET /v1/reminders/{id} → 200 ReminderOut | 404
+### PATCH /v1/reminders/{id} → 200 (partial update)
+```json
+{ "title"?, "remind_at"?, "description"? }
+```
+Note: `title` and `remind_at` reject explicit null (422). `description` accepts null (nullable DB column).
+
+### PATCH /v1/reminders/{id}/cancel → 200 (sets status=cancelled)
+### DELETE /v1/reminders/{id} → 204 (soft delete)
+
+**ReminderOut:** `{ id, user_id, title, description, remind_at, status, source, created_at, updated_at }`
+**ReminderStatus:** `pending | sending | sent | failed | cancelled`
+Error codes: `reminder_not_found` (404)
+
+---
+
+## Dashboard (`/v1/dashboard`) — Sprint 5
+
+### GET /v1/dashboard/today → 200
+```json
+{
+  "todos_today":        [ TodoOut ],
+  "todos_count":        { "today": N, "overdue": N, "upcoming": N },
+  "reminders_upcoming": [ ReminderOut ],
+  "memories_count":     N,
+  "as_of":              "ISO UTC"
+}
+```
+- `todos_today`: due today (user timezone), status IN (pending, in_progress)
+- `reminders_upcoming`: top 5, status IN (pending, sending), remind_at >= now, ORDER BY remind_at ASC
+- `memories_count`: count where is_active=true AND deleted_at IS NULL
+
+---
+
+## Notifications (`/v1/notifications`) — Sprint 5
+
+### POST /v1/notifications/subscribe → 201
+```json
+{ "endpoint": "...", "p256dh": "...", "auth": "..." }
+```
+Upserts (1 active subscription per user — overwrites previous if exists).
+
+### POST /v1/notifications/unsubscribe → 204
+Deactivates current user's push subscription (sets is_active=false).
 
 ---
 
@@ -200,6 +269,16 @@ Note: called by orchestrator automatically before each LLM turn (RAG).
 ### forget_memory *(Sprint 4)*
 Params: `{ memory_id* (uuid) }`
 
+### create_reminder *(Sprint 5)*
+Params: `{ title* (1-500), remind_at* (ISO UTC, must be future), description?, source? }`
+Note: executor validates remind_at is future; if past → `{ success: false, error: { code: "invalid_remind_at" } }`
+
+### list_reminders *(Sprint 5)*
+Params: `{ status?: pending|sending|sent|failed|cancelled, limit?: 1-20 }`
+
+### get_today_summary *(Sprint 5)*
+Params: `{}` — calls dashboard_service internally
+
 All tool responses: `{ success, data, summary, warnings }` or `{ success: false, error: {code, message}, data: null }`
 
 ---
@@ -218,9 +297,11 @@ All tool responses: `{ success, data, summary, warnings }` or `{ success: false,
 | `todo_not_found` | 404 | Todo missing or belongs to other user |
 | `note_not_found` | 404 | Note missing or belongs to other user |
 | `memory_not_found` | 404 | Memory missing or belongs to other user *(Sprint 4)* |
+| `reminder_not_found` | 404 | Reminder missing or belongs to other user *(Sprint 5)* |
 | `invalid_status` | 400 | Unknown status query param |
 | `invalid_filter` | 400 | Unknown filter query param |
 | `invalid_timezone` | 422 | PATCH /auth/me with invalid IANA timezone *(Sprint 4)* |
+| `rate_limit_exceeded` | 429 | Too many requests *(Sprint 5)* |
 | `llm_error` | 502 | All LLM providers failed |
 | `validation_error` | 422 | Pydantic schema failure |
 
