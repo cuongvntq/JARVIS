@@ -120,3 +120,24 @@ async def list_upcoming_for_dashboard(
         .limit(limit)
     )
     return list(result.scalars())
+
+
+async def claim_pending_due(db: AsyncSession, before_utc: datetime) -> list[Reminder]:
+    """Atomically claim pending due reminders by setting status='sending'.
+
+    Single UPDATE...RETURNING statement prevents duplicate sends when multiple
+    scheduler instances run concurrently (each instance claims a disjoint set).
+    """
+    stmt = (
+        update(Reminder)
+        .where(
+            Reminder.status == "pending",
+            Reminder.remind_at <= before_utc,
+            Reminder.deleted_at.is_(None),
+        )
+        .values(status="sending", updated_at=datetime.now(UTC))
+        .returning(Reminder)
+        .execution_options(synchronize_session=False)
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars())

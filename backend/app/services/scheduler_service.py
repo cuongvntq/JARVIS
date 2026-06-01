@@ -41,15 +41,11 @@ async def check_reminders() -> None:
         if stuck:
             await db.commit()
 
-        # Step B: claim pending due reminders
-        due = await reminder_repo.get_pending_due(db, before_utc=now)
+        # Step B: atomically claim pending due reminders via UPDATE...RETURNING
+        due = await reminder_repo.claim_pending_due(db, before_utc=now)
+        await db.commit()
         if not due:
             return
-
-        # Mark as sending (claim)
-        for r in due:
-            await reminder_repo.update_fields(db, r.id, status="sending")
-        await db.commit()
 
         # Send push for each claimed reminder
         for r in due:
