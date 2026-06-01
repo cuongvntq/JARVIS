@@ -8,6 +8,7 @@ import NotesPage from "@/components/notes/NotesPage";
 import SettingsPage from "@/components/settings/SettingsPage";
 import MemoryPage from "@/components/memories/MemoryPage";
 import RemindersPage from "@/components/reminders/RemindersPage";
+import DashboardPage from "@/components/dashboard/DashboardPage";
 
 function ComingSoon({ name }: { name: string }) {
   return (
@@ -35,7 +36,7 @@ function ComingSoon({ name }: { name: string }) {
 }
 
 export default function HomePage() {
-  const [section, setSection] = useState<Section>("chat");
+  const [section, setSection] = useState<Section>("dashboard");
   const [conversationId, setConversationId] = useState<string | null>(null);
 
   function handleSelectConversation(id: string | null) {
@@ -67,7 +68,8 @@ export default function HomePage() {
         {section === "settings" && <SettingsPage />}
         {section === "memory" && <MemoryPage />}
         {section === "reminders" && <RemindersPage />}
-        {section !== "chat" && section !== "todo" && section !== "notes" && section !== "settings" && section !== "memory" && section !== "reminders" && (
+        {section === "dashboard" && <DashboardPage onNavigate={setSection} />}
+        {section !== "chat" && section !== "todo" && section !== "notes" && section !== "settings" && section !== "memory" && section !== "reminders" && section !== "dashboard" && (
           <ComingSoon name={section} />
         )}
       </main>
