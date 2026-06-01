@@ -102,6 +102,16 @@ async def test_create_reminder_remind_at_in_past(async_client, auth_headers):
 
 
 @pytest.mark.asyncio
+async def test_create_reminder_naive_datetime_rejected(async_client, auth_headers):
+    resp = await async_client.post(
+        "/v1/reminders",
+        json={"title": "Test", "remind_at": "2026-12-01T10:00:00"},  # no tz
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_create_reminder_unauthenticated(async_client):
     resp = await async_client.post(
         "/v1/reminders", json={"title": "Test", "remind_at": _future()}
@@ -343,6 +353,17 @@ async def test_executor_list_reminders_explicit_null_status_returns_all(db_sessi
         db_session, test_user.id, {"status": None}, user_tz="UTC"
     )
     assert result["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_executor_list_reminders_invalid_status_returns_error(db_session, test_user):
+    from app.tools.executors import execute_list_reminders
+
+    result = await execute_list_reminders(
+        db_session, test_user.id, {"status": "bogus"}, user_tz="UTC"
+    )
+    assert result["success"] is False
+    assert result["error"]["code"] == "invalid_status"
 
 
 @pytest.mark.asyncio

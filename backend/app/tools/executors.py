@@ -354,8 +354,14 @@ async def execute_list_reminders(
     params: dict,
     user_tz: str = "UTC",
 ) -> ToolResult:
-    # params.get("status","pending") would coerce explicit None→"pending"; we need None→all
+    # Distinguish missing key (→ default "pending") from explicit None (→ all statuses)
     status = params["status"] if "status" in params else "pending"  # noqa: SIM401
+    _valid_statuses = {"pending", "sending", "sent", "failed", "cancelled"}
+    if status is not None and status not in _valid_statuses:
+        return _err(
+            "invalid_status",
+            f"status phải là một trong: {', '.join(sorted(_valid_statuses))} hoặc null.",
+        )
     limit = min(int(params.get("limit", 10)), 50)
 
     reminders, _ = await reminder_service.list_reminders(
