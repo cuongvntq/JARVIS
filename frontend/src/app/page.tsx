@@ -7,6 +7,7 @@ import TodoPage from "@/components/todos/TodoPage";
 import NotesPage from "@/components/notes/NotesPage";
 import SettingsPage from "@/components/settings/SettingsPage";
 import MemoryPage from "@/components/memories/MemoryPage";
+import RemindersPage from "@/components/reminders/RemindersPage";
 
 function ComingSoon({ name }: { name: string }) {
   return (
@@ -65,7 +66,8 @@ export default function HomePage() {
         {section === "notes" && <NotesPage />}
         {section === "settings" && <SettingsPage />}
         {section === "memory" && <MemoryPage />}
-        {section !== "chat" && section !== "todo" && section !== "notes" && section !== "settings" && section !== "memory" && (
+        {section === "reminders" && <RemindersPage />}
+        {section !== "chat" && section !== "todo" && section !== "notes" && section !== "settings" && section !== "memory" && section !== "reminders" && (
           <ComingSoon name={section} />
         )}
       </main>

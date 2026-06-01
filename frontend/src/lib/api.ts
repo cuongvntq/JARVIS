@@ -15,6 +15,11 @@ import {
   type NoteListOut,
   type NoteOut,
   type NoteUpdate,
+  type ReminderCreate,
+  type ReminderListOut,
+  type ReminderOut,
+  type ReminderStatus,
+  type ReminderUpdate,
   type SSEEvent,
   type TodoCreate,
   type TodoFilter,
@@ -299,6 +304,36 @@ class ApiClient {
 
   async deleteNote(id: string): Promise<void> {
     return this.request(`/v1/notes/${id}`, { method: "DELETE" });
+  }
+
+  // ── Reminder ───────────────────────────────────────────────────────────────
+
+  async listReminders(params?: {
+    status?: ReminderStatus;
+    limit?: number;
+    cursor?: string;
+  }): Promise<ReminderListOut> {
+    const p = new URLSearchParams();
+    if (params?.status) p.set("status", params.status);
+    if (params?.limit) p.set("limit", String(params.limit));
+    if (params?.cursor) p.set("cursor", params.cursor);
+    return this.request(`/v1/reminders?${p}`);
+  }
+
+  async createReminder(data: ReminderCreate): Promise<ReminderOut> {
+    return this.request("/v1/reminders", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  async updateReminder(id: string, data: ReminderUpdate): Promise<ReminderOut> {
+    return this.request(`/v1/reminders/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+  }
+
+  async cancelReminder(id: string): Promise<ReminderOut> {
+    return this.request(`/v1/reminders/${id}/cancel`, { method: "PATCH" });
+  }
+
+  async deleteReminder(id: string): Promise<void> {
+    return this.request(`/v1/reminders/${id}`, { method: "DELETE" });
   }
 }
 

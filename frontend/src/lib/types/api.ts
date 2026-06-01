@@ -190,6 +190,40 @@ export interface MemorySearchOut {
   count: number;
 }
 
+// ── Reminder ─────────────────────────────────────────────────────────────────
+
+export type ReminderStatus = "pending" | "sending" | "sent" | "failed" | "cancelled";
+
+export interface ReminderOut {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  remind_at: string;
+  status: ReminderStatus;
+  source: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReminderCreate {
+  title: string;
+  remind_at: string;
+  description?: string | null;
+  source?: "ui" | "chat";
+}
+
+export interface ReminderUpdate {
+  title?: string | null;
+  remind_at?: string | null;
+  description?: string | null;
+}
+
+export interface ReminderListOut {
+  items: ReminderOut[];
+  next_cursor: string | null;
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 export interface UserUpdateRequest {
