@@ -16,8 +16,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.memory import MemoryCreate
 from app.schemas.note import NoteCreate
+from app.schemas.reminder import ReminderCreate
 from app.schemas.todo import TodoCreate, TodoPartialUpdate
-from app.services import memory_service, note_service, todo_service
+from app.services import memory_service, note_service, reminder_service, todo_service
+from app.utils.datetime_parser import ParseDatetimeError, parse_datetime
 
 log = structlog.get_logger()
 
@@ -302,6 +304,75 @@ async def execute_forget_memory(
     return _ok({"memory_id": str(memory_id)}, "Đã xóa memory.")
 
 
+# ── create_reminder ───────────────────────────────────────────────────────────
+
+
+async def execute_create_reminder(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    params: dict,
+    user_tz: str = "UTC",
+) -> ToolResult:
+    title = params.get("title", "").strip()
+    if not title:
+        return _err("missing_title", "title là bắt buộc.")
+
+    raw_remind_at = params.get("remind_at")
+    if not raw_remind_at:
+        return _err("missing_remind_at", "remind_at là bắt buộc — hỏi user giờ cụ thể.")
+
+    try:
+        remind_at = await parse_datetime(str(raw_remind_at), user_tz)
+    except ParseDatetimeError as e:
+        return _err("invalid_remind_at", f"Không thể parse remind_at: {e}")
+
+    from app.core.errors import JarvisError
+
+    try:
+        data = ReminderCreate(
+            title=title,
+            remind_at=remind_at,
+            description=params.get("description"),
+            source="chat",
+        )
+        reminder = await reminder_service.create_reminder(db, user_id, data, commit=False)
+    except JarvisError as e:
+        return _err(e.code, e.message)
+
+    return _ok(
+        reminder.model_dump(mode="json"),
+        f"Đã đặt lời nhắc '{title}' lúc {raw_remind_at}.",
+    )
+
+
+# ── list_reminders ────────────────────────────────────────────────────────────
+
+
+async def execute_list_reminders(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    params: dict,
+    user_tz: str = "UTC",
+) -> ToolResult:
+    # Distinguish missing key (→ default "pending") from explicit None (→ all statuses)
+    status = params["status"] if "status" in params else "pending"  # noqa: SIM401
+    _valid_statuses = {"pending", "sending", "sent", "failed", "cancelled"}
+    if status is not None and status not in _valid_statuses:
+        return _err(
+            "invalid_status",
+            f"status phải là một trong: {', '.join(sorted(_valid_statuses))} hoặc null.",
+        )
+    limit = min(int(params.get("limit", 10)), 50)
+
+    reminders, _ = await reminder_service.list_reminders(
+        db, user_id, status=status, limit=limit, cursor=None
+    )
+    return _ok(
+        {"reminders": [r.model_dump(mode="json") for r in reminders], "count": len(reminders)},
+        f"Tìm thấy {len(reminders)} lời nhắc (status: {status}).",
+    )
+
+
 # ── dispatch ──────────────────────────────────────────────────────────────────
 
 _EXECUTOR_MAP = {
@@ -313,6 +384,8 @@ _EXECUTOR_MAP = {
     "save_memory": execute_save_memory,
     "search_memory": execute_search_memory,
     "forget_memory": execute_forget_memory,
+    "create_reminder": execute_create_reminder,
+    "list_reminders": execute_list_reminders,
 }
 
 
@@ -327,8 +400,9 @@ async def dispatch(
     executor = _EXECUTOR_MAP.get(tool_name)
     if executor is None:
         return _err("unknown_tool", f"Tool '{tool_name}' không tồn tại.")
+    _needs_tz = {"list_todos", "create_reminder", "list_reminders"}
     try:
-        if tool_name == "list_todos":
+        if tool_name in _needs_tz:
             return await executor(db, user_id, params, user_tz)
         return await executor(db, user_id, params)
     except SQLAlchemyError:

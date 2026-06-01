@@ -336,6 +336,81 @@ TOOLS: list[dict] = [
             },
         },
     },
+    # ── Sprint 5: Reminder tools ───────────────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "create_reminder",
+            "description": (
+                "Tạo lời nhắc cho người dùng vào một thời điểm cụ thể. "
+                "Gọi khi người dùng muốn được nhắc: 'nhắc tôi uống thuốc lúc 8h', "
+                "'mai 7h nhắc tôi đi gym'. "
+                "PHẢI có remind_at rõ ràng — nếu người dùng không nói giờ, "
+                "KHÔNG gọi tool, hỏi lại giờ cụ thể trước."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500,
+                        "description": "Tiêu đề ngắn gọn của lời nhắc.",
+                    },
+                    "remind_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": (
+                            "Thời điểm nhắc ISO 8601 UTC (ví dụ '2026-06-01T01:00:00Z'). "
+                            "Bắt buộc — KHÔNG để null. "
+                            "Parse cụm tiếng Việt: sáng mai=08:00 local, chiều nay=15:00 local, "
+                            "tối nay=20:00 local, rồi convert sang UTC."
+                        ),
+                    },
+                    "description": {
+                        "type": ["string", "null"],
+                        "description": "Mô tả thêm nếu có. Mặc định null.",
+                    },
+                },
+                "required": ["title", "remind_at"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_reminders",
+            "description": (
+                "Lấy danh sách lời nhắc sắp tới. "
+                "Gọi khi người dùng hỏi 'tôi có nhắc gì không', "
+                "'lời nhắc hôm nay', 'reminder nào đang chờ'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": ["string", "null"],
+                        "enum": ["pending", "sent", "cancelled", "failed", None],
+                        "default": "pending",
+                        "description": (
+                            "Lọc theo trạng thái. "
+                            "pending=chưa gửi (mặc định), sent=đã gửi, "
+                            "cancelled=đã hủy, null=tất cả."
+                        ),
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 10,
+                        "description": "Số lượng tối đa trả về.",
+                    },
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 # Lookup by tool name for the orchestrator

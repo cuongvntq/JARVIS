@@ -15,7 +15,7 @@ from app.core.errors import (
     jarvis_exception_handler,
     validation_exception_handler,
 )
-from app.routers import auth, chat, health, memories, notes, todos
+from app.routers import auth, chat, health, memories, notes, reminders, todos
 
 settings = get_settings()
 log = structlog.get_logger()
@@ -59,6 +59,7 @@ app.include_router(chat.router, prefix="/v1/chat", tags=["chat"])
 app.include_router(todos.router, prefix="/v1/todos", tags=["todos"])
 app.include_router(notes.router, prefix="/v1/notes", tags=["notes"])
 app.include_router(memories.router, prefix="/v1/memories", tags=["memories"])
+app.include_router(reminders.router, prefix="/v1/reminders", tags=["reminders"])
 
 
 @app.get("/")
