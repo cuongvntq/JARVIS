@@ -1,0 +1,172 @@
+"use client";
+
+import { useState } from "react";
+import { Bell, Plus, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useReminders, useCancelReminder, useDeleteReminder } from "@/hooks/useReminders";
+import { useAuthStore } from "@/stores/authStore";
+import ReminderCard from "./ReminderCard";
+import CreateReminderDialog from "./CreateReminderDialog";
+import type { ReminderStatus } from "@/lib/types/api";
+
+const FILTERS: { id: ReminderStatus | undefined; label: string }[] = [
+  { id: undefined, label: "TẤT CẢ" },
+  { id: "pending", label: "ĐANG CHỜ" },
+  { id: "sent", label: "ĐÃ GỬI" },
+  { id: "cancelled", label: "ĐÃ HỦY" },
+];
+
+export default function RemindersPage() {
+  const [statusFilter, setStatusFilter] = useState<ReminderStatus | undefined>(undefined);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const user = useAuthStore((s) => s.user);
+  const timezone = user?.timezone ?? "UTC";
+
+  const { data, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } =
+    useReminders(statusFilter);
+  const cancelReminder = useCancelReminder();
+  const deleteReminder = useDeleteReminder();
+
+  const reminders = data?.pages.flatMap((p) => p.items) ?? [];
+
+  return (
+    <div className="flex flex-col h-full" style={{ backgroundColor: "#0b1929" }}>
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0"
+        style={{ borderColor: "rgba(0,180,216,0.12)" }}
+      >
+        <div className="flex items-center gap-3">
+          <Bell size={16} style={{ color: "#00b4d8" }} />
+          <h1
+            className="text-sm font-bold tracking-[0.25em]"
+            style={{ fontFamily: "var(--font-orbitron)", color: "#00b4d8" }}
+          >
+            REMINDERS
+          </h1>
+          {reminders.length > 0 && (
+            <span
+              className="text-[9px] px-1.5 py-0.5 rounded-full"
+              style={{ backgroundColor: "rgba(0,180,216,0.15)", color: "#5e8a9e" }}
+            >
+              {hasNextPage ? `${reminders.length}+` : reminders.length}
+            </span>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setDialogOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold tracking-[0.12em] transition-all hover:scale-105"
+          style={{
+            background: "linear-gradient(135deg, rgba(0,180,216,0.7), rgba(0,95,138,0.7))",
+            color: "#dff3fd",
+          }}
+        >
+          <Plus size={11} />
+          MỚI
+        </button>
+      </div>
+
+      {/* Filter tabs */}
+      <div
+        className="flex items-center gap-1 px-6 py-2.5 border-b flex-shrink-0 overflow-x-auto"
+        style={{ borderColor: "rgba(0,180,216,0.08)" }}
+      >
+        {FILTERS.map((f) => {
+          const active = statusFilter === f.id;
+          return (
+            <button
+              key={f.id ?? "all"}
+              type="button"
+              onClick={() => setStatusFilter(f.id)}
+              className={cn(
+                "px-3 py-1 rounded text-[9px] font-semibold tracking-[0.12em] transition-all whitespace-nowrap",
+                active ? "text-jarvis-accent" : "text-jarvis-muted hover:text-jarvis-fg",
+              )}
+              style={{
+                backgroundColor: active ? "rgba(0,180,216,0.12)" : "transparent",
+                borderBottom: active ? "1px solid rgba(0,180,216,0.6)" : "1px solid transparent",
+              }}
+            >
+              {f.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* List */}
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        {isLoading && (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 size={18} className="animate-spin" style={{ color: "#5e8a9e" }} />
+          </div>
+        )}
+
+        {isError && (
+          <p className="text-center py-16 text-sm" style={{ color: "#ff4444" }}>
+            Không tải được danh sách. Thử lại sau.
+          </p>
+        )}
+
+        {!isLoading && !isError && reminders.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <Bell size={28} style={{ color: "rgba(0,180,216,0.2)" }} />
+            <p
+              className="text-sm tracking-[0.1em]"
+              style={{ color: "rgba(0,180,216,0.3)" }}
+            >
+              {statusFilter === "pending"
+                ? "Không có nhắc nhở nào đang chờ"
+                : statusFilter === "sent"
+                  ? "Chưa có nhắc nhở nào được gửi"
+                  : "Chưa có nhắc nhở nào"}
+            </p>
+            {!statusFilter && (
+              <button
+                type="button"
+                onClick={() => setDialogOpen(true)}
+                className="text-[10px] tracking-[0.1em] transition-colors hover:text-jarvis-accent"
+                style={{ color: "#5e8a9e" }}
+              >
+                + Tạo nhắc nhở đầu tiên
+              </button>
+            )}
+          </div>
+        )}
+
+        {!isLoading && !isError && reminders.length > 0 && (
+          <div className="space-y-2">
+            {reminders.map((r) => (
+              <ReminderCard
+                key={r.id}
+                reminder={r}
+                timezone={timezone}
+                onCancel={(id) => cancelReminder.mutate(id)}
+                onDelete={(id) => deleteReminder.mutate(id)}
+                isCancelPending={cancelReminder.isPending}
+                isDeletePending={deleteReminder.isPending}
+              />
+            ))}
+            {hasNextPage && (
+              <div className="flex justify-center pt-2 pb-1">
+                <button
+                  type="button"
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  className="px-4 py-1.5 rounded-lg border text-[10px] tracking-[0.1em] transition-colors hover:border-jarvis-accent/30 hover:text-jarvis-accent disabled:opacity-50"
+                  style={{ color: "#5e8a9e", borderColor: "rgba(94,138,158,0.2)" }}
+                >
+                  {isFetchingNextPage ? "Đang tải..." : "Tải thêm"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <CreateReminderDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+    </div>
+  );
+}
