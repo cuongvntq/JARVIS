@@ -19,6 +19,7 @@ from app.schemas.note import NoteCreate
 from app.schemas.reminder import ReminderCreate
 from app.schemas.todo import TodoCreate, TodoPartialUpdate
 from app.services import memory_service, note_service, reminder_service, todo_service
+from app.utils.datetime_parser import ParseDatetimeError, parse_datetime
 
 log = structlog.get_logger()
 
@@ -321,9 +322,9 @@ async def execute_create_reminder(
         return _err("missing_remind_at", "remind_at là bắt buộc — hỏi user giờ cụ thể.")
 
     try:
-        remind_at = _parse_iso(raw_remind_at)
-    except (ValueError, TypeError) as e:
-        return _err("invalid_remind_at", f"remind_at không hợp lệ: {e}")
+        remind_at = await parse_datetime(str(raw_remind_at), user_tz)
+    except ParseDatetimeError as e:
+        return _err("invalid_remind_at", f"Không thể parse remind_at: {e}")
 
     from app.core.errors import JarvisError
 
@@ -353,7 +354,8 @@ async def execute_list_reminders(
     params: dict,
     user_tz: str = "UTC",
 ) -> ToolResult:
-    status = params.get("status", "pending") or "pending"
+    # params.get("status","pending") would coerce explicit None→"pending"; we need None→all
+    status = params["status"] if "status" in params else "pending"  # noqa: SIM401
     limit = min(int(params.get("limit", 10)), 50)
 
     reminders, _ = await reminder_service.list_reminders(

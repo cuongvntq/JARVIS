@@ -5,7 +5,7 @@ import json
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import and_, select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.reminder import Reminder
@@ -45,12 +45,12 @@ async def list_reminders(
             cursor_data = json.loads(base64.b64decode(cursor).decode())
             cursor_dt = datetime.fromisoformat(cursor_data["remind_at"])
             cursor_id = uuid.UUID(cursor_data["id"])
+            # Correct keyset for (remind_at ASC, id ASC): rows strictly after the cursor
             query = query.where(
-                and_(
-                    Reminder.remind_at >= cursor_dt,
-                    Reminder.id != cursor_id,
+                or_(
+                    Reminder.remind_at > cursor_dt,
+                    and_(Reminder.remind_at == cursor_dt, Reminder.id > cursor_id),
                 )
-                | (Reminder.remind_at > cursor_dt)
             )
         except Exception:
             pass

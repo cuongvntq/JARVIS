@@ -289,6 +289,22 @@ async def test_executor_create_reminder_past_time(db_session, test_user):
     assert result["error"]["code"] == "remind_at_past"
 
 
+@pytest.mark.asyncio
+async def test_executor_create_reminder_vietnamese_datetime(db_session, test_user):
+    """Vietnamese expressions like 'chiều nay' must be parsed via datetime_parser."""
+    from app.tools.executors import execute_create_reminder
+
+    result = await execute_create_reminder(
+        db_session,
+        test_user.id,
+        {"title": "Uống thuốc", "remind_at": "sáng mai"},
+        user_tz="Asia/Ho_Chi_Minh",
+    )
+    # "sáng mai" → tomorrow 08:00 local → always future → should succeed
+    assert result["success"] is True
+    assert result["data"]["status"] == "pending"
+
+
 # ── Tool executor: list_reminders ─────────────────────────────────────────────
 
 
@@ -309,3 +325,30 @@ async def test_executor_list_reminders(db_session, test_user):
     )
     assert result["success"] is True
     assert result["data"]["count"] >= 2
+
+
+@pytest.mark.asyncio
+async def test_executor_list_reminders_explicit_null_status_returns_all(db_session, test_user):
+    """Explicit status=None should return all statuses, not default to pending."""
+    from app.tools.executors import execute_list_reminders
+
+    result = await execute_list_reminders(
+        db_session, test_user.id, {"status": None}, user_tz="UTC"
+    )
+    assert result["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_executor_list_reminders_missing_status_defaults_pending(db_session, test_user):
+    """Missing status key should default to pending."""
+    from app.tools.executors import execute_create_reminder, execute_list_reminders
+
+    await execute_create_reminder(
+        db_session, test_user.id, {"title": "Pending", "remind_at": _future(1)}, user_tz="UTC"
+    )
+    await db_session.commit()
+
+    result = await execute_list_reminders(db_session, test_user.id, {}, user_tz="UTC")
+    assert result["success"] is True
+    items = result["data"]["reminders"]
+    assert all(r["status"] == "pending" for r in items)
