@@ -19,7 +19,7 @@ from app.core.errors import (
     validation_exception_handler,
 )
 from app.middleware.rate_limit import limiter
-from app.routers import auth, chat, health, memories, notes, reminders, todos
+from app.routers import auth, chat, dashboard, health, memories, notes, reminders, todos
 
 settings = get_settings()
 log = structlog.get_logger()
@@ -86,6 +86,7 @@ app.include_router(todos.router, prefix="/v1/todos", tags=["todos"])
 app.include_router(notes.router, prefix="/v1/notes", tags=["notes"])
 app.include_router(memories.router, prefix="/v1/memories", tags=["memories"])
 app.include_router(reminders.router, prefix="/v1/reminders", tags=["reminders"])
+app.include_router(dashboard.router, prefix="/v1/dashboard", tags=["dashboard"])
 
 
 @app.get("/")
