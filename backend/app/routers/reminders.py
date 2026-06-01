@@ -6,11 +6,14 @@ from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user
+from app.core.errors import JarvisError
 from app.database import get_db
 from app.schemas.reminder import ReminderCreate, ReminderListOut, ReminderOut, ReminderUpdate
 from app.services import reminder_service
 
 router = APIRouter()
+
+_VALID_STATUS = {"pending", "sending", "sent", "failed", "cancelled"}
 
 
 @router.get("", response_model=ReminderListOut)
@@ -21,6 +24,10 @@ async def list_reminders(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if status and status not in _VALID_STATUS:
+        raise JarvisError(
+            400, "invalid_status", f"status phải là một trong: {', '.join(sorted(_VALID_STATUS))}"
+        )
     items, next_cursor = await reminder_service.list_reminders(
         db, current_user.id, status=status, limit=limit, cursor=cursor
     )

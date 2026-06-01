@@ -159,6 +159,13 @@ async def test_list_reminders_returns_own_only(async_client, auth_headers):
 
 
 @pytest.mark.asyncio
+async def test_list_reminders_invalid_status(async_client, auth_headers):
+    resp = await async_client.get("/v1/reminders?status=bogus", headers=auth_headers)
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "invalid_status"
+
+
+@pytest.mark.asyncio
 async def test_list_reminders_filter_by_status(async_client, auth_headers):
     await _create_reminder(async_client, auth_headers, "Pending reminder")
 
