@@ -46,3 +46,30 @@ async def test_chat_send_requires_auth(async_client):
         json={"message": "test", "stream": False},
     )
     assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_chat_send_rate_limit_enforced(async_client, auth_headers, mock_llm):
+    """After 20 authenticated requests the 21st must return 429.
+
+    Verifies that @limiter.limit('20/minute') on send_message is wired correctly
+    through the full ASGI stack (not just the handler unit test above).
+    """
+    from app.middleware.rate_limit import limiter
+
+    # Reset in-memory counters so this test is not affected by other requests
+    limiter._storage.reset()
+
+    payload = {"content": "hi", "stream": False}
+    for i in range(20):
+        resp = await async_client.post("/v1/chat/send", json=payload, headers=auth_headers)
+        assert resp.status_code == 200, f"Request {i + 1} should succeed, got {resp.status_code}"
+
+    resp = await async_client.post("/v1/chat/send", json=payload, headers=auth_headers)
+    assert resp.status_code == 429
+    body = resp.json()
+    assert body["error"]["code"] == "rate_limit_exceeded"
+    assert "Retry-After" in resp.headers
+
+    # Restore clean state for subsequent tests
+    limiter._storage.reset()
