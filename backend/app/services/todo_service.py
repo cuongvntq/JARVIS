@@ -60,6 +60,15 @@ async def list_todos(
     return [TodoOut.model_validate(r) for r in rows], next_cursor
 
 
+async def count_todos(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    filter_type: str | None = None,
+    user_tz: str = "UTC",
+) -> int:
+    return await todo_repo.count_todos(db, user_id, filter_type=filter_type, user_tz=user_tz)
+
+
 async def replace_todo(
     db: AsyncSession, todo_id: uuid.UUID, user_id: uuid.UUID, data: TodoReplace
 ) -> TodoOut:

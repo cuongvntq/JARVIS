@@ -101,3 +101,22 @@ async def get_pending_due(db: AsyncSession, before_utc: datetime) -> list[Remind
         )
     )
     return list(result.scalars())
+
+
+async def list_upcoming_for_dashboard(
+    db: AsyncSession, user_id: uuid.UUID, limit: int = 5
+) -> list[Reminder]:
+    """Upcoming reminders: status pending/sending, remind_at >= now, for dashboard."""
+    now = datetime.now(UTC)
+    result = await db.execute(
+        select(Reminder)
+        .where(
+            Reminder.user_id == user_id,
+            Reminder.status.in_(["pending", "sending"]),
+            Reminder.remind_at >= now,
+            Reminder.deleted_at.is_(None),
+        )
+        .order_by(Reminder.remind_at.asc())
+        .limit(limit)
+    )
+    return list(result.scalars())

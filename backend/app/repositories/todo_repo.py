@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.todo import Todo
@@ -111,6 +111,39 @@ async def list_todos(
         next_cursor = base64.b64encode(cursor_payload.encode()).decode()
 
     return rows, next_cursor
+
+
+async def count_todos(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    filter_type: str | None = None,
+    user_tz: str = "UTC",
+) -> int:
+    """Return accurate count for dashboard without the limit=100 cap."""
+    now = datetime.now(UTC)
+    query = (
+        select(func.count())
+        .select_from(Todo)
+        .where(Todo.user_id == user_id, Todo.deleted_at.is_(None))
+    )
+    if filter_type == "today":
+        start_utc, end_utc = _today_range_utc(user_tz)
+        query = query.where(
+            Todo.due_at >= start_utc,
+            Todo.due_at < end_utc,
+            Todo.status.in_(["pending", "in_progress"]),
+        )
+    elif filter_type == "upcoming":
+        query = query.where(
+            Todo.due_at > now,
+            Todo.status.in_(["pending", "in_progress"]),
+        )
+    elif filter_type == "overdue":
+        query = query.where(
+            Todo.due_at < now,
+            Todo.status.in_(["pending", "in_progress"]),
+        )
+    return (await db.execute(query)).scalar_one()
 
 
 async def create(db: AsyncSession, user_id: uuid.UUID, **kwargs) -> Todo:
