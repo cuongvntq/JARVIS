@@ -49,6 +49,12 @@ class User(Base):
     memories: Mapped[list["Memory"]] = relationship(  # noqa: F821
         "Memory", back_populates="user", cascade="all, delete-orphan"
     )
+    reminders: Mapped[list["Reminder"]] = relationship(  # noqa: F821
+        "Reminder", back_populates="user", cascade="all, delete-orphan"
+    )
+    push_subscription: Mapped["PushSubscription | None"] = relationship(  # noqa: F821
+        "PushSubscription", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class AuthSession(Base):
