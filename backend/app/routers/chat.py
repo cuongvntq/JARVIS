@@ -7,9 +7,11 @@ import structlog
 from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
 from app.core.deps import get_current_user
 from app.database import get_db
+from app.middleware.rate_limit import limiter
 from app.schemas.chat import (
     ChatSendRequest,
     ChatSendResponse,
@@ -24,7 +26,9 @@ router = APIRouter()
 
 
 @router.post("/send", response_model=ChatSendResponse)
+@limiter.limit("20/minute")
 async def send_message(
+    request: Request,
     req: ChatSendRequest,
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
