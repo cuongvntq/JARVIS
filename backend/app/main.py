@@ -6,6 +6,9 @@ import structlog
 from fastapi import FastAPI
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from app.config import get_settings
 from app.core.errors import (
@@ -15,6 +18,7 @@ from app.core.errors import (
     jarvis_exception_handler,
     validation_exception_handler,
 )
+from app.middleware.rate_limit import limiter
 from app.routers import auth, chat, health, memories, notes, reminders, todos
 
 settings = get_settings()
@@ -37,6 +41,9 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# Attach limiter to app state (required by SlowAPI)
+app.state.limiter = limiter
+
 # Middleware (order matters — RequestID first so handlers can read it)
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
@@ -47,7 +54,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+async def _rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    """Return 429 in JARVIS error envelope format."""
+    request_id = getattr(request.state, "request_id", "unknown")
+    return JSONResponse(
+        status_code=429,
+        content={
+            "error": {
+                "code": "rate_limit_exceeded",
+                "message": "Quá nhiều yêu cầu. Vui lòng thử lại sau.",
+                "details": {},
+                "request_id": request_id,
+            }
+        },
+        headers={"Retry-After": "60"},
+    )
+
+
 # Exception handlers
+app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
 app.add_exception_handler(JarvisError, jarvis_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
