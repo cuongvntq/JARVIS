@@ -14,20 +14,21 @@
 | 003 | `003_sprint2_todos_tool_logs.py` | todos, tool_execution_logs, llm_call_logs + ENUMs todo_status, todo_priority, tool_status | Applied |
 | 004 | `004_sprint3_notes.py` | notes | Applied |
 | 005 | `005_sprint4_memories.py` | memories + ENUM memory_type + HNSW index | Applied (Sprint 4 done) |
-| 006 | — | reminders, notifications | Sprint 5 |
+| 006 | `006_sprint5_reminders.py` | reminders + push_subscriptions + ENUM reminder_status | Applied (Sprint 5 done) |
 
-**Not yet created:** reminders (S5), notifications (S5), conversations.summary (deferred S5/6)
+**Not yet created:** conversations.summary (deferred Sprint 6)
 
 ---
 
 ## ENUMs (implemented + planned)
 
 ```
-message_role:  user | assistant | system | tool
-todo_status:   pending | in_progress | completed | cancelled
-todo_priority: low | medium | high | urgent
-tool_status:   success | failed | timeout
-memory_type:   fact | preference | rule | relation | goal | other
+message_role:     user | assistant | system | tool
+todo_status:      pending | in_progress | completed | cancelled
+todo_priority:    low | medium | high | urgent
+tool_status:      success | failed | timeout
+memory_type:      fact | preference | rule | relation | goal | other
+reminder_status:  pending | sending | sent | failed | cancelled   (Sprint 5)
 ```
 
 ---
@@ -43,6 +44,8 @@ memory_type:   fact | preference | rule | relation | goal | other
 | todos | YES (`deleted_at`) | |
 | notes | YES (`deleted_at`) | |
 | memories | YES (`deleted_at` + `is_active`) | also has `is_active` flag for RAG filter |
+| reminders | YES (`deleted_at`) | Sprint 5 |
+| push_subscriptions | NO | `is_active=false` to deactivate (not deleted) |
 | tool_execution_logs | NO | |
 | llm_call_logs | NO | |
 
@@ -59,6 +62,8 @@ memory_type:   fact | preference | rule | relation | goal | other
 | `Todo` | `models/todo.py` | → user |
 | `Note` | `models/note.py` | → user |
 | `Memory` | `models/memory.py` | → user |
+| `Reminder` | `models/reminder.py` | → user; Sprint 5 |
+| `PushSubscription` | `models/push_subscription.py` | → user (UNIQUE per user); Sprint 5 |
 | `ToolExecutionLog` | `models/tool_log.py` | → user |
 | `LLMCallLog` | `models/tool_log.py` | → user |
 
@@ -108,7 +113,7 @@ Tests use `sqlite+aiosqlite:///:memory:`. These diverge from Postgres:
 |---|---|---|
 | `postgresql.UUID` | `sa.Uuid` | All models |
 | `JSONB` | `sa.JSON` | All models |
-| `ENUM` (pre-defined) | `sa.Enum(..., create_type=False)` | Models with ENUMs |
+| `ENUM` (pre-defined) | `sa.Enum(..., create_type=False)` | All models with ENUMs (incl. reminder_status) |
 | `TEXT[]` arrays | `sa.JSON` | `models/todo.py` |
 | `vector(1536)` | `sa.JSON` (store as float list) | `models/memory.py` |
 | `pool_size`/`max_overflow` | Omitted for SQLite | `database.py` |
