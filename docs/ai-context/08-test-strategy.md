@@ -4,7 +4,7 @@
 
 **Backend:** pytest + pytest-asyncio, SQLite in-memory (real DB, no mocks for DB layer)
 **Frontend:** vitest (unit), Playwright (E2E) — minimal coverage currently
-**Test count (Sprint 4 backend):** 167 tests, all passing
+**Test count (Sprint 5 backend):** 211 tests collected, all passing
 
 ---
 
@@ -100,7 +100,7 @@ _orch = OrchestratorResult(
 - DELETE not found
 - **Regression:** `test_before_from_other_conversation_is_ignored` — cross-conversation anchor returns all messages
 
-### `tests/test_todos.py`
+### `tests/test_todos.py` (26 collected)
 - POST /todos happy path (all fields)
 - POST missing title → 422
 - POST empty title → 422
@@ -128,7 +128,7 @@ _orch = OrchestratorResult(
   - invalid TZ falls back to UTC
 - **Regression:** today filter includes current moment, excludes far future
 
-### `tests/test_orchestrator.py` (28 tests — Sprint 4 added memory tool + RAG tests)
+### `tests/test_orchestrator.py` (28 collected — Sprint 4 added memory tool + RAG tests)
 - route pre-filter: chitchat patterns (empty tools list)
 - route pre-filter: tool intent patterns (full tools list)
 - route classifier (mocked LiteLLM)
@@ -156,7 +156,40 @@ _orch = OrchestratorResult(
 - LLM fallback (mocked)
 - `ParseDatetimeError` when all fail
 
-### `tests/test_memories.py` (22 tests) — Sprint 4
+### `tests/test_reminders.py` (30 collected) — Sprint 5
+- POST /reminders happy path (all fields)
+- POST missing title/remind_at → 422
+- POST remind_at in past → 422
+- POST unauthenticated → 401
+- GET /reminders/{id} happy path
+- GET not found → 404, ownership isolation → 404
+- GET /reminders list, filter by status
+- PATCH /reminders/{id} update title/remind_at/description
+- PATCH reject explicit null on title/remind_at → 422; description accepts null
+- PATCH /cancel → status=cancelled
+- DELETE soft delete
+- **Sprint 5 tool executors:** execute_create_reminder, execute_list_reminders (Vietnamese datetime, past time → error)
+- **Unit:** claim_pending_due — transitions status to sending, ignores non-pending/deleted
+
+### `tests/test_dashboard.py` (5 collected) — Sprint 5
+- GET /dashboard/today authenticated
+- todos_today count, overdue count
+- reminders_upcoming ordering
+- memories_count active only
+- unauthenticated → 401
+
+### `tests/test_notifications.py` (6 collected) — Sprint 5
+- POST /notifications/subscribe upserts (returns 201 on new + re-subscribe)
+- POST /notifications/unsubscribe deactivates subscription
+- Unsubscribe without subscription → 404
+- Unauthenticated → 401 for both endpoints
+
+### `tests/test_rate_limit.py` (3 collected) — Sprint 5
+- 429 response has correct format `{ "error": { "code": "rate_limit_exceeded", ... } }`
+- Retry-After header present
+- Rate limit applies to authenticated users
+
+### `tests/test_memories.py` (22 collected) — Sprint 4
 - POST /memories happy path (all fields)
 - POST missing content → 422
 - POST unauthenticated → 401
@@ -170,7 +203,7 @@ _orch = OrchestratorResult(
 - POST /memories/search (mocked semantic_search)
 - **Unit:** `test_semantic_search_query_structure` — SQL builder correctness without DB
 
-### `tests/test_tool_executors.py` (17 tests) — Sprint 4
+### `tests/test_tool_executors.py` (17 collected) — Sprint 4
 - execute_create_todo, execute_list_todos, execute_update_todo
 - execute_create_note, execute_search_notes
 - execute_save_memory, execute_search_memory, execute_forget_memory
@@ -286,7 +319,7 @@ async def test_something_with_llm(async_client, auth_headers, mock_llm):
 - Playwright E2E tests — Sprint 6
 - Eval set (10 prompt cases) — Sprint 6
 - RAG end-to-end on real Postgres (SQLite tests mock semantic_search → `[]`) — manual test only
-- Reminder + push notification (Sprint 5)
-- Rate limiting behavior (Sprint 5)
+- Actual push delivery end-to-end (pywebpush call mocked in tests) — manual test with VAPID keys
 - Token refresh race condition
 - LLM actual API calls (all mocked in tests)
+- Conversation summarization — Sprint 6

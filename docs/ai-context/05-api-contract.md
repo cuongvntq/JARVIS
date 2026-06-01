@@ -276,9 +276,6 @@ Note: executor validates remind_at is future; if past → `{ success: false, err
 ### list_reminders *(Sprint 5)*
 Params: `{ status?: pending|sending|sent|failed|cancelled, limit?: 1-20 }`
 
-### get_today_summary *(Sprint 5)*
-Params: `{}` — calls dashboard_service internally
-
 All tool responses: `{ success, data, summary, warnings }` or `{ success: false, error: {code, message}, data: null }`
 
 ---

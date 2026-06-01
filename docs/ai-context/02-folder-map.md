@@ -112,7 +112,7 @@ backend/
 │   │   ├── orchestrator.py     # run() — full tool loop, OrchestratorResult, _execute_tool()
 │   │   └── prompt.py           # build_system_prompt(user, memories?, summary?) → (str, PROMPT_VERSION)
 │   │                           # Sprint 4: _PART_C updated (+3 memory tools), PROMPT_VERSION="1.0.0-sprint4"
-│   │                           # Sprint 5: _PART_C updated (+2 reminder tools), PROMPT_VERSION="1.0.0-sprint5"
+│   │                           # Sprint 5: PROMPT_VERSION unchanged — no prompt schema changes in Sprint 5
 │   │
 │   ├── tools/                  # Tool system
 │   │   ├── definitions.py      # TOOLS list; Sprint 3: 5 schemas; Sprint 4: 8 schemas; Sprint 5: 10 schemas (+create_reminder, list_reminders)
@@ -142,17 +142,18 @@ backend/
     ├── test_todos.py           # Todo CRUD + filter + ownership (22 tests)
     ├── test_notes.py           # Note CRUD + pin/unpin + search + ownership (19 tests)
     ├── test_memories.py        # Memory CRUD + search + ownership + query structure (22 tests)
-    ├── test_reminders.py       # Reminder CRUD + cancel + ownership + tool executors (31 tests); Sprint 5
-    ├── test_dashboard.py       # Dashboard today summary tests (5 tests); Sprint 5
-    ├── test_notifications.py   # Push subscribe/unsubscribe tests (6 tests); Sprint 5
-    ├── test_rate_limit.py      # SlowAPI 429 response format (3 tests); Sprint 5
-    ├── test_orchestrator.py    # Orchestrator + router + fallback chain + memory tools (16 tests)
-    ├── test_tool_executors.py  # Tool executor unit tests: todo/note/memory/summary (17 tests)
-    ├── test_datetime_parser.py # Datetime parser tests (12 tests)
-    └── test_health.py          # Health endpoint tests (2 tests)
+    ├── test_reminders.py       # Reminder CRUD + cancel + ownership + tool executors (30 collected); Sprint 5
+    ├── test_dashboard.py       # Dashboard today summary tests (5 collected); Sprint 5
+    ├── test_notifications.py   # Push subscribe/unsubscribe tests (6 collected); Sprint 5
+    ├── test_rate_limit.py      # SlowAPI 429 response format (3 collected); Sprint 5
+    ├── test_orchestrator.py    # Orchestrator + router + fallback chain + memory tools (28 collected)
+    ├── test_tool_executors.py  # Tool executor unit tests: todo/note/memory/summary (17 collected)
+    ├── test_datetime_parser.py # Datetime parser tests (12 collected)
+    └── test_health.py          # Health endpoint tests (2 collected)
 ```
 
-**Total: 211 collected (196 test functions + 15 from parametrize)**
+**Total: 211 tests collected** (`pytest --collect-only`; some functions expand via `@pytest.mark.parametrize`)
+Per-file breakdown: auth=23, chat=18, todos=26, notes=19, memories=22, reminders=30, dashboard=5, notifications=6, rate_limit=3, orchestrator=28, tool_executors=17, datetime_parser=12, health=2
 
 ---
 

@@ -10,15 +10,14 @@
 | Frontend no error boundary for editor | Sprint 4 (PR #14/#15) | `validationError` state + try/catch in Notes & Memory editors |
 | No optimistic assistant response | Sprint 3 (PR #7) | SSE streaming shows delta in real time |
 | HTTPException returns `{ detail }` (not unified envelope) | Sprint 4 (PR #15 review) | `http_exception_handler` registered in `main.py` |
+| No rate limiting | Sprint 5 (PR #18) | SlowAPI middleware: 60/min general, 20/min chat |
+| PATCH null on NOT NULL field → 500 | Sprint 5 (PR #25 review) | `field_validator(mode="before")` in NoteUpdate/ReminderUpdate → 422 |
+| Auth state not cleared after session expiry | Sprint 5 (PR #25 review) | `clearAuth()` + `_accessToken=null` on silentRefresh fail |
+| `experimental.typedRoutes` deprecated warning | Sprint 5 (PR #25 review) | Moved to top-level `typedRoutes: true` in next.config.ts |
 
 ---
 
 ## Active Limitations
-
-### No rate limiting
-- Endpoints không có rate limit middleware
-- Planned: 60 req/min/user (normal), 20 req/min/user (`/v1/chat/send`)
-- **Sprint 5**
 
 ### No idempotency keys
 - POST /todos, /notes, /memories không có Idempotency-Key support
@@ -36,7 +35,7 @@
 
 ### Conversation summarization not implemented
 - `build_system_prompt()` nhận `summary` param nhưng never passed
-- Auto-summarize khi >20 messages: **Sprint 5 hoặc 6**
+- Auto-summarize khi >20 messages: **Sprint 6**
 
 ### RAG end-to-end requires real Postgres
 - `memory_repo.semantic_search()` trả `[]` trên SQLite
@@ -63,16 +62,18 @@
 ## Security Notes (known gaps)
 
 ### VAPID keys not configured in dev
-- Web push not testable locally without VAPID keys
-- Sprint 5
+- Web push not testable locally without VAPID keys in `.env`
+- Generate once: `npx web-push generate-vapid-keys` → set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
+- **Production ready** (Sprint 5 done); local dev optional
 
 ### No Sentry error tracking
 - `structlog` logs to stdout only
 - Sentry DSN integration: Sprint 6 (pre-deploy)
 
 ### No Redis (optional)
-- Idempotency keys, rate limiting: require Redis (Upstash)
-- Currently all in-memory or DB-backed
+- Rate limiting: currently in-memory (SlowAPI default store) — resets on pod restart
+- Idempotency keys: not implemented (post-MVP 1)
+- Swap to Upstash Redis for persistent rate limit state: **Sprint 6**
 
 ### refresh_token not hashed in test
 - Tests use raw token strings via body (not cookie)
@@ -105,12 +106,14 @@
 
 | Item | Priority | Sprint |
 |---|---|---|
-| Rate limiting middleware | High | 5 |
-| VAPID + Web Push | High | 5 |
-| Redis for idempotency + rate limit | Medium | 5 |
-| Sentry integration | Medium | 6 |
-| 4-tier LLM routing | Low | 6 |
-| Playwright E2E tests | Medium | 6 |
+| Sentry integration | High | 6 |
 | Eval set automation (10 cases) | High | 6 |
+| Playwright E2E tests | Medium | 6 |
+| Upstash Redis rate limit store | Medium | 6 |
+| Conversation auto-summarize | Medium | 6 |
+| Logout UI (no button in frontend currently) | Medium | 6 |
+| mypy strict pass (27 errors) | Medium | 6 |
+| 4-tier LLM routing | Low | 6 |
 | Frontend vitest unit tests | Low | 6 |
-| Conversation auto-summarize | Medium | 5/6 |
+| CRLF/biome format (pre-existing) | Low | 6 |
+| `passWithNoTests` for frontend test suite | Low | 6 |
