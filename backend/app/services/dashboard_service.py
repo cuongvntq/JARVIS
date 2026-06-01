@@ -16,36 +16,23 @@ async def get_today_dashboard(
     user_tz: str = "UTC",
 ) -> dict:
     """Aggregate dashboard data for the current user."""
-    # todos today + counts
+    # First page of today's todos for display (up to 20)
     todos_today, _ = await todo_service.list_todos(
         db,
         user_id,
         status=None,
         filter_type="today",
         q=None,
-        limit=100,
+        limit=20,
         cursor=None,
         user_tz=user_tz,
     )
-    overdue, _ = await todo_service.list_todos(
-        db,
-        user_id,
-        status=None,
-        filter_type="overdue",
-        q=None,
-        limit=100,
-        cursor=None,
-        user_tz=user_tz,
-    )
-    upcoming, _ = await todo_service.list_todos(
-        db,
-        user_id,
-        status=None,
-        filter_type="upcoming",
-        q=None,
-        limit=100,
-        cursor=None,
-        user_tz=user_tz,
+
+    # Accurate counts via dedicated COUNT queries (no limit=100 cap)
+    count_today, count_overdue, count_upcoming = (
+        await todo_service.count_todos(db, user_id, filter_type="today", user_tz=user_tz),
+        await todo_service.count_todos(db, user_id, filter_type="overdue", user_tz=user_tz),
+        await todo_service.count_todos(db, user_id, filter_type="upcoming", user_tz=user_tz),
     )
 
     # reminders upcoming (top 5)
@@ -58,9 +45,9 @@ async def get_today_dashboard(
     return {
         "todos_today": todos_today,
         "todos_count": {
-            "today": len(todos_today),
-            "overdue": len(overdue),
-            "upcoming": len(upcoming),
+            "today": count_today,
+            "overdue": count_overdue,
+            "upcoming": count_upcoming,
         },
         "reminders_upcoming": reminders_upcoming,
         "memories_count": memories_count,

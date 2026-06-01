@@ -154,13 +154,14 @@ async def semantic_search(
 
 
 async def count_active(db: AsyncSession, user_id: uuid.UUID) -> int:
-    """Count active (non-deleted) memories for a user."""
+    """Count active (non-deleted, is_active=True) memories for a user."""
     result = await db.execute(
         select(sa.func.count())
         .select_from(Memory)
         .where(
             Memory.user_id == user_id,
             Memory.deleted_at.is_(None),
+            Memory.is_active.is_(True),
         )
     )
     return result.scalar_one()
