@@ -224,7 +224,7 @@ export interface ReminderListOut {
   next_cursor: string | null;
 }
 
-// ── Dashboard ─────────────────────────────────────────────────────────────────
+// ── Dashboard ────────────────────────────────────────────────────────────────
 
 export interface TodosCount {
   today: number;
@@ -238,6 +238,14 @@ export interface DashboardOut {
   reminders_upcoming: ReminderOut[];
   memories_count: number;
   as_of: string;
+}
+
+// ── Push Notification ─────────────────────────────────────────────────────────
+
+export interface PushSubscribeRequest {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────

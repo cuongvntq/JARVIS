@@ -6,6 +6,7 @@ import {
   type ConversationListResponse,
   type DashboardOut,
   type MemoryCreate,
+  type PushSubscribeRequest,
   type MemoryListOut,
   type MemoryOut,
   type MemorySearchOut,
@@ -337,10 +338,20 @@ class ApiClient {
     return this.request(`/v1/reminders/${id}`, { method: "DELETE" });
   }
 
-  // ── Dashboard ───────────────────────────────────────────────────────────────
+  // ── Dashboard ──────────────────────────────────────────────────────────────
 
   async getDashboardToday(): Promise<DashboardOut> {
     return this.request("/v1/dashboard/today");
+  }
+
+  // ── Push Notifications ──────────────────────────────────────────────────────
+
+  async subscribePush(data: PushSubscribeRequest): Promise<void> {
+    return this.request("/v1/notifications/subscribe", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  async unsubscribePush(): Promise<void> {
+    return this.request("/v1/notifications/unsubscribe", { method: "POST" });
   }
 }
 
