@@ -13,7 +13,7 @@ class PushSubscription(Base):
     __tablename__ = "push_subscriptions"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    # UNIQUE constraint enforces 1 active subscription per user (overwrite on re-subscribe)
+    # UNIQUE constraint enforces 1 row per user; re-subscribe overwrites the existing row
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),

@@ -32,9 +32,14 @@ def upgrade() -> None:
             deleted_at  TIMESTAMPTZ
         )
     """)
-    # Partial index for scheduler: only pending, non-deleted rows ordered by remind_at
+    # Global scheduler claim: WHERE status='pending' AND remind_at <= now (no user_id filter)
     op.execute(
-        "CREATE INDEX idx_reminders_pending ON reminders (user_id, remind_at) "
+        "CREATE INDEX idx_reminders_scheduler ON reminders (remind_at, id) "
+        "WHERE status = 'pending' AND deleted_at IS NULL"
+    )
+    # Per-user list API: filter by user_id + remind_at range
+    op.execute(
+        "CREATE INDEX idx_reminders_user_pending ON reminders (user_id, remind_at) "
         "WHERE status = 'pending' AND deleted_at IS NULL"
     )
     op.execute("""
@@ -46,7 +51,7 @@ def upgrade() -> None:
         CREATE TABLE push_subscriptions (
             id         UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
             user_id    UUID        NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-            endpoint   TEXT        NOT NULL,
+            endpoint   TEXT        NOT NULL UNIQUE,
             p256dh     TEXT        NOT NULL,
             auth       TEXT        NOT NULL,
             is_active  BOOLEAN     NOT NULL DEFAULT TRUE,
@@ -54,7 +59,7 @@ def upgrade() -> None:
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     """)
-    # Partial index for push delivery: active subscriptions per user
+    # Lookup index for push delivery
     op.execute(
         "CREATE INDEX idx_push_subscriptions_active ON push_subscriptions (user_id) "
         "WHERE is_active = TRUE"
