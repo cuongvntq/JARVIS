@@ -72,12 +72,8 @@
 | #24 | `feat/sprint5-push-fe` | S5-8: Push Notification Frontend + Service Worker | MERGED |
 | #25 | `fix/review-findings-post-sprint5` | fix: 3 post-sprint5 review findings (null→422, auth clearAuth, typedRoutes) | MERGED |
 
-**Test delta Sprint 5:** 167 → 211 (+44 tests, +15 from parametrize)
-- test_reminders.py: +31 (new)
-- test_notifications.py: +6 (new)
-- test_dashboard.py: +5 (new)
-- test_rate_limit.py: +3 (new)
-- Others: minor changes
+**Test delta Sprint 5:** 167 → 211 (+44 collected)
+- New test files: test_reminders.py (30), test_notifications.py (6), test_dashboard.py (5), test_rate_limit.py (3)
 
 **Deferred from Sprint 5:**
 - Conversation summarization → Sprint 6

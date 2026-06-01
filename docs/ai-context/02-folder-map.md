@@ -88,7 +88,7 @@ backend/
 │   │   ├── scheduler_service.py # APScheduler (max_instances=1, coalesce=True), check_reminders() job 60s; Sprint 5
 │   │   │                        # 2-step: A) reset stuck-sending (>5min) → failed; B) claim pending → send push → update status
 │   │   ├── push_service.py     # pywebpush wrapper: send_push(endpoint, p256dh, auth, payload); Sprint 5
-│   │   └── dashboard_service.py # get_today_summary(user, session) → DashboardOut; Sprint 5
+│   │   └── dashboard_service.py # get_today_dashboard(db, user_id, user_tz) → DashboardOut; Sprint 5
 │   │
 │   ├── repositories/           # DB queries (SQLAlchemy 2.0, no business logic)
 │   │   ├── user_repo.py        # get_by_email, get_by_id, create, update_last_login; Sprint 4: + update_fields()
@@ -139,7 +139,7 @@ backend/
     │                           # mock_embedding, mock_semantic_search, auth_headers_user_b
     ├── test_auth.py            # Auth endpoint tests (23 tests)
     ├── test_chat.py            # Chat + conversation CRUD + streaming + RAG tests (18 tests)
-    ├── test_todos.py           # Todo CRUD + filter + ownership (22 tests)
+    ├── test_todos.py           # Todo CRUD + filter + ownership (26 collected)
     ├── test_notes.py           # Note CRUD + pin/unpin + search + ownership (19 tests)
     ├── test_memories.py        # Memory CRUD + search + ownership + query structure (22 tests)
     ├── test_reminders.py       # Reminder CRUD + cancel + ownership + tool executors (30 collected); Sprint 5

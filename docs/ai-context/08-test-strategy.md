@@ -207,7 +207,6 @@ _orch = OrchestratorResult(
 - execute_create_todo, execute_list_todos, execute_update_todo
 - execute_create_note, execute_search_notes
 - execute_save_memory, execute_search_memory, execute_forget_memory
-- execute_get_today_summary
 - Error paths: not found, ownership
 
 ### `tests/test_notes.py` (19 tests) — Sprint 3
