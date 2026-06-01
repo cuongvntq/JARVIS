@@ -19,7 +19,17 @@ from app.core.errors import (
     validation_exception_handler,
 )
 from app.middleware.rate_limit import limiter
-from app.routers import auth, chat, dashboard, health, memories, notes, notifications, reminders, todos
+from app.routers import (
+    auth,
+    chat,
+    dashboard,
+    health,
+    memories,
+    notes,
+    notifications,
+    reminders,
+    todos,
+)
 
 settings = get_settings()
 log = structlog.get_logger()

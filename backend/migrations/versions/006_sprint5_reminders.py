@@ -15,8 +15,7 @@ depends_on = None
 
 def upgrade() -> None:
     op.execute(
-        "CREATE TYPE reminder_status AS ENUM "
-        "('pending', 'sending', 'sent', 'failed', 'cancelled')"
+        "CREATE TYPE reminder_status AS ENUM ('pending', 'sending', 'sent', 'failed', 'cancelled')"
     )
     op.execute("""
         CREATE TABLE reminders (

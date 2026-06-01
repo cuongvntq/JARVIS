@@ -32,9 +32,7 @@ async def create_reminder(
     return ReminderOut.model_validate(reminder)
 
 
-async def get_reminder(
-    db: AsyncSession, reminder_id: uuid.UUID, user_id: uuid.UUID
-) -> ReminderOut:
+async def get_reminder(db: AsyncSession, reminder_id: uuid.UUID, user_id: uuid.UUID) -> ReminderOut:
     reminder = await reminder_repo.get_by_id(db, reminder_id, user_id)
     if reminder is None:
         raise JarvisError(404, "reminder_not_found", "Lời nhắc không tồn tại")
@@ -92,9 +90,7 @@ async def cancel_reminder(
     return ReminderOut.model_validate(updated)
 
 
-async def delete_reminder(
-    db: AsyncSession, reminder_id: uuid.UUID, user_id: uuid.UUID
-) -> None:
+async def delete_reminder(db: AsyncSession, reminder_id: uuid.UUID, user_id: uuid.UUID) -> None:
     reminder = await reminder_repo.get_by_id(db, reminder_id, user_id)
     if reminder is None:
         raise JarvisError(404, "reminder_not_found", "Lời nhắc không tồn tại")
