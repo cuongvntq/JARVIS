@@ -83,8 +83,11 @@ async def update_fields(db: AsyncSession, reminder_id: uuid.UUID, **kwargs) -> N
 
 
 async def soft_delete(db: AsyncSession, reminder_id: uuid.UUID) -> None:
+    now = datetime.now(UTC)
     await db.execute(
-        update(Reminder).where(Reminder.id == reminder_id).values(deleted_at=datetime.now(UTC))
+        update(Reminder)
+        .where(Reminder.id == reminder_id)
+        .values(deleted_at=now, status="cancelled", updated_at=now)
     )
 
 
