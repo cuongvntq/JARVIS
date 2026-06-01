@@ -3,6 +3,7 @@
 import os
 
 # Must set env vars BEFORE any app imports so Settings() picks them up
+os.environ.setdefault("APP_ENV", "test")
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["DATABASE_URL_DIRECT"] = "sqlite:///./test_direct.db"
 os.environ.setdefault("GEMINI_API_KEY", "fake-gemini-key-for-tests")

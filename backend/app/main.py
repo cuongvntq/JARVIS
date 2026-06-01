@@ -19,7 +19,7 @@ from app.core.errors import (
     validation_exception_handler,
 )
 from app.middleware.rate_limit import limiter
-from app.routers import auth, chat, dashboard, health, memories, notes, reminders, todos
+from app.routers import auth, chat, dashboard, health, memories, notes, notifications, reminders, todos
 
 settings = get_settings()
 log = structlog.get_logger()
@@ -28,7 +28,15 @@ log = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log.info("jarvis.startup", env=settings.app_env, version="0.1.0")
+    if settings.app_env != "test":
+        from app.services.scheduler_service import start_scheduler
+
+        start_scheduler()
     yield
+    if settings.app_env != "test":
+        from app.services.scheduler_service import stop_scheduler
+
+        stop_scheduler()
     log.info("jarvis.shutdown")
 
 
@@ -87,6 +95,7 @@ app.include_router(notes.router, prefix="/v1/notes", tags=["notes"])
 app.include_router(memories.router, prefix="/v1/memories", tags=["memories"])
 app.include_router(reminders.router, prefix="/v1/reminders", tags=["reminders"])
 app.include_router(dashboard.router, prefix="/v1/dashboard", tags=["dashboard"])
+app.include_router(notifications.router, prefix="/v1/notifications", tags=["notifications"])
 
 
 @app.get("/")
