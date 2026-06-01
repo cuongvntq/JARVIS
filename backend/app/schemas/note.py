@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class NoteCreate(BaseModel):
@@ -30,6 +30,13 @@ class NoteUpdate(BaseModel):
     content: str | None = None
     tags: list[str] | None = None
     pinned: bool | None = None
+
+    @field_validator("title", "content", "tags", "pinned", mode="before")
+    @classmethod
+    def _reject_explicit_null(cls, v: object) -> object:
+        if v is None:
+            raise ValueError("cannot be set to null; omit the field to leave it unchanged")
+        return v
 
 
 class NoteOut(BaseModel):

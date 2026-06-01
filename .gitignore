@@ -66,6 +66,9 @@ secrets/
 *.sqlite3
 pgdata/
 
+# ============= Claude Code Worktrees =============
+.claude/worktrees/
+
 # ============= Misc =============
 coverage/
 .nyc_output/
