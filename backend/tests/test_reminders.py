@@ -84,9 +84,7 @@ async def test_create_reminder_missing_title(async_client, auth_headers):
 
 @pytest.mark.asyncio
 async def test_create_reminder_missing_remind_at(async_client, auth_headers):
-    resp = await async_client.post(
-        "/v1/reminders", json={"title": "Test"}, headers=auth_headers
-    )
+    resp = await async_client.post("/v1/reminders", json={"title": "Test"}, headers=auth_headers)
     assert resp.status_code == 422
 
 
@@ -113,9 +111,7 @@ async def test_create_reminder_naive_datetime_rejected(async_client, auth_header
 
 @pytest.mark.asyncio
 async def test_create_reminder_unauthenticated(async_client):
-    resp = await async_client.post(
-        "/v1/reminders", json={"title": "Test", "remind_at": _future()}
-    )
+    resp = await async_client.post("/v1/reminders", json={"title": "Test", "remind_at": _future()})
     assert resp.status_code == 401
 
 
@@ -222,9 +218,7 @@ async def test_cancel_reminder_happy_path(async_client, auth_headers):
     create_resp = await _create_reminder(async_client, auth_headers, "Hủy thôi")
     reminder_id = create_resp.json()["id"]
 
-    resp = await async_client.patch(
-        f"/v1/reminders/{reminder_id}/cancel", headers=auth_headers
-    )
+    resp = await async_client.patch(f"/v1/reminders/{reminder_id}/cancel", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["status"] == "cancelled"
 
@@ -235,9 +229,7 @@ async def test_cancel_reminder_already_cancelled(async_client, auth_headers):
     reminder_id = create_resp.json()["id"]
 
     await async_client.patch(f"/v1/reminders/{reminder_id}/cancel", headers=auth_headers)
-    resp = await async_client.patch(
-        f"/v1/reminders/{reminder_id}/cancel", headers=auth_headers
-    )
+    resp = await async_client.patch(f"/v1/reminders/{reminder_id}/cancel", headers=auth_headers)
     assert resp.status_code == 409
     assert resp.json()["error"]["code"] == "reminder_not_cancellable"
 
@@ -349,9 +341,7 @@ async def test_executor_list_reminders_explicit_null_status_returns_all(db_sessi
     """Explicit status=None should return all statuses, not default to pending."""
     from app.tools.executors import execute_list_reminders
 
-    result = await execute_list_reminders(
-        db_session, test_user.id, {"status": None}, user_tz="UTC"
-    )
+    result = await execute_list_reminders(db_session, test_user.id, {"status": None}, user_tz="UTC")
     assert result["success"] is True
 
 
@@ -380,3 +370,88 @@ async def test_executor_list_reminders_missing_status_defaults_pending(db_sessio
     assert result["success"] is True
     items = result["data"]["reminders"]
     assert all(r["status"] == "pending" for r in items)
+
+
+# ── Repository: claim_pending_due ─────────────────────────────────────────────
+
+
+def _make_reminder(user_id, title: str, remind_at):
+    from app.models.reminder import Reminder
+
+    return Reminder(user_id=user_id, title=title, remind_at=remind_at, status="pending")
+
+
+@pytest.mark.asyncio
+async def test_claim_pending_due_transitions_status_to_sending(db_session, test_user):
+    """claim_pending_due() must atomically flip status pending→sending and return those rows."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.repositories.reminder_repo import claim_pending_due
+
+    now = datetime.now(UTC)
+    due = _make_reminder(test_user.id, "Due now", now - timedelta(minutes=5))
+    future = _make_reminder(test_user.id, "Not due yet", now + timedelta(hours=2))
+    db_session.add(due)
+    db_session.add(future)
+    await db_session.flush()
+
+    claimed = await claim_pending_due(db_session, before_utc=now)
+    await db_session.commit()
+
+    assert len(claimed) == 1
+    assert claimed[0].title == "Due now"
+
+    # synchronize_session=False means the identity-map object is not updated in-memory;
+    # refresh to verify the DB was actually written
+    await db_session.refresh(claimed[0])
+    assert claimed[0].status == "sending"
+
+    # The future reminder must remain pending
+    await db_session.refresh(future)
+    assert future.status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_claim_pending_due_ignores_non_pending_status(db_session, test_user):
+    """Already-sending / cancelled / sent reminders must not be claimed again."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.models.reminder import Reminder
+    from app.repositories.reminder_repo import claim_pending_due
+
+    now = datetime.now(UTC)
+    past = now - timedelta(minutes=1)
+
+    for status in ("sending", "sent", "cancelled", "failed"):
+        r = Reminder(
+            user_id=test_user.id,
+            title=f"Status {status}",
+            remind_at=past,
+            status=status,
+        )
+        db_session.add(r)
+    await db_session.flush()
+
+    claimed = await claim_pending_due(db_session, before_utc=now)
+    await db_session.commit()
+
+    assert claimed == []
+
+
+@pytest.mark.asyncio
+async def test_claim_pending_due_ignores_soft_deleted(db_session, test_user):
+    """Soft-deleted reminders must not be claimed."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.repositories.reminder_repo import claim_pending_due
+
+    now = datetime.now(UTC)
+    deleted = _make_reminder(test_user.id, "Deleted due", now - timedelta(minutes=1))
+    deleted.deleted_at = now - timedelta(seconds=30)
+    db_session.add(deleted)
+    await db_session.flush()
+
+    claimed = await claim_pending_due(db_session, before_utc=now)
+    await db_session.commit()
+
+    assert claimed == []
