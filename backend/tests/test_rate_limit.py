@@ -24,7 +24,9 @@ async def test_rate_limit_handler_returns_jarvis_format():
     # Attach fake request_id as middleware would
     request.state.request_id = "test-request-id"
 
-    exc = RateLimitExceeded("20 per 1 minute")
+    from unittest.mock import MagicMock
+
+    exc = MagicMock(spec=RateLimitExceeded)
     response = await _rate_limit_handler(request, exc)
 
     assert response.status_code == 429
