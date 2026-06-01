@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
+import { ApiException } from "@/lib/types/api";
+import { useCallback, useEffect, useState } from "react";
 
 export type PushPermission = "default" | "granted" | "denied" | "unsupported";
 
@@ -29,7 +30,11 @@ export function usePushNotification(): UsePushNotificationReturn {
 
   // Read initial state from browser
   useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window) || !("serviceWorker" in navigator)) {
+    if (
+      typeof window === "undefined" ||
+      !("Notification" in window) ||
+      !("serviceWorker" in navigator)
+    ) {
       setPermission("unsupported");
       return;
     }
@@ -67,12 +72,18 @@ export function usePushNotification(): UsePushNotificationReturn {
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
 
-      const json = sub.toJSON();
-      await api.subscribePush({
-        endpoint: sub.endpoint,
-        p256dh: json.keys?.p256dh ?? "",
-        auth: json.keys?.auth ?? "",
-      });
+      try {
+        const json = sub.toJSON();
+        await api.subscribePush({
+          endpoint: sub.endpoint,
+          p256dh: json.keys?.p256dh ?? "",
+          auth: json.keys?.auth ?? "",
+        });
+      } catch (apiErr) {
+        // Backend failed — clean up the browser subscription to avoid orphan state
+        await sub.unsubscribe().catch(() => {});
+        throw apiErr;
+      }
 
       setIsSubscribed(true);
     } catch (err) {
@@ -89,7 +100,12 @@ export function usePushNotification(): UsePushNotificationReturn {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) await sub.unsubscribe();
-      await api.unsubscribePush();
+      try {
+        await api.unsubscribePush();
+      } catch (apiErr) {
+        // 404 means server already has no active subscription — treat as success
+        if (!(apiErr instanceof ApiException && apiErr.statusCode === 404)) throw apiErr;
+      }
       setIsSubscribed(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không tắt được thông báo");

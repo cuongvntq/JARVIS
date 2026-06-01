@@ -4,6 +4,7 @@ import {
   type ChatSendResponse,
   type ConversationDetailOut,
   type ConversationListResponse,
+  type DashboardOut,
   type MemoryCreate,
   type PushSubscribeRequest,
   type MemoryListOut,
@@ -335,6 +336,12 @@ class ApiClient {
 
   async deleteReminder(id: string): Promise<void> {
     return this.request(`/v1/reminders/${id}`, { method: "DELETE" });
+  }
+
+  // ── Dashboard ──────────────────────────────────────────────────────────────
+
+  async getDashboardToday(): Promise<DashboardOut> {
+    return this.request("/v1/dashboard/today");
   }
 
   // ── Push Notifications ──────────────────────────────────────────────────────
