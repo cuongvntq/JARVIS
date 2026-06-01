@@ -69,6 +69,10 @@ class ApiClient {
       if (refreshed) {
         return this.request<T>(path, init, false);
       }
+      // Refresh failed — clear stale auth state so UI can redirect to login
+      _accessToken = null;
+      const { useAuthStore } = await import("@/stores/authStore");
+      useAuthStore.getState().clearAuth();
     }
 
     if (!res.ok) {

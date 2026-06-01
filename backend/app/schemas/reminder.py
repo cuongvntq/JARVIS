@@ -30,6 +30,13 @@ class ReminderUpdate(BaseModel):
     remind_at: datetime | None = None
     description: str | None = None
 
+    @field_validator("title", "remind_at", mode="before")
+    @classmethod
+    def _reject_explicit_null(cls, v: object) -> object:
+        if v is None:
+            raise ValueError("cannot be set to null; omit the field to leave it unchanged")
+        return v
+
     @field_validator("remind_at")
     @classmethod
     def remind_at_must_be_aware(cls, v: datetime | None) -> datetime | None:
