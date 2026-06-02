@@ -15,11 +15,11 @@ _pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(plain: str) -> str:
-    return _pwd_ctx.hash(plain)
+    return str(_pwd_ctx.hash(plain))
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return _pwd_ctx.verify(plain, hashed)
+    return bool(_pwd_ctx.verify(plain, hashed))
 
 
 def validate_password_strength(password: str) -> None:
@@ -40,7 +40,7 @@ def create_access_token(user_id: uuid.UUID, name: str) -> str:
         "type": "access",
         "exp": expire,
     }
-    return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
+    return str(jwt.encode(payload, settings.jwt_secret, algorithm="HS256"))
 
 
 def create_refresh_token() -> tuple[str, str]:
@@ -53,12 +53,12 @@ def hash_refresh_token(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-def decode_access_token(token: str) -> dict:
+def decode_access_token(token: str) -> dict[str, object]:
     """Decode and validate JWT. Raises HTTPException 401 on failure."""
     from fastapi import HTTPException
 
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
+        payload: dict[str, object] = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
         if payload.get("type") != "access":
             raise JWTError("wrong token type")
         return payload

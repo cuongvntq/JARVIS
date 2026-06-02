@@ -80,14 +80,19 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> tuple[TokenRes
             401, "invalid_refresh_token", "Refresh token không hợp lệ hoặc đã hết hạn"
         )
 
-    user = await user_repo.get_by_id(db, row.user_id)
+    user = await user_repo.get_by_id(db, row.user_id)  # type: ignore[attr-defined]
     if not user or not user.is_active:
         raise JarvisError(401, "invalid_credentials", "Tài khoản không hợp lệ")
 
     raw_refresh, token_hash_new = create_refresh_token()
     expires_at = datetime.now(UTC) + timedelta(days=settings.jwt_refresh_ttl_days)
     await auth_repo.create_session(
-        db, user.id, token_hash_new, row.user_agent, row.ip_address, expires_at
+        db,
+        user.id,
+        token_hash_new,
+        row.user_agent,
+        row.ip_address,
+        expires_at,  # type: ignore[attr-defined]
     )
 
     access_token = create_access_token(user.id, user.name)
@@ -148,7 +153,7 @@ def set_refresh_cookie(response: Response, raw_refresh: str, ttl_days: int) -> N
         key="refresh_token",
         value=raw_refresh,
         httponly=True,
-        samesite=settings.cookie_samesite,
+        samesite=settings.cookie_samesite,  # type: ignore[arg-type]
         max_age=ttl_days * 86400,
         path="/auth",
         secure=settings.cookie_secure,

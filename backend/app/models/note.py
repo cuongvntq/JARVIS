@@ -1,7 +1,13 @@
 """ORM model: Note."""
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 import sqlalchemy as sa
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, Uuid, func
@@ -19,7 +25,7 @@ class Note(Base):
     )
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
-    tags: Mapped[list] = mapped_column(sa.JSON, nullable=False, server_default=sa.text("'[]'"))
+    tags: Mapped[list[str]] = mapped_column(sa.JSON, nullable=False, server_default=sa.text("'[]'"))
     pinned: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=sa.false())
     source: Mapped[str] = mapped_column(String(20), nullable=False, server_default="ui")
     created_at: Mapped[datetime] = mapped_column(
@@ -30,4 +36,4 @@ class Note(Base):
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    user: Mapped["User"] = relationship("User", back_populates="notes")  # noqa: F821
+    user: Mapped[User] = relationship("User", back_populates="notes")

@@ -1,6 +1,7 @@
 """ToolExecutionLog repository — write-only (analytics + debug)."""
 
 import uuid
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,8 +13,8 @@ async def log_execution(
     *,
     user_id: uuid.UUID,
     tool_name: str,
-    input: dict,
-    output: dict | None,
+    input: dict[str, Any],
+    output: dict[str, Any] | None,
     status: str,
     duration_ms: int,
     message_id: uuid.UUID | None = None,

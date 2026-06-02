@@ -82,7 +82,7 @@ async def list_memories(
     return rows, next_cursor
 
 
-async def update_fields(db: AsyncSession, memory_id: uuid.UUID, **kwargs) -> None:
+async def update_fields(db: AsyncSession, memory_id: uuid.UUID, **kwargs: object) -> None:
     kwargs["updated_at"] = datetime.now(UTC)
     await db.execute(update(Memory).where(Memory.id == memory_id).values(**kwargs))
 
@@ -115,7 +115,7 @@ def _build_semantic_search_stmt(
     limit: int,
     min_similarity: float,
     memory_type: str | None = None,
-) -> sa.Select:
+) -> sa.Select[tuple[Memory]]:
     """Build pgvector cosine similarity SELECT (Postgres only — not executable on SQLite)."""
     vec_literal = str(query_vec)  # "[0.1, 0.2, ...]" — valid pgvector array input
     stmt = (

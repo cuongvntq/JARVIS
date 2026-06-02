@@ -10,6 +10,7 @@ from app.config import get_settings
 from app.core.deps import get_current_user
 from app.core.errors import JarvisError
 from app.database import get_db
+from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
     RefreshRequest,
@@ -32,7 +33,7 @@ settings = get_settings()
 )
 async def register(
     req: RegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)
-):
+) -> TokenResponse:
     token_resp, raw_refresh = await auth_service.register(db, req, request)
     auth_service.set_refresh_cookie(response, raw_refresh, settings.jwt_refresh_ttl_days)
     return token_resp
@@ -41,7 +42,7 @@ async def register(
 @router.post("/login", response_model=TokenResponse, response_model_exclude_none=True)
 async def login(
     req: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)
-):
+) -> TokenResponse:
     token_resp, raw_refresh = await auth_service.login(db, req, request)
     auth_service.set_refresh_cookie(response, raw_refresh, settings.jwt_refresh_ttl_days)
     return token_resp
@@ -87,7 +88,7 @@ async def refresh(
     response: Response,
     db: AsyncSession = Depends(get_db),
     req: Annotated[RefreshRequest | None, Body()] = None,
-):
+) -> TokenResponse:
     _check_csrf_origin(request)
     token = _resolve_refresh_token(request, req)
     token_resp, raw_refresh = await auth_service.refresh_tokens(db, token)
@@ -101,7 +102,7 @@ async def logout(
     response: Response,
     db: AsyncSession = Depends(get_db),
     req: Annotated[RefreshRequest | None, Body()] = None,
-):
+) -> None:
     _check_csrf_origin(request)
     token = request.cookies.get("refresh_token") or (req.refresh_token if req else None)
     if token:
@@ -110,14 +111,14 @@ async def logout(
 
 
 @router.get("/me", response_model=UserOut)
-async def me(current_user=Depends(get_current_user)):
+async def me(current_user: User = Depends(get_current_user)) -> UserOut:
     return UserOut.model_validate(current_user)
 
 
 @router.patch("/me", response_model=UserOut)
 async def update_me(
     req: UpdateProfileRequest,
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-):
+) -> UserOut:
     return await auth_service.update_profile(db, current_user.id, req)

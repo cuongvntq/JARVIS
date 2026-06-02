@@ -1,12 +1,23 @@
 """ORM models: User and AuthSession."""
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.conversation import Conversation
+    from app.models.memory import Memory
+    from app.models.note import Note
+    from app.models.push_subscription import PushSubscription
+    from app.models.reminder import Reminder
+    from app.models.todo import Todo
 
 
 class User(Base):
@@ -34,25 +45,25 @@ class User(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    sessions: Mapped[list["AuthSession"]] = relationship(
+    sessions: Mapped[list[AuthSession]] = relationship(
         "AuthSession", back_populates="user", cascade="all, delete-orphan"
     )
-    conversations: Mapped[list["Conversation"]] = relationship(  # noqa: F821
+    conversations: Mapped[list[Conversation]] = relationship(
         "Conversation", back_populates="user", cascade="all, delete-orphan"
     )
-    todos: Mapped[list["Todo"]] = relationship(  # noqa: F821
+    todos: Mapped[list[Todo]] = relationship(
         "Todo", back_populates="user", cascade="all, delete-orphan"
     )
-    notes: Mapped[list["Note"]] = relationship(  # noqa: F821
+    notes: Mapped[list[Note]] = relationship(
         "Note", back_populates="user", cascade="all, delete-orphan"
     )
-    memories: Mapped[list["Memory"]] = relationship(  # noqa: F821
+    memories: Mapped[list[Memory]] = relationship(
         "Memory", back_populates="user", cascade="all, delete-orphan"
     )
-    reminders: Mapped[list["Reminder"]] = relationship(  # noqa: F821
+    reminders: Mapped[list[Reminder]] = relationship(
         "Reminder", back_populates="user", cascade="all, delete-orphan"
     )
-    push_subscription: Mapped["PushSubscription | None"] = relationship(  # noqa: F821
+    push_subscription: Mapped[PushSubscription | None] = relationship(
         "PushSubscription", back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
 
@@ -78,4 +89,4 @@ class AuthSession(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    user: Mapped["User"] = relationship("User", back_populates="sessions")
+    user: Mapped[User] = relationship("User", back_populates="sessions")

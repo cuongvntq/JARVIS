@@ -10,13 +10,13 @@ router = APIRouter()
 
 
 @router.get("/health")
-async def health():
+async def health() -> dict[str, str]:
     """Liveness check — không cần DB."""
     return {"status": "ok"}
 
 
 @router.get("/health/ready")
-async def ready(db: AsyncSession = Depends(get_db)):
+async def ready(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
     """Readiness check — verify DB connection."""
     try:
         await db.execute(text("SELECT 1"))

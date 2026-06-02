@@ -47,7 +47,7 @@ class TodoOut(BaseModel):
     priority: str
     due_at: datetime | None
     completed_at: datetime | None
-    tags: list
+    tags: list[str]
     source: str
     created_at: datetime
     updated_at: datetime

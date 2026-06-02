@@ -1,11 +1,14 @@
 """Unified error handling for JARVIS API."""
 
 import uuid
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from fastapi import Request
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 
 class JarvisError(Exception):
@@ -14,7 +17,7 @@ class JarvisError(Exception):
         status_code: int,
         code: str,
         message: str,
-        details: dict | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         self.status_code = status_code
         self.code = code
@@ -24,7 +27,11 @@ class JarvisError(Exception):
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
         request.state.request_id = str(uuid.uuid4())
         response = await call_next(request)
         response.headers["X-Request-ID"] = request.state.request_id
@@ -61,7 +68,7 @@ async def jarvis_exception_handler(request: Request, exc: JarvisError) -> JSONRe
     )
 
 
-def _sanitize_validation_errors(errors: list) -> list:
+def _sanitize_validation_errors(errors: list[Any]) -> list[Any]:
     """Pydantic v2 model_validator raises put the Exception instance in ctx.error —
     not JSON-serializable. Convert to string so JSONResponse doesn't blow up."""
     sanitized = []
@@ -83,7 +90,7 @@ async def validation_exception_handler(
             "error": {
                 "code": "validation_error",
                 "message": "Dữ liệu đầu vào không hợp lệ",
-                "details": {"errors": _sanitize_validation_errors(exc.errors())},
+                "details": {"errors": _sanitize_validation_errors(list(exc.errors()))},
                 "request_id": request_id,
             }
         },

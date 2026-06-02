@@ -51,7 +51,7 @@ async def revoke_session(db: AsyncSession, session_id: uuid.UUID) -> None:
         await db.flush()
 
 
-async def atomic_revoke_session(db: AsyncSession, token_hash: str):
+async def atomic_revoke_session(db: AsyncSession, token_hash: str) -> object:
     """Atomically revoke a non-expired, non-revoked session in one round-trip.
 
     Returns a Row(user_id, user_agent, ip_address) if the session was successfully

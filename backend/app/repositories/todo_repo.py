@@ -146,7 +146,7 @@ async def count_todos(
     return (await db.execute(query)).scalar_one()
 
 
-async def create(db: AsyncSession, user_id: uuid.UUID, **kwargs) -> Todo:
+async def create(db: AsyncSession, user_id: uuid.UUID, **kwargs: object) -> Todo:
     todo = Todo(user_id=user_id, **kwargs)
     db.add(todo)
     await db.flush()
@@ -154,7 +154,7 @@ async def create(db: AsyncSession, user_id: uuid.UUID, **kwargs) -> Todo:
     return todo
 
 
-async def update_fields(db: AsyncSession, todo_id: uuid.UUID, **kwargs) -> None:
+async def update_fields(db: AsyncSession, todo_id: uuid.UUID, **kwargs: object) -> None:
     """Partial update — only sets provided fields plus updated_at."""
     kwargs["updated_at"] = datetime.now(UTC)
     await db.execute(update(Todo).where(Todo.id == todo_id).values(**kwargs))

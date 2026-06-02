@@ -1,13 +1,16 @@
 """Push notification subscription endpoints."""
 
+from typing import Any
+
 import structlog
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user
 from app.core.errors import JarvisError
 from app.database import get_db
+from app.models.user import User
 from app.repositories import push_subscription_repo
 
 log = structlog.get_logger()
@@ -23,9 +26,9 @@ class SubscribeRequest(BaseModel):
 @router.post("/subscribe", status_code=201)
 async def subscribe(
     req: SubscribeRequest,
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, Any]:
     sub = await push_subscription_repo.upsert(
         db,
         user_id=current_user.id,
@@ -42,9 +45,10 @@ async def subscribe(
 
 @router.post("/unsubscribe", status_code=204)
 async def unsubscribe(
-    current_user=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-):
+) -> Response:
     found = await push_subscription_repo.deactivate_by_user_id(db, current_user.id)
     if not found:
         raise JarvisError(404, "subscription_not_found", "Không tìm thấy subscription")
+    return Response(status_code=204)

@@ -14,7 +14,7 @@ from app.config import get_settings
 settings = get_settings()
 
 _is_sqlite = settings.database_url.startswith("sqlite")
-_engine_kwargs: dict = {"echo": settings.app_env == "development"}
+_engine_kwargs: dict[str, object] = {"echo": settings.app_env == "development"}
 if not _is_sqlite:
     _engine_kwargs.update({"pool_pre_ping": True, "pool_size": 10, "max_overflow": 20})
 

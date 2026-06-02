@@ -1,8 +1,14 @@
 """ORM models: ToolExecutionLog and LLMCallLog."""
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 import sqlalchemy as sa
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, Uuid, func
@@ -22,8 +28,8 @@ class ToolExecutionLog(Base):
         Uuid(as_uuid=True), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True
     )
     tool_name: Mapped[str] = mapped_column(String(64), nullable=False)
-    input: Mapped[dict] = mapped_column(sa.JSON, nullable=False)
-    output: Mapped[dict | None] = mapped_column(sa.JSON, nullable=True)
+    input: Mapped[dict[str, Any]] = mapped_column(sa.JSON, nullable=False)
+    output: Mapped[dict[str, Any] | None] = mapped_column(sa.JSON, nullable=True)
     status: Mapped[str] = mapped_column(
         sa.Enum("success", "failed", "timeout", name="tool_status", create_type=False),
         nullable=False,
@@ -34,7 +40,7 @@ class ToolExecutionLog(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    user: Mapped["User"] = relationship("User")  # noqa: F821
+    user: Mapped[User] = relationship("User")
 
 
 class LLMCallLog(Base):
@@ -60,4 +66,4 @@ class LLMCallLog(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    user: Mapped["User"] = relationship("User")  # noqa: F821
+    user: Mapped[User] = relationship("User")

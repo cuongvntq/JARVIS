@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +15,7 @@ async def get_today_dashboard(
     db: AsyncSession,
     user_id: uuid.UUID,
     user_tz: str = "UTC",
-) -> dict:
+) -> dict[str, Any]:
     """Aggregate dashboard data for the current user."""
     # First page of today's todos for display (up to 20)
     todos_today, _ = await todo_service.list_todos(

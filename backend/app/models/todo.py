@@ -1,7 +1,13 @@
 """ORM model: Todo."""
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 import sqlalchemy as sa
 from sqlalchemy import DateTime, ForeignKey, String, Text, Uuid, func
@@ -46,7 +52,7 @@ class Todo(Base):
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # TEXT[] in Postgres; sa.JSON for SQLite test compatibility
-    tags: Mapped[list] = mapped_column(sa.JSON, nullable=False, server_default=sa.text("'[]'"))
+    tags: Mapped[list[str]] = mapped_column(sa.JSON, nullable=False, server_default=sa.text("'[]'"))
     source: Mapped[str] = mapped_column(String(20), nullable=False, server_default="ui")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -56,4 +62,4 @@ class Todo(Base):
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    user: Mapped["User"] = relationship("User", back_populates="todos")  # noqa: F821
+    user: Mapped[User] = relationship("User", back_populates="todos")

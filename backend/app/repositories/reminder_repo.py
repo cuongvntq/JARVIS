@@ -69,7 +69,7 @@ async def list_reminders(
     return rows, next_cursor
 
 
-async def create(db: AsyncSession, user_id: uuid.UUID, **kwargs) -> Reminder:
+async def create(db: AsyncSession, user_id: uuid.UUID, **kwargs: object) -> Reminder:
     reminder = Reminder(user_id=user_id, **kwargs)
     db.add(reminder)
     await db.flush()
@@ -77,7 +77,7 @@ async def create(db: AsyncSession, user_id: uuid.UUID, **kwargs) -> Reminder:
     return reminder
 
 
-async def update_fields(db: AsyncSession, reminder_id: uuid.UUID, **kwargs) -> None:
+async def update_fields(db: AsyncSession, reminder_id: uuid.UUID, **kwargs: object) -> None:
     kwargs["updated_at"] = datetime.now(UTC)
     await db.execute(update(Reminder).where(Reminder.id == reminder_id).values(**kwargs))
 

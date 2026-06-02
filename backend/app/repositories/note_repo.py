@@ -87,7 +87,7 @@ async def list_notes(
     return rows, next_cursor
 
 
-async def create(db: AsyncSession, user_id: uuid.UUID, **kwargs) -> Note:
+async def create(db: AsyncSession, user_id: uuid.UUID, **kwargs: object) -> Note:
     note = Note(user_id=user_id, **kwargs)
     db.add(note)
     await db.flush()
@@ -95,7 +95,7 @@ async def create(db: AsyncSession, user_id: uuid.UUID, **kwargs) -> Note:
     return note
 
 
-async def update_fields(db: AsyncSession, note_id: uuid.UUID, **kwargs) -> None:
+async def update_fields(db: AsyncSession, note_id: uuid.UUID, **kwargs: object) -> None:
     kwargs["updated_at"] = datetime.now(UTC)
     await db.execute(update(Note).where(Note.id == note_id).values(**kwargs))
 

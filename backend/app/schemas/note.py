@@ -46,7 +46,7 @@ class NoteOut(BaseModel):
     user_id: uuid.UUID
     title: str
     content: str
-    tags: list
+    tags: list[str]
     pinned: bool
     source: str
     created_at: datetime
