@@ -1,13 +1,16 @@
 """
-LLM client with 2-tier fallback chain.
+LLM client with 4-tier fallback chain.
 
-Primary: Gemini 2.5 Flash (FREE 1500 req/day)
-Fallback: OpenAI gpt-4o-mini ($0.15/$0.60 per 1M tokens)
+Tier 1: Gemini 2.5 Flash (FREE 1500 req/day)
+Tier 2: gpt-4o-mini
+Tier 3: gpt-5.4-nano
+Tier 4: gpt-5-mini
 """
 
 import asyncio
 import json
 import os
+from typing import Any
 
 import litellm
 import structlog
@@ -34,7 +37,7 @@ if settings.anthropic_api_key:
 litellm.suppress_debug_info = True
 
 
-def _parse_tool_calls(raw_tool_calls) -> list[ToolCall]:
+def _parse_tool_calls(raw_tool_calls: list[Any] | None) -> list[ToolCall]:
     """Convert LiteLLM tool_calls into ToolCall dataclasses."""
     if not raw_tool_calls:
         return []
@@ -49,9 +52,9 @@ def _parse_tool_calls(raw_tool_calls) -> list[ToolCall]:
 
 
 async def chat_completion(
-    messages: list[dict],
+    messages: list[dict[str, object]],
     model: str | None = None,
-    tools: list[dict] | None = None,
+    tools: list[dict[str, object]] | None = None,
     stream: bool = False,
     max_tokens: int | None = None,
 ) -> LLMResponse:
@@ -60,7 +63,11 @@ async def chat_completion(
 
     Returns an LLMResponse with content, tool_calls, model, and token counts.
     """
-    chain = [model] if model is not None else [settings.llm_primary, settings.llm_fallback]
+    chain = (
+        [model]
+        if model is not None
+        else [settings.llm_primary, settings.llm_fallback, settings.llm_tier3, settings.llm_tier4]
+    )
 
     last_error: Exception | None = None
 
