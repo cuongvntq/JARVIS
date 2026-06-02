@@ -1,7 +1,10 @@
 """SlowAPI rate limiter setup."""
 
+import structlog
 from slowapi import Limiter
 from starlette.requests import Request
+
+log = structlog.get_logger()
 
 
 def _get_rate_limit_key(request: Request) -> str:
@@ -23,4 +26,19 @@ def _get_rate_limit_key(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-limiter = Limiter(key_func=_get_rate_limit_key)
+def _build_limiter() -> Limiter:
+    """Return a Limiter backed by Redis when UPSTASH_REDIS_URL is set, else in-memory."""
+    from app.config import get_settings
+
+    settings = get_settings()
+    if settings.upstash_redis_url:
+        try:
+            storage_uri = settings.upstash_redis_url
+            log.info("rate_limit.redis_backend", url=storage_uri[:30] + "...")
+            return Limiter(key_func=_get_rate_limit_key, storage_uri=storage_uri)
+        except Exception as e:
+            log.warning("rate_limit.redis_fallback_inmemory", error=str(e))
+    return Limiter(key_func=_get_rate_limit_key)
+
+
+limiter = _build_limiter()
