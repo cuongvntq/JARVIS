@@ -37,6 +37,8 @@ class Settings(BaseSettings):
 
     llm_primary: str = "gemini/gemini-2.5-flash"
     llm_fallback: str = "gpt-4o-mini"
+    llm_tier3: str = "gpt-5.4-nano"
+    llm_tier4: str = "gpt-5-mini"
     llm_timeout_seconds: int = 30
     llm_max_tokens_out: int = 1000
 
@@ -62,6 +64,12 @@ class Settings(BaseSettings):
     vapid_private_key: str | None = None
     vapid_subject: str = "mailto:admin@example.com"
 
+    # ---- Redis (optional) ----
+    upstash_redis_url: str = ""
+
+    # ---- Observability ----
+    sentry_dsn: str = ""
+
     # ---- Computed ----
     @property
     def cors_origins_list(self) -> list[str]:
@@ -71,4 +79,4 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Cached settings instance. Use this everywhere."""
-    return Settings()
+    return Settings()  # type: ignore[call-arg]

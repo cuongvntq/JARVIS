@@ -46,6 +46,12 @@ dependencies = [
     # Logging
     "structlog>=24.4.0",
 
+    # Redis (optional — Upstash rate limit store)
+    "redis[asyncio]>=5.0.0",
+
+    # Observability
+    "sentry-sdk[fastapi]>=2.19.0",
+
     # HTTP client
     "httpx>=0.28.0",
 ]
@@ -100,10 +106,11 @@ indent-style = "space"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = "test_*.py"
-addopts = "-v --tb=short"
+addopts = "-v --tb=short -m 'not eval'"
+markers = ["eval: prompt evaluation tests (require real LLM keys, set RUN_EVAL=1)"]
 
 # ============= mypy =============
 [tool.mypy]
 python_version = "3.12"
-strict = false
+strict = true
 ignore_missing_imports = true
