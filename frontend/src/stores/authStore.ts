@@ -9,9 +9,10 @@ interface AuthState {
   setAuth: (user: UserOut, token: string) => void;
   clearAuth: () => void;
   setLoading: (v: boolean) => void;
+  logout: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   accessToken: null,
   isAuthenticated: false,
@@ -24,4 +25,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: null, accessToken: null, isAuthenticated: false, isLoading: false }),
 
   setLoading: (v) => set({ isLoading: v }),
+
+  logout: async () => {
+    const { api } = await import("@/lib/api");
+    try {
+      await api.logout();
+    } catch {
+      // ignore errors — clear local state regardless
+    }
+    get().clearAuth();
+  },
 }));

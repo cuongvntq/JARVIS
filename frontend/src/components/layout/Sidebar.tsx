@@ -11,8 +11,12 @@ import {
   Zap,
   Plus,
   Loader2,
+  LogOut,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useConversations } from "@/hooks/useConversations";
+import { useAuthStore } from "@/stores/authStore";
 
 export type Section =
   | "chat"
@@ -120,6 +124,16 @@ export default function Sidebar({
   activeConversationId,
   onSelectConversation,
 }: SidebarProps) {
+  const { user, logout } = useAuthStore();
+  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    await logout();
+    router.push("/auth/login");
+  };
+
   return (
     <aside
       className="w-[220px] flex-shrink-0 flex flex-col h-full border-r"
@@ -228,9 +242,9 @@ export default function Sidebar({
         })}
       </nav>
 
-      {/* Settings */}
+      {/* Settings + Logout */}
       <div
-        className="px-3 pb-4 pt-2 border-t"
+        className="px-3 pb-3 pt-2 border-t"
         style={{ borderColor: "rgba(0, 180, 216, 0.08)" }}
       >
         <button
@@ -256,6 +270,40 @@ export default function Sidebar({
             SETTINGS
           </span>
         </button>
+
+        {/* User info + logout */}
+        <div
+          className="mt-2 px-3 py-2 rounded-lg flex items-center gap-2"
+          style={{ backgroundColor: "rgba(0, 180, 216, 0.04)" }}
+        >
+          <div className="flex-1 min-w-0">
+            <p
+              className="text-[9px] font-semibold tracking-[0.1em] truncate"
+              style={{ color: "#5e8a9e" }}
+            >
+              {user?.name ?? "USER"}
+            </p>
+            <p
+              className="text-[8px] tracking-[0.05em] truncate"
+              style={{ color: "rgba(94, 138, 158, 0.6)" }}
+            >
+              {user?.email ?? ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            title="Logout"
+            className="flex-shrink-0 p-1 rounded transition-colors hover:bg-white/5 disabled:opacity-50"
+          >
+            {isLoggingOut ? (
+              <Loader2 size={12} className="animate-spin" style={{ color: "#5e8a9e" }} />
+            ) : (
+              <LogOut size={12} style={{ color: "#5e8a9e" }} />
+            )}
+          </button>
+        </div>
       </div>
     </aside>
   );
