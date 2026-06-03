@@ -27,6 +27,15 @@ from app.tools.definitions import TOOLS
 
 log = structlog.get_logger()
 
+# Strong references so background tasks aren't GC'd before completion (RUF006).
+_bg_tasks: set[asyncio.Task[None]] = set()
+
+
+def _schedule_summarize(conversation_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    task = asyncio.create_task(_auto_summarize_conversation(conversation_id, user_id))
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
+
 
 async def _build_prompt_with_rag(
     db: AsyncSession,
@@ -169,8 +178,7 @@ async def stream_message(
     await db.commit()
 
     if new_count >= 20 and new_count % 20 == 0:
-        task = asyncio.create_task(_auto_summarize_conversation(conv.id, current_user.id))
-        task.add_done_callback(lambda _: None)
+        _schedule_summarize(conv.id, current_user.id)
 
     log.info(
         "chat.stream.sent",
@@ -259,8 +267,7 @@ async def send_message(
     await db.commit()
 
     if new_count >= 20 and new_count % 20 == 0:
-        task = asyncio.create_task(_auto_summarize_conversation(conv.id, current_user.id))
-        task.add_done_callback(lambda _: None)
+        _schedule_summarize(conv.id, current_user.id)
 
     log.info(
         "chat.sent",

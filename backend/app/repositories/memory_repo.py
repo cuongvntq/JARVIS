@@ -117,7 +117,10 @@ def _build_semantic_search_stmt(
     memory_type: str | None = None,
 ) -> sa.Select[tuple[Memory]]:
     """Build pgvector cosine similarity SELECT (Postgres only — not executable on SQLite)."""
-    vec_literal = str(query_vec)  # "[0.1, 0.2, ...]" — valid pgvector array input
+    # Validate before interpolating into SQL text — ensures no non-numeric values enter the query.
+    if not all(isinstance(v, (int, float)) for v in query_vec):
+        raise ValueError("query_vec must contain only numeric values")
+    vec_literal = str([float(v) for v in query_vec])  # "[0.1, 0.2, ...]" pgvector array input
     stmt = (
         select(Memory)
         .where(
