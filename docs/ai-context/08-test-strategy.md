@@ -3,8 +3,8 @@
 ## Overview
 
 **Backend:** pytest + pytest-asyncio, SQLite in-memory (real DB, no mocks for DB layer)
-**Frontend:** vitest (unit), Playwright (E2E) — minimal coverage currently
-**Test count (Sprint 5 backend):** 211 tests collected, all passing
+**Frontend:** vitest (unit), Playwright (E2E) — 4 E2E specs (auth/chat/reminder/dashboard)
+**Test count (Sprint 6):** 211 backend tests collected, all passing + Playwright E2E (retries=1 in CI)
 
 ---
 
@@ -312,13 +312,42 @@ async def test_something_with_llm(async_client, auth_headers, mock_llm):
 
 ---
 
+## E2E Tests (Playwright) — Sprint 6
+
+```
+frontend/e2e/
+├── global-setup.ts     # Pre-warm Next.js JIT: fetch /auth/login + /
+├── fixtures.ts         # registerAndLogin() — POST /auth/register + login via UI + waitForURL
+├── auth.spec.ts        # Login → dashboard; wrong password → error (2 tests)
+├── chat.spec.ts        # Send message (MOCK_LLM=1) → todo in list (1 test)
+├── reminder.spec.ts    # Create via UI form → appears in reminders (1 test)
+└── dashboard.spec.ts   # Dashboard stats cards visible (1 test)
+```
+
+**Key patterns:**
+- `registerAndLogin()`: register via API, login via UI with `waitForResponse` + `waitForURL`
+- `globalSetup`: fetch both routes before tests → eliminates cold-start flakiness
+- `MOCK_LLM=1`: backend orchestrator returns deterministic response without calling real LLM
+- `retries: 1` in CI only — local runs no retry
+
+## Prompt Eval Set — Sprint 6
+
+```
+backend/tests/eval/
+├── __init__.py
+├── eval_cases.py       # 10 cases: E-01 to E-10
+└── test_prompt_eval.py # pytest -m eval — calls real LLM, writes eval_results/YYYYMMDD_HHMM.json
+```
+
+- Only runs when `RUN_EVAL=1` env var set
+- `addopts = "-m 'not eval'"` in `pyproject.toml` — excluded from normal CI
+- Target: ≥9/10 pass before any prompt/tool schema change
+
 ## What's NOT Tested Yet
 
-- Frontend vitest unit tests (components, hooks) — Sprint 6
-- Playwright E2E tests — Sprint 6
-- Eval set (10 prompt cases) — Sprint 6
+- Frontend vitest unit tests (components, hooks)
 - RAG end-to-end on real Postgres (SQLite tests mock semantic_search → `[]`) — manual test only
-- Actual push delivery end-to-end (pywebpush call mocked in tests) — manual test with VAPID keys
+- Actual push delivery end-to-end (pywebpush call mocked in tests) — manual with VAPID keys
 - Token refresh race condition
 - LLM actual API calls (all mocked in tests)
-- Conversation summarization — Sprint 6
+- Alembic migration smoke test runs in CI (GitHub Actions `backend-migration-smoke` job with pgvector/pg16)
