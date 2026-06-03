@@ -16,7 +16,15 @@ settings = get_settings()
 _is_sqlite = settings.database_url.startswith("sqlite")
 _engine_kwargs: dict[str, object] = {"echo": settings.app_env == "development"}
 if not _is_sqlite:
-    _engine_kwargs.update({"pool_pre_ping": True, "pool_size": 10, "max_overflow": 20})
+    _engine_kwargs.update(
+        {
+            "pool_pre_ping": True,
+            "pool_size": 10,
+            "max_overflow": 20,
+            # Disable prepared statement cache for Supabase transaction pooler (pgbouncer)
+            "connect_args": {"prepared_statement_cache_size": 0},
+        }
+    )
 
 engine = create_async_engine(settings.database_url, **_engine_kwargs)
 
