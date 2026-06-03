@@ -1,6 +1,8 @@
 """Health check endpoints."""
 
-from fastapi import APIRouter, Depends
+import os
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,3 +25,11 @@ async def ready(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
         return {"status": "ready", "db": "ok"}
     except Exception as e:
         return {"status": "degraded", "db": str(e)}
+
+
+@router.get("/health/sentry-test")
+async def sentry_test() -> dict[str, str]:
+    """Sentry smoke test — disabled unless ENABLE_SENTRY_TEST_ROUTE=true."""
+    if os.getenv("ENABLE_SENTRY_TEST_ROUTE") != "true":
+        raise HTTPException(status_code=404)
+    raise ValueError("Sentry smoke test")
