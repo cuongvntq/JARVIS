@@ -10,7 +10,7 @@ let _userCounter = 0;
 
 export function uniqueEmail(): string {
   _userCounter++;
-  return `e2e_${Date.now()}_${_userCounter}@test.local`;
+  return `e2e_${Date.now()}_${_userCounter}@example.com`;
 }
 
 export async function registerAndLogin(
