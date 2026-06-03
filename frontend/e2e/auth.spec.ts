@@ -9,7 +9,7 @@ test("register and login redirects to dashboard", async ({ page }) => {
   await registerAndLogin(page);
 
   // After login, user should be on main app page and see JARVIS sidebar
-  await expect(page.locator("text=JARVIS")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "JARVIS" })).toBeVisible();
 });
 
 test("login with wrong password shows error", async ({ page }) => {
