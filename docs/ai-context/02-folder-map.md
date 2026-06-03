@@ -258,7 +258,7 @@ frontend/e2e/
 ├── global-setup.ts     # Pre-fetch /auth/login + / để warm up Next.js JIT trước khi tests chạy
 ├── fixtures.ts         # registerAndLogin() helper — POST /auth/register rồi login via UI
 ├── auth.spec.ts        # Login → redirect dashboard; wrong password → error
-├── chat.spec.ts        # Send chat message → todo appears in list (MOCK_LLM=1)
+├── chat.spec.ts        # Send "Xin chào" (MOCK_LLM=1), verify response bubble or input cleared (1 test)
 ├── reminder.spec.ts    # Create reminder via UI form → appears in reminders section
 └── dashboard.spec.ts   # Dashboard loads with stats cards
 ```

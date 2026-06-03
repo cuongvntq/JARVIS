@@ -319,7 +319,7 @@ frontend/e2e/
 ├── global-setup.ts     # Pre-warm Next.js JIT: fetch /auth/login + /
 ├── fixtures.ts         # registerAndLogin() — POST /auth/register + login via UI + waitForURL
 ├── auth.spec.ts        # Login → dashboard; wrong password → error (2 tests)
-├── chat.spec.ts        # Send message (MOCK_LLM=1) → todo in list (1 test)
+├── chat.spec.ts        # Send "Xin chào" (MOCK_LLM=1), verify response bubble or input cleared (1 test)
 ├── reminder.spec.ts    # Create via UI form → appears in reminders (1 test)
 └── dashboard.spec.ts   # Dashboard stats cards visible (1 test)
 ```
@@ -340,7 +340,7 @@ backend/tests/eval/
 ```
 
 - Only runs when `RUN_EVAL=1` env var set
-- `addopts = "-m 'not eval'"` in `pyproject.toml` — excluded from normal CI
+- `addopts = "-v --tb=short -m 'not eval'"` in `pyproject.toml` — excluded from normal CI
 - Target: ≥9/10 pass before any prompt/tool schema change
 
 ## What's NOT Tested Yet
