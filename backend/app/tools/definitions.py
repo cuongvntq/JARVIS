@@ -4,7 +4,9 @@ Each entry is an OpenAI-compatible "type: function" tool object.
 LiteLLM accepts this format for all supported providers.
 """
 
-TOOLS: list[dict] = [
+from typing import Any
+
+TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
@@ -414,4 +416,4 @@ TOOLS: list[dict] = [
 ]
 
 # Lookup by tool name for the orchestrator
-TOOL_MAP: dict[str, dict] = {t["function"]["name"]: t for t in TOOLS}
+TOOL_MAP: dict[str, dict[str, Any]] = {t["function"]["name"]: t for t in TOOLS}

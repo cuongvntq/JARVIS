@@ -79,7 +79,7 @@ _PART_D = """=== SAFETY ===
 
 def build_system_prompt(
     user: User,
-    memories: list[dict] | None = None,
+    memories: list[dict[str, object]] | None = None,
     conversation_summary: str | None = None,
 ) -> tuple[str, str]:
     """Build the full 4-part system prompt.

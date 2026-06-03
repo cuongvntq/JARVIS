@@ -1,17 +1,17 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import type { MemoryOut, MemoryType } from "@/lib/types/api";
+import { Loader2 } from "lucide-react";
 import MemoryCard from "./MemoryCard";
 
 const FILTERS: { value: MemoryType | "all"; label: string }[] = [
-  { value: "all",        label: "Tất cả" },
-  { value: "fact",       label: "Sự kiện" },
+  { value: "all", label: "Tất cả" },
+  { value: "fact", label: "Sự kiện" },
   { value: "preference", label: "Sở thích" },
-  { value: "rule",       label: "Quy tắc" },
-  { value: "relation",   label: "Quan hệ" },
-  { value: "goal",       label: "Mục tiêu" },
-  { value: "other",      label: "Khác" },
+  { value: "rule", label: "Quy tắc" },
+  { value: "relation", label: "Quan hệ" },
+  { value: "goal", label: "Mục tiêu" },
+  { value: "other", label: "Khác" },
 ];
 
 interface MemoryListProps {
@@ -70,7 +70,11 @@ export default function MemoryList({
           <div className="flex flex-col items-center justify-center h-full gap-3 py-16">
             <p
               className="text-sm text-center"
-              style={{ color: "rgba(0,180,216,0.25)", fontFamily: "var(--font-orbitron)", letterSpacing: "0.15em" }}
+              style={{
+                color: "rgba(0,180,216,0.25)",
+                fontFamily: "var(--font-orbitron)",
+                letterSpacing: "0.15em",
+              }}
             >
               CHƯA CÓ MEMORY
             </p>
@@ -101,9 +105,7 @@ export default function MemoryList({
                   className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs transition-colors disabled:opacity-50"
                   style={{ color: "#5e8a9e", backgroundColor: "rgba(0,180,216,0.06)" }}
                 >
-                  {isLoadingMore ? (
-                    <Loader2 size={12} className="animate-spin" />
-                  ) : null}
+                  {isLoadingMore ? <Loader2 size={12} className="animate-spin" /> : null}
                   Tải thêm
                 </button>
               </div>

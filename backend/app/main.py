@@ -1,11 +1,15 @@
 """FastAPI application entry point."""
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 import structlog
 from fastapi import FastAPI
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from slowapi.errors import RateLimitExceeded
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -34,10 +38,27 @@ from app.routers import (
 settings = get_settings()
 log = structlog.get_logger()
 
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.app_env,
+        integrations=[FastApiIntegration(), SqlalchemyIntegration()],
+        traces_sample_rate=0.2,
+        send_default_pii=False,
+    )
+
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     log.info("jarvis.startup", env=settings.app_env, version="0.1.0")
+    # Auto-create schema only in test env with SQLite — prevents accidental schema
+    # mutation if a dev/prod instance is misconfigured with a SQLite URL.
+    if settings.database_url.startswith("sqlite") and settings.app_env == "test":
+        from app.database import Base, engine
+
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        log.info("jarvis.sqlite_schema_created")
     if settings.app_env != "test":
         from app.services.scheduler_service import start_scheduler
 
@@ -91,10 +112,10 @@ async def _rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONR
 
 
 # Exception handlers
-app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
-app.add_exception_handler(JarvisError, jarvis_exception_handler)
-app.add_exception_handler(HTTPException, http_exception_handler)
-app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)  # type: ignore[arg-type]
+app.add_exception_handler(JarvisError, jarvis_exception_handler)  # type: ignore[arg-type]
+app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore[arg-type]
+app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore[arg-type]
 
 # Routers
 app.include_router(health.router, prefix="", tags=["health"])
@@ -109,7 +130,7 @@ app.include_router(notifications.router, prefix="/v1/notifications", tags=["noti
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, str]:
     return {
         "name": "jarvis-backend",
         "version": "0.1.0",

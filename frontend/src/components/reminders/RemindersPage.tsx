@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { Bell, Plus, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useReminders, useCancelReminder, useDeleteReminder } from "@/hooks/useReminders";
-import { useAuthStore } from "@/stores/authStore";
-import ReminderCard from "./ReminderCard";
-import CreateReminderDialog from "./CreateReminderDialog";
+import { useCancelReminder, useDeleteReminder, useReminders } from "@/hooks/useReminders";
 import type { ReminderStatus } from "@/lib/types/api";
+import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/authStore";
+import { Bell, Loader2, Plus } from "lucide-react";
+import { useState } from "react";
+import CreateReminderDialog from "./CreateReminderDialog";
+import ReminderCard from "./ReminderCard";
 
 const FILTERS: { id: ReminderStatus | undefined; label: string }[] = [
   { id: undefined, label: "TẤT CẢ" },
@@ -113,10 +113,7 @@ export default function RemindersPage() {
         {!isLoading && !isError && reminders.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <Bell size={28} style={{ color: "rgba(0,180,216,0.2)" }} />
-            <p
-              className="text-sm tracking-[0.1em]"
-              style={{ color: "rgba(0,180,216,0.3)" }}
-            >
+            <p className="text-sm tracking-[0.1em]" style={{ color: "rgba(0,180,216,0.3)" }}>
               {statusFilter === "pending"
                 ? "Không có nhắc nhở nào đang chờ"
                 : statusFilter === "sent"

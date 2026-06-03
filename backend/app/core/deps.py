@@ -1,6 +1,7 @@
 """FastAPI dependencies: get_current_user."""
 
 import uuid
+from typing import TYPE_CHECKING
 
 import structlog
 from fastapi import Depends
@@ -11,6 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import decode_access_token
 from app.database import get_db
 
+if TYPE_CHECKING:
+    from app.models.user import User
+
 log = structlog.get_logger()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -19,13 +23,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
-):
+) -> "User":
     from fastapi import HTTPException
 
     from app.models.user import User  # local import avoids circular
 
     payload = decode_access_token(token)
-    user_id = uuid.UUID(payload["sub"])
+    user_id = uuid.UUID(str(payload["sub"]))
 
     result = await db.execute(select(User).where(User.id == user_id, User.is_active.is_(True)))
     user = result.scalar_one_or_none()

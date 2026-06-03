@@ -1,7 +1,13 @@
 """ORM models: Conversation and Message."""
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 import sqlalchemy as sa
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, Uuid, func
@@ -20,6 +26,7 @@ class Conversation(Base):
     title: Mapped[str] = mapped_column(
         String(255), nullable=False, server_default="Cuộc hội thoại mới"
     )
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     message_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(
@@ -30,8 +37,8 @@ class Conversation(Base):
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    user: Mapped["User"] = relationship("User", back_populates="conversations")  # noqa: F821
-    messages: Mapped[list["Message"]] = relationship(
+    user: Mapped[User] = relationship("User", back_populates="conversations")
+    messages: Mapped[list[Message]] = relationship(
         "Message",
         back_populates="conversation",
         cascade="all, delete-orphan",
@@ -54,7 +61,7 @@ class Message(Base):
         nullable=False,
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    metadata_: Mapped[dict] = mapped_column(
+    metadata_: Mapped[dict[str, Any]] = mapped_column(
         "metadata", JSON, nullable=False, server_default=sa.text("'{}'")
     )
     tokens_in: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
@@ -63,4 +70,4 @@ class Message(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    conversation: Mapped["Conversation"] = relationship("Conversation", back_populates="messages")
+    conversation: Mapped[Conversation] = relationship("Conversation", back_populates="messages")

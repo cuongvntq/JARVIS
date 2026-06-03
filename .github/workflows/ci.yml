@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**", "chore/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-test:
+    name: Backend — lint + test (SQLite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv pip install -e ".[dev]" --system
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Format check (ruff)
+        run: ruff format --check .
+
+      - name: Type check (mypy)
+        run: mypy app
+
+      - name: Test (pytest + SQLite)
+        env:
+          APP_ENV: test
+          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          DATABASE_URL_DIRECT: ""
+          JWT_SECRET: test-jwt-secret-key-must-be-32-chars!!
+          GEMINI_API_KEY: fake
+          OPENAI_API_KEY: sk-fake
+        run: pytest --tb=short -q
+
+  backend-migration-smoke:
+    name: Backend — Alembic migration smoke (Postgres)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: jarvis_test
+          POSTGRES_USER: jarvis
+          POSTGRES_PASSWORD: jarvis_pw
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv pip install -e ".[dev]" --system
+
+      - name: Alembic upgrade head
+        env:
+          DATABASE_URL_DIRECT: postgresql+psycopg2://jarvis:jarvis_pw@localhost:5432/jarvis_test
+          DATABASE_URL: postgresql+asyncpg://jarvis:jarvis_pw@localhost:5432/jarvis_test
+          JWT_SECRET: test-jwt-secret-key-must-be-32-chars!!
+          GEMINI_API_KEY: fake
+          OPENAI_API_KEY: sk-fake
+        run: alembic upgrade head
+
+      - name: Alembic downgrade (smoke — one step back)
+        env:
+          DATABASE_URL_DIRECT: postgresql+psycopg2://jarvis:jarvis_pw@localhost:5432/jarvis_test
+          DATABASE_URL: postgresql+asyncpg://jarvis:jarvis_pw@localhost:5432/jarvis_test
+          JWT_SECRET: test-jwt-secret-key-must-be-32-chars!!
+          GEMINI_API_KEY: fake
+          OPENAI_API_KEY: sk-fake
+        run: alembic downgrade -1
+
+  frontend-check:
+    name: Frontend — lint + typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Biome check (no --write)
+        run: pnpm check
+
+      - name: TypeScript typecheck
+        run: pnpm typecheck

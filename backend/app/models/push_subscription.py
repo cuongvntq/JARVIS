@@ -1,7 +1,13 @@
 """ORM model: PushSubscription."""
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -33,4 +39,4 @@ class PushSubscription(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    user: Mapped["User"] = relationship("User", back_populates="push_subscription")  # noqa: F821
+    user: Mapped[User] = relationship("User", back_populates="push_subscription")

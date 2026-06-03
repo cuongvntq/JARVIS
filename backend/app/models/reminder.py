@@ -1,7 +1,13 @@
 """ORM model: Reminder."""
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 import sqlalchemy as sa
 from sqlalchemy import DateTime, ForeignKey, Text, Uuid, func
@@ -42,4 +48,4 @@ class Reminder(Base):
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    user: Mapped["User"] = relationship("User", back_populates="reminders")  # noqa: F821
+    user: Mapped[User] = relationship("User", back_populates="reminders")

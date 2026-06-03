@@ -3,6 +3,7 @@
 import base64
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,10 +31,10 @@ async def get_or_create(
             Conversation.deleted_at.is_(None),
         )
     )
-    conv = result.scalar_one_or_none()
-    if conv is None:
+    found: Conversation | None = result.scalar_one_or_none()
+    if found is None:
         raise JarvisError(404, "conversation_not_found", "Cuộc hội thoại không tồn tại")
-    return conv
+    return found
 
 
 async def add_message(
@@ -44,7 +45,7 @@ async def add_message(
     content: str,
     tokens_in: int,
     tokens_out: int,
-    metadata: dict,
+    metadata: dict[str, Any],
 ) -> Message:
     msg = Message(
         conversation_id=conversation_id,
@@ -168,6 +169,35 @@ async def update_title(
         .where(Conversation.id == conversation_id)
         .values(title=title, updated_at=datetime.now(UTC))
     )
+
+
+async def update_summary(
+    db: AsyncSession,
+    conversation_id: uuid.UUID,
+    summary: str,
+) -> None:
+    await db.execute(
+        update(Conversation)
+        .where(Conversation.id == conversation_id)
+        .values(summary=summary, updated_at=datetime.now(UTC))
+    )
+
+
+async def get_last_n_messages(
+    db: AsyncSession,
+    conversation_id: uuid.UUID,
+    n: int,
+) -> list[Message]:
+    """Return the last n messages in chronological order."""
+    result = await db.execute(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at.desc())
+        .limit(n)
+    )
+    rows = list(result.scalars())
+    rows.reverse()
+    return rows
 
 
 async def soft_delete_conversation(

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Loader2, CheckSquare } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useTodos, useCompleteTodo, useDeleteTodo } from "@/hooks/useTodos";
-import { useAuthStore } from "@/stores/authStore";
-import TodoCard from "./TodoCard";
-import CreateTodoDialog from "./CreateTodoDialog";
+import { useCompleteTodo, useDeleteTodo, useTodos } from "@/hooks/useTodos";
 import type { TodoFilter } from "@/lib/types/api";
+import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/authStore";
+import { CheckSquare, Loader2, Plus } from "lucide-react";
+import { useState } from "react";
+import CreateTodoDialog from "./CreateTodoDialog";
+import TodoCard from "./TodoCard";
 
 const FILTERS: { id: TodoFilter; label: string }[] = [
   { id: "today", label: "HÔM NAY" },
@@ -24,7 +24,8 @@ export default function TodoPage() {
   const user = useAuthStore((s) => s.user);
   const timezone = user?.timezone ?? "UTC";
 
-  const { data, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } = useTodos(filter);
+  const { data, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } =
+    useTodos(filter);
   const completeTodo = useCompleteTodo();
   const deleteTodo = useDeleteTodo();
 
@@ -84,8 +85,7 @@ export default function TodoPage() {
               filter === f.id ? "text-jarvis-accent" : "text-jarvis-muted hover:text-jarvis-fg",
             )}
             style={{
-              backgroundColor:
-                filter === f.id ? "rgba(0,180,216,0.12)" : "transparent",
+              backgroundColor: filter === f.id ? "rgba(0,180,216,0.12)" : "transparent",
               borderBottom:
                 filter === f.id ? "1px solid rgba(0,180,216,0.6)" : "1px solid transparent",
             }}
@@ -112,10 +112,7 @@ export default function TodoPage() {
         {!isLoading && !isError && todos.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <CheckSquare size={28} style={{ color: "rgba(0,180,216,0.2)" }} />
-            <p
-              className="text-sm tracking-[0.1em]"
-              style={{ color: "rgba(0,180,216,0.3)" }}
-            >
+            <p className="text-sm tracking-[0.1em]" style={{ color: "rgba(0,180,216,0.3)" }}>
               {filter === "today"
                 ? "Không có việc nào hôm nay"
                 : filter === "overdue"

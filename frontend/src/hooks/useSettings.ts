@@ -1,7 +1,7 @@
-import { useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { useAuthStore } from "@/stores/authStore";
 import type { UserUpdateRequest } from "@/lib/types/api";
+import { useAuthStore } from "@/stores/authStore";
+import { useMutation } from "@tanstack/react-query";
 
 export function useUpdateProfile() {
   const setAuth = useAuthStore((s) => s.setAuth);

@@ -1,10 +1,10 @@
 "use client";
 
-import { Check, Trash2 } from "lucide-react";
-import { formatInTimeZone } from "date-fns-tz";
-import { isPast } from "date-fns";
-import { cn } from "@/lib/utils";
 import type { TodoOut, TodoPriority } from "@/lib/types/api";
+import { cn } from "@/lib/utils";
+import { isPast } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
+import { Check, Trash2 } from "lucide-react";
 
 interface TodoCardProps {
   todo: TodoOut;
@@ -99,7 +99,12 @@ export default function TodoCard({
 
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
           {/* Priority badge */}
-          <span className={cn("text-[9px] font-semibold tracking-[0.1em]", PRIORITY_TEXT[todo.priority])}>
+          <span
+            className={cn(
+              "text-[9px] font-semibold tracking-[0.1em]",
+              PRIORITY_TEXT[todo.priority],
+            )}
+          >
             {PRIORITY_LABEL[todo.priority]}
           </span>
 

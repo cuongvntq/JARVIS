@@ -1,6 +1,6 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { ReminderCreate, ReminderStatus, ReminderUpdate } from "@/lib/types/api";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export function useReminders(status?: ReminderStatus) {
   return useInfiniteQuery({

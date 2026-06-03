@@ -1,7 +1,9 @@
 """Chat business logic — orchestrates LLM + DB persistence."""
 
+import asyncio
 import uuid
 from collections.abc import AsyncGenerator
+from typing import Any
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,11 +27,21 @@ from app.tools.definitions import TOOLS
 
 log = structlog.get_logger()
 
+# Strong references so background tasks aren't GC'd before completion (RUF006).
+_bg_tasks: set[asyncio.Task[None]] = set()
+
+
+def _schedule_summarize(conversation_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    task = asyncio.create_task(_auto_summarize_conversation(conversation_id, user_id))
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
+
 
 async def _build_prompt_with_rag(
     db: AsyncSession,
     user: User,
     content: str,
+    conversation_summary: str | None = None,
 ) -> tuple[str, str]:
     """Fetch top-5 relevant memories then build system prompt. Shared by send_message and stream_message.
     RAG failure is non-fatal — falls back to prompt without memories so chat is never blocked.
@@ -42,14 +54,55 @@ async def _build_prompt_with_rag(
     except Exception:
         log.warning("chat.rag_failed", user_id=str(user.id))
         memories_dict = None
-    return build_system_prompt(user, memories=memories_dict)
+    return build_system_prompt(
+        user, memories=memories_dict, conversation_summary=conversation_summary
+    )
+
+
+async def _auto_summarize_conversation(
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> None:
+    """Summarize the last 20 messages of a conversation and persist the result.
+
+    Runs in a separate DB session so it doesn't interfere with the main chat session.
+    """
+    from app.database import AsyncSessionLocal
+    from app.llm.client import chat_completion
+
+    try:
+        async with AsyncSessionLocal() as db:
+            messages = await conversation_repo.get_last_n_messages(db, conversation_id, 20)
+            if not messages:
+                return
+
+            text_lines = [f"{m.role.upper()}: {m.content}" for m in messages]
+            dialogue = "\n".join(text_lines)
+
+            summary_resp = await chat_completion(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": (
+                            "Tóm tắt ngắn cuộc hội thoại sau trong 2-3 câu tiếng Việt:\n\n"
+                            + dialogue
+                        ),
+                    }
+                ],
+            )
+
+            await conversation_repo.update_summary(db, conversation_id, summary_resp.content)
+            await db.commit()
+            log.info("chat.auto_summarized", conversation_id=str(conversation_id))
+    except Exception:
+        log.warning("chat.auto_summarize_failed", conversation_id=str(conversation_id))
 
 
 async def stream_message(
     db: AsyncSession,
     req: ChatSendRequest,
     current_user: User,
-) -> AsyncGenerator[dict, None]:
+) -> AsyncGenerator[dict[str, Any], None]:
     """Async generator yielding SSE event dicts for streaming chat."""
     conv = await conversation_repo.get_or_create(db, current_user.id, req.conversation_id)
 
@@ -67,9 +120,11 @@ async def stream_message(
 
     yield {"type": "meta", "conversation_id": str(conv.id), "user_message_id": str(user_msg.id)}
 
-    system_prompt, prompt_version = await _build_prompt_with_rag(db, current_user, req.content)
+    system_prompt, prompt_version = await _build_prompt_with_rag(
+        db, current_user, req.content, conversation_summary=conv.summary
+    )
 
-    orch_done: dict | None = None
+    orch_done: dict[str, Any] | None = None
 
     try:
         async for event in orchestrator.run_stream(
@@ -117,9 +172,13 @@ async def stream_message(
         },
     )
 
+    new_count = conv.message_count + 2
     await conversation_repo.increment_message_count(db, conv.id)
     await conversation_repo.increment_message_count(db, conv.id)
     await db.commit()
+
+    if new_count >= 20 and new_count % 20 == 0:
+        _schedule_summarize(conv.id, current_user.id)
 
     log.info(
         "chat.stream.sent",
@@ -162,7 +221,9 @@ async def send_message(
         auto_title = req.content.strip()[:50]
         await conversation_repo.update_title(db, conv.id, auto_title)
 
-    system_prompt, prompt_version = await _build_prompt_with_rag(db, current_user, req.content)
+    system_prompt, prompt_version = await _build_prompt_with_rag(
+        db, current_user, req.content, conversation_summary=conv.summary
+    )
 
     try:
         orch_result = await orchestrator.run(
@@ -198,8 +259,15 @@ async def send_message(
         },
     )
 
+    new_count = conv.message_count + 2
     await conversation_repo.increment_message_count(db, conv.id)
     await conversation_repo.increment_message_count(db, conv.id)
+    # Commit before spawning background task so the task's separate session reads
+    # the new messages — without this the get_db() dependency commits too late.
+    await db.commit()
+
+    if new_count >= 20 and new_count % 20 == 0:
+        _schedule_summarize(conv.id, current_user.id)
 
     log.info(
         "chat.sent",
@@ -220,7 +288,7 @@ async def send_message(
 
 async def list_conversations(
     db: AsyncSession,
-    user_id,
+    user_id: uuid.UUID,
     limit: int,
     cursor: str | None,
 ) -> ConversationListResponse:

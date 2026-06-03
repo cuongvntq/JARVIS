@@ -1,6 +1,6 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { NoteCreate, NoteUpdate } from "@/lib/types/api";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export function useNotes(q?: string) {
   return useInfiniteQuery({
@@ -25,8 +25,7 @@ export function useCreateNote() {
 export function useUpdateNote() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: NoteUpdate }) =>
-      api.updateNote(id, data),
+    mutationFn: ({ id, data }: { id: string; data: NoteUpdate }) => api.updateNote(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
     },

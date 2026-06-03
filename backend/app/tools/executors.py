@@ -46,7 +46,7 @@ def _parse_iso(value: str | None) -> datetime | None:
 async def execute_create_todo(
     db: AsyncSession,
     user_id: uuid.UUID,
-    params: dict,
+    params: dict[str, Any],
 ) -> ToolResult:
     title = params.get("title", "").strip()
     if not title:
@@ -80,7 +80,7 @@ async def execute_create_todo(
 async def execute_list_todos(
     db: AsyncSession,
     user_id: uuid.UUID,
-    params: dict,
+    params: dict[str, Any],
     user_tz: str = "UTC",
 ) -> ToolResult:
     filter_type = params.get("filter", "today")
@@ -110,7 +110,7 @@ async def execute_list_todos(
 async def execute_update_todo(
     db: AsyncSession,
     user_id: uuid.UUID,
-    params: dict,
+    params: dict[str, Any],
 ) -> ToolResult:
     try:
         todo_id = uuid.UUID(params["todo_id"])
@@ -118,7 +118,7 @@ async def execute_update_todo(
         return _err("invalid_todo_id", "todo_id không hợp lệ hoặc thiếu.")
 
     # Build the partial update payload — extract status separately to use dedicated methods
-    patch_data: dict = {}
+    patch_data: dict[str, Any] = {}
     for f in ("title", "description", "priority"):
         if f in params and params[f] is not None:
             patch_data[f] = params[f]
@@ -174,7 +174,7 @@ async def execute_update_todo(
 async def execute_create_note(
     db: AsyncSession,
     user_id: uuid.UUID,
-    params: dict,
+    params: dict[str, Any],
 ) -> ToolResult:
     title = params.get("title", "").strip()
     if not title:
@@ -197,7 +197,7 @@ async def execute_create_note(
 async def execute_search_notes(
     db: AsyncSession,
     user_id: uuid.UUID,
-    params: dict,
+    params: dict[str, Any],
 ) -> ToolResult:
     q = params.get("q") or None
     pinned_only = params.get("pinned_only", False)
@@ -225,7 +225,7 @@ async def execute_search_notes(
 async def execute_save_memory(
     db: AsyncSession,
     user_id: uuid.UUID,
-    params: dict,
+    params: dict[str, Any],
 ) -> ToolResult:
     content = (params.get("content") or "").strip()
     if len(content) < 3:
@@ -259,7 +259,7 @@ async def execute_save_memory(
 async def execute_search_memory(
     db: AsyncSession,
     user_id: uuid.UUID,
-    params: dict,
+    params: dict[str, Any],
 ) -> ToolResult:
     query = (params.get("query") or "").strip()
     if not query:
@@ -291,7 +291,7 @@ async def execute_search_memory(
 async def execute_forget_memory(
     db: AsyncSession,
     user_id: uuid.UUID,
-    params: dict,
+    params: dict[str, Any],
 ) -> ToolResult:
     try:
         memory_id = uuid.UUID(params["memory_id"])
@@ -310,7 +310,7 @@ async def execute_forget_memory(
 async def execute_create_reminder(
     db: AsyncSession,
     user_id: uuid.UUID,
-    params: dict,
+    params: dict[str, Any],
     user_tz: str = "UTC",
 ) -> ToolResult:
     title = params.get("title", "").strip()
@@ -351,7 +351,7 @@ async def execute_create_reminder(
 async def execute_list_reminders(
     db: AsyncSession,
     user_id: uuid.UUID,
-    params: dict,
+    params: dict[str, Any],
     user_tz: str = "UTC",
 ) -> ToolResult:
     # Distinguish missing key (→ default "pending") from explicit None (→ all statuses)
@@ -391,7 +391,7 @@ _EXECUTOR_MAP = {
 
 async def dispatch(
     tool_name: str,
-    params: dict,
+    params: dict[str, Any],
     db: AsyncSession,
     user_id: uuid.UUID,
     user_tz: str = "UTC",
@@ -403,7 +403,7 @@ async def dispatch(
     _needs_tz = {"list_todos", "create_reminder", "list_reminders"}
     try:
         if tool_name in _needs_tz:
-            return await executor(db, user_id, params, user_tz)
+            return await executor(db, user_id, params, user_tz)  # type: ignore[call-arg]
         return await executor(db, user_id, params)
     except SQLAlchemyError:
         raise  # propagate so orchestrator can abort turn with a clean session

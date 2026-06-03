@@ -1,6 +1,7 @@
 """Shared data models for the LLM layer."""
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -9,7 +10,7 @@ class ToolCall:
 
     id: str
     name: str
-    arguments: dict  # already JSON-parsed
+    arguments: dict[str, Any]  # already JSON-parsed
 
 
 @dataclass

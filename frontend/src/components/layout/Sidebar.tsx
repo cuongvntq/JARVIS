@@ -1,27 +1,24 @@
 "use client";
 
+import { useConversations } from "@/hooks/useConversations";
+import { useAuthStore } from "@/stores/authStore";
 import {
-  MessageSquare,
-  CheckSquare,
-  FileText,
   Bell,
   Brain,
+  CheckSquare,
+  FileText,
   LayoutDashboard,
+  Loader2,
+  LogOut,
+  MessageSquare,
+  Plus,
   Settings,
   Zap,
-  Plus,
-  Loader2,
 } from "lucide-react";
-import { useConversations } from "@/hooks/useConversations";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-export type Section =
-  | "chat"
-  | "todo"
-  | "notes"
-  | "reminders"
-  | "memory"
-  | "dashboard"
-  | "settings";
+export type Section = "chat" | "todo" | "notes" | "reminders" | "memory" | "dashboard" | "settings";
 
 interface SidebarProps {
   active: Section;
@@ -93,9 +90,7 @@ function ConversationList({
                 onClick={() => onSelect(conv.id)}
                 className="w-full text-left px-3 py-1.5 rounded-lg transition-all duration-150 truncate"
                 style={{
-                  backgroundColor: isActive
-                    ? "rgba(0, 180, 216, 0.08)"
-                    : "transparent",
+                  backgroundColor: isActive ? "rgba(0, 180, 216, 0.08)" : "transparent",
                   borderLeft: isActive
                     ? "2px solid rgba(0, 180, 216, 0.5)"
                     : "2px solid transparent",
@@ -120,6 +115,16 @@ export default function Sidebar({
   activeConversationId,
   onSelectConversation,
 }: SidebarProps) {
+  const { user, logout } = useAuthStore();
+  const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    await logout();
+    router.push("/auth/login");
+  };
+
   return (
     <aside
       className="w-[220px] flex-shrink-0 flex flex-col h-full border-r"
@@ -129,10 +134,7 @@ export default function Sidebar({
       }}
     >
       {/* Brand */}
-      <div
-        className="px-5 py-5 border-b"
-        style={{ borderColor: "rgba(0, 180, 216, 0.12)" }}
-      >
+      <div className="px-5 py-5 border-b" style={{ borderColor: "rgba(0, 180, 216, 0.12)" }}>
         <div className="flex items-center gap-2.5 mb-1.5">
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
@@ -167,9 +169,7 @@ export default function Sidebar({
         className="px-5 py-2.5 border-b flex items-center gap-2"
         style={{ borderColor: "rgba(0, 180, 216, 0.08)" }}
       >
-        <div
-          className="w-1.5 h-1.5 rounded-full bg-jarvis-success status-online flex-shrink-0"
-        />
+        <div className="w-1.5 h-1.5 rounded-full bg-jarvis-success status-online flex-shrink-0" />
         <span
           className="text-[9px] tracking-[0.2em] uppercase font-medium"
           style={{ color: "#00e676" }}
@@ -190,9 +190,7 @@ export default function Sidebar({
                 onClick={() => onNavigate(item.id)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-150"
                 style={{
-                  backgroundColor: isActive
-                    ? "rgba(0, 180, 216, 0.1)"
-                    : "transparent",
+                  backgroundColor: isActive ? "rgba(0, 180, 216, 0.1)" : "transparent",
                   borderLeft: isActive
                     ? "2px solid rgba(0, 180, 216, 0.7)"
                     : "2px solid transparent",
@@ -218,28 +216,23 @@ export default function Sidebar({
 
               {/* Conversation list — only under CHAT when active */}
               {item.id === "chat" && isActive && (
-                <ConversationList
-                  activeId={activeConversationId}
-                  onSelect={onSelectConversation}
-                />
+                <ConversationList activeId={activeConversationId} onSelect={onSelectConversation} />
               )}
             </div>
           );
         })}
       </nav>
 
-      {/* Settings */}
-      <div
-        className="px-3 pb-4 pt-2 border-t"
-        style={{ borderColor: "rgba(0, 180, 216, 0.08)" }}
-      >
+      {/* Settings + Logout */}
+      <div className="px-3 pb-3 pt-2 border-t" style={{ borderColor: "rgba(0, 180, 216, 0.08)" }}>
         <button
           type="button"
           onClick={() => onNavigate("settings")}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150"
           style={{
             backgroundColor: active === "settings" ? "rgba(0, 180, 216, 0.1)" : "transparent",
-            borderLeft: active === "settings" ? "2px solid rgba(0, 180, 216, 0.7)" : "2px solid transparent",
+            borderLeft:
+              active === "settings" ? "2px solid rgba(0, 180, 216, 0.7)" : "2px solid transparent",
           }}
         >
           <Settings
@@ -256,6 +249,40 @@ export default function Sidebar({
             SETTINGS
           </span>
         </button>
+
+        {/* User info + logout */}
+        <div
+          className="mt-2 px-3 py-2 rounded-lg flex items-center gap-2"
+          style={{ backgroundColor: "rgba(0, 180, 216, 0.04)" }}
+        >
+          <div className="flex-1 min-w-0">
+            <p
+              className="text-[9px] font-semibold tracking-[0.1em] truncate"
+              style={{ color: "#5e8a9e" }}
+            >
+              {user?.name ?? "USER"}
+            </p>
+            <p
+              className="text-[8px] tracking-[0.05em] truncate"
+              style={{ color: "rgba(94, 138, 158, 0.6)" }}
+            >
+              {user?.email ?? ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            title="Logout"
+            className="flex-shrink-0 p-1 rounded transition-colors hover:bg-white/5 disabled:opacity-50"
+          >
+            {isLoggingOut ? (
+              <Loader2 size={12} className="animate-spin" style={{ color: "#5e8a9e" }} />
+            ) : (
+              <LogOut size={12} style={{ color: "#5e8a9e" }} />
+            )}
+          </button>
+        </div>
       </div>
     </aside>
   );

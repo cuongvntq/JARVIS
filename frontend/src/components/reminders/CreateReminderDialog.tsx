@@ -1,12 +1,12 @@
 "use client";
 
+import { useCreateReminder } from "@/hooks/useReminders";
+import { cn } from "@/lib/utils";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { X } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { X } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useCreateReminder } from "@/hooks/useReminders";
 
 const schema = z.object({
   title: z.string().min(1, "Tiêu đề không được trống").max(500),
@@ -73,14 +73,19 @@ export default function CreateReminderDialog({ open, onClose }: CreateReminderDi
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
       onClick={onClose}
-      onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
     >
       <div
         aria-labelledby="create-reminder-title"
         className="w-full max-w-md mx-4 rounded-xl border shadow-2xl"
         style={{ backgroundColor: "#0a1929", borderColor: "rgba(0,180,216,0.25)" }}
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => { if (e.key === "Escape") onClose(); else e.stopPropagation(); }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+          else e.stopPropagation();
+        }}
       >
         {/* Header */}
         <div

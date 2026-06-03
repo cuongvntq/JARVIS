@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, FileText, Loader2 } from "lucide-react";
-import { useNotes, useCreateNote, useUpdateNote, usePinNote, useDeleteNote } from "@/hooks/useNotes";
-import { useAuthStore } from "@/stores/authStore";
-import NoteList from "./NoteList";
-import NoteEditor from "./NoteEditor";
+import {
+  useCreateNote,
+  useDeleteNote,
+  useNotes,
+  usePinNote,
+  useUpdateNote,
+} from "@/hooks/useNotes";
 import type { NoteOut } from "@/lib/types/api";
+import { useAuthStore } from "@/stores/authStore";
+import { FileText, Loader2, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import NoteEditor from "./NoteEditor";
+import NoteList from "./NoteList";
 
 export default function NotesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -19,7 +25,9 @@ export default function NotesPage() {
   const user = useAuthStore((s) => s.user);
   const timezone = user?.timezone ?? "UTC";
 
-  const { data, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } = useNotes(searchQuery || undefined);
+  const { data, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } = useNotes(
+    searchQuery || undefined,
+  );
   const createNote = useCreateNote();
   const updateNote = useUpdateNote();
   const pinNote = usePinNote();

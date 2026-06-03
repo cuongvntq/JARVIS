@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X } from "lucide-react";
 import type { MemoryOut, MemoryType } from "@/lib/types/api";
+import { X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const TYPE_OPTIONS: { value: MemoryType; label: string }[] = [
-  { value: "fact",       label: "Sự kiện" },
+  { value: "fact", label: "Sự kiện" },
   { value: "preference", label: "Sở thích" },
-  { value: "rule",       label: "Quy tắc" },
-  { value: "relation",   label: "Quan hệ" },
-  { value: "goal",       label: "Mục tiêu" },
-  { value: "other",      label: "Khác" },
+  { value: "rule", label: "Quy tắc" },
+  { value: "relation", label: "Quan hệ" },
+  { value: "goal", label: "Mục tiêu" },
+  { value: "other", label: "Khác" },
 ];
 
 interface MemoryEditorProps {
@@ -48,9 +48,7 @@ export default function MemoryEditor({ memory, isSaving, onSave, onClose }: Memo
     try {
       await onSave({ content: content.trim(), memory_type: memoryType, importance });
     } catch (err) {
-      setValidationError(
-        err instanceof Error ? err.message : "Không thể lưu, thử lại sau",
-      );
+      setValidationError(err instanceof Error ? err.message : "Không thể lưu, thử lại sau");
     }
   }
 
@@ -110,7 +108,9 @@ export default function MemoryEditor({ memory, isSaving, onSave, onClose }: Memo
           />
           <div className="flex justify-between">
             {validationError ? (
-              <p className="text-[10px]" style={{ color: "#ff4444" }}>{validationError}</p>
+              <p className="text-[10px]" style={{ color: "#ff4444" }}>
+                {validationError}
+              </p>
             ) : (
               <span />
             )}
@@ -176,7 +176,10 @@ export default function MemoryEditor({ memory, isSaving, onSave, onClose }: Memo
             className="w-full h-1.5 rounded-full appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ accentColor: "#00b4d8" }}
           />
-          <div className="flex justify-between text-[9px]" style={{ color: "rgba(94,138,158,0.5)" }}>
+          <div
+            className="flex justify-between text-[9px]"
+            style={{ color: "rgba(94,138,158,0.5)" }}
+          >
             <span>Thấp</span>
             <span>Cao</span>
           </div>

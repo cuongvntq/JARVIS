@@ -264,5 +264,11 @@ export type SSEEvent =
   | { type: "tool_start"; tool: string; label: string }
   | { type: "tool_done"; tool: string; summary: string }
   | { type: "delta"; content: string }
-  | { type: "done"; assistant_message_id: string; tokens_in: number; tokens_out: number; model: string }
+  | {
+      type: "done";
+      assistant_message_id: string;
+      tokens_in: number;
+      tokens_out: number;
+      model: string;
+    }
   | { type: "error"; code: string; message: string };

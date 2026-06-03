@@ -1,7 +1,13 @@
 """ORM model: Memory."""
 
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 import sqlalchemy as sa
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Text, Uuid, func
@@ -36,7 +42,7 @@ class Memory(Base):
     # Postgres column is vector(1536) via migration DDL.
     # NEVER assign embedding via ORM (SQLAlchemy binds as JSON, breaks Postgres).
     # All writes MUST go through memory_repo.update_embedding() which uses raw SQL + ::vector cast.
-    embedding: Mapped[list | None] = mapped_column(sa.JSON, nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(sa.JSON, nullable=True)
     importance: Mapped[int] = mapped_column(Integer, nullable=False, default=5, server_default="5")
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
@@ -49,4 +55,4 @@ class Memory(Base):
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    user: Mapped["User"] = relationship("User", back_populates="memories")  # noqa: F821
+    user: Mapped[User] = relationship("User", back_populates="memories")

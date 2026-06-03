@@ -15,7 +15,7 @@ from app.services.embedding_service import embed_text
 log = structlog.get_logger()
 
 # Keep strong references to background tasks so they aren't GC'd before completion (RUF006).
-_bg_tasks: set[asyncio.Task] = set()
+_bg_tasks: set[asyncio.Task[None]] = set()
 
 
 def _schedule_embed(memory_id: uuid.UUID, content: str) -> None:

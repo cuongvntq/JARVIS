@@ -1,6 +1,6 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { MemoryCreate, MemoryType, MemoryUpdate } from "@/lib/types/api";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export function useMemories(type?: MemoryType) {
   return useInfiniteQuery({
@@ -25,8 +25,7 @@ export function useCreateMemory() {
 export function useUpdateMemory() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: MemoryUpdate }) =>
-      api.updateMemory(id, data),
+    mutationFn: ({ id, data }: { id: string; data: MemoryUpdate }) => api.updateMemory(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["memories"] });
     },

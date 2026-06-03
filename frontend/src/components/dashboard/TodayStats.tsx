@@ -42,10 +42,7 @@ export default function TodayStats({ count, onNavigate }: TodayStatsProps) {
 
   return (
     <div>
-      <p
-        className="text-[9px] font-semibold tracking-[0.2em] mb-3"
-        style={{ color: "#3a6a7e" }}
-      >
+      <p className="text-[9px] font-semibold tracking-[0.2em] mb-3" style={{ color: "#3a6a7e" }}>
         CÔNG VIỆC
       </p>
       <div className="grid grid-cols-3 gap-2">

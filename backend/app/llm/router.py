@@ -18,6 +18,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 import litellm
 import structlog
@@ -57,7 +58,7 @@ _CHITCHAT_PATTERNS = [
     re.compile(r"^[\W\s]{1,5}$"),  # only emoji/punctuation, short
 ]
 
-_TOOL_INTENT_PATTERNS: list[tuple[Intent, re.Pattern]] = [
+_TOOL_INTENT_PATTERNS: list[tuple[Intent, re.Pattern[str]]] = [
     (
         Intent.TOOL_CALL,
         re.compile(r"^(thêm|tạo|nhắc|nhớ\s+là|đã\s+xong|hoàn\s+thành|hủy)", re.IGNORECASE),
@@ -109,7 +110,7 @@ class RouteResult:
     model: str
     confidence: float
     classify_source: str  # "prefilter" | "classifier" | "fallback"
-    effective_tools: list[dict]  # filtered tool subset for this intent
+    effective_tools: list[dict[str, Any]]  # filtered tool subset for this intent
     # Populated only when classify_source == "classifier"
     classifier_model: str = field(default="")
     classifier_tokens_in: int = field(default=0)
@@ -119,7 +120,7 @@ class RouteResult:
 
 async def route(
     user_message: str,
-    all_tools: list[dict],
+    all_tools: list[dict[str, Any]],
 ) -> RouteResult:
     """Classify user_message and return routing decision."""
     # Stage 0
@@ -166,7 +167,7 @@ def _build_result(
     intent: Intent,
     confidence: float,
     source: str,
-    all_tools: list[dict],
+    all_tools: list[dict[str, Any]],
 ) -> RouteResult:
     model = MODEL_MAP[intent]
 

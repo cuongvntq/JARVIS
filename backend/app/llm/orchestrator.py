@@ -13,10 +13,12 @@ Safety limits (per rules/04_ai_llm.md):
   - Per-tool retry: handled naturally by LLM seeing failure result in context
 """
 
+import os
 import time
 import uuid
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
+from typing import Any
 
 import structlog
 from sqlalchemy.exc import SQLAlchemyError
@@ -53,7 +55,7 @@ _TOOL_LABELS: dict[str, str] = {
 class OrchestratorResult:
     final_response: LLMResponse
     route: RouteResult
-    tool_results: list[dict] = field(default_factory=list)
+    tool_results: list[dict[str, Any]] = field(default_factory=list)
     total_tokens_in: int = 0
     total_tokens_out: int = 0
     total_llm_calls: int = 0
@@ -65,9 +67,9 @@ async def run(
     user_id: uuid.UUID,
     user_message: str,
     system_prompt: str,
-    history: list[dict],
+    history: list[dict[str, Any]],
     message_id: uuid.UUID | None = None,
-    all_tools: list[dict],
+    all_tools: list[dict[str, Any]],
     user_tz: str = "UTC",
 ) -> OrchestratorResult:
     """
@@ -86,6 +88,22 @@ async def run(
     Returns:
         OrchestratorResult with final response and metadata.
     """
+    # MOCK_LLM=1 — return deterministic response for E2E tests (no real LLM call)
+    if os.getenv("MOCK_LLM") == "1":
+        from app.llm.router import Intent, RouteResult
+
+        mock_route = RouteResult(
+            intent=Intent.CHITCHAT,
+            model="mock",
+            confidence=1.0,
+            classify_source="mock",
+            effective_tools=[],
+        )
+        mock_resp = LLMResponse(
+            content="Mock response — E2E test mode.", model="mock", tokens_in=0, tokens_out=0
+        )
+        return OrchestratorResult(final_response=mock_resp, route=mock_route)
+
     # ── Stage 0+1: Route ────────────────────────────────────────────────────────
     route_result = await route(user_message, all_tools)
 
@@ -108,7 +126,7 @@ async def run(
             log.warning("orchestrator.classifier_log_failed")
 
     # ── Build initial message list ──────────────────────────────────────────────
-    messages: list[dict] = [
+    messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
         *history,
         {"role": "user", "content": user_message},
@@ -123,7 +141,7 @@ async def run(
     total_tokens_in = 0
     total_tokens_out = 0
     total_llm_calls = 0
-    tool_results: list[dict] = []
+    tool_results: list[dict[str, Any]] = []
     tool_call_count = 0
 
     # Track last 3 tool names for loop detection
@@ -187,7 +205,7 @@ async def run(
 
         # ── Execute tool calls ──────────────────────────────────────────────────
         # Add assistant message with tool_calls to history
-        assistant_msg: dict = {"role": "assistant", "content": llm_response.content}
+        assistant_msg: dict[str, Any] = {"role": "assistant", "content": llm_response.content}
         if llm_response.tool_calls:
             assistant_msg["tool_calls"] = [
                 {
@@ -279,15 +297,41 @@ async def run_stream(
     user_id: uuid.UUID,
     user_message: str,
     system_prompt: str,
-    history: list[dict],
+    history: list[dict[str, Any]],
     message_id: uuid.UUID | None = None,
-    all_tools: list[dict],
+    all_tools: list[dict[str, Any]],
     user_tz: str = "UTC",
-) -> AsyncGenerator[dict, None]:
+) -> AsyncGenerator[dict[str, Any], None]:
     """
     Streaming version of run(). Yields event dicts for SSE:
       tool_start / tool_done / delta (one char) / orchestrator_done (last, internal).
     """
+    # MOCK_LLM=1 — deterministic response for E2E tests; yields orchestrator_done directly
+    if os.getenv("MOCK_LLM") == "1":
+        from app.llm.router import Intent, RouteResult
+
+        mock_route = RouteResult(
+            intent=Intent.CHITCHAT,
+            model="mock",
+            confidence=1.0,
+            classify_source="mock",
+            effective_tools=[],
+        )
+        mock_content = "Mock response — E2E test mode."
+        for char in mock_content:
+            yield {"type": "delta", "content": char}
+        yield {
+            "type": "orchestrator_done",
+            "content": mock_content,
+            "model": "mock",
+            "route": mock_route,
+            "tool_results": [],
+            "total_tokens_in": 0,
+            "total_tokens_out": 0,
+            "total_llm_calls": 1,
+        }
+        return
+
     # ── Stage 0+1: Route ────────────────────────────────────────────────────────
     route_result = await route(user_message, all_tools)
 
@@ -308,7 +352,7 @@ async def run_stream(
         except Exception:
             log.warning("orchestrator.classifier_log_failed")
 
-    messages: list[dict] = [
+    messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
         *history,
         {"role": "user", "content": user_message},
@@ -320,7 +364,7 @@ async def run_stream(
     total_tokens_in = 0
     total_tokens_out = 0
     total_llm_calls = 0
-    tool_results: list[dict] = []
+    tool_results: list[dict[str, Any]] = []
     tool_call_count = 0
     recent_tool_names: list[str] = []
     llm_response: LLMResponse | None = None
@@ -378,7 +422,7 @@ async def run_stream(
             break
 
         # ── Execute tool calls ──────────────────────────────────────────────────
-        assistant_msg: dict = {"role": "assistant", "content": llm_response.content}
+        assistant_msg: dict[str, Any] = {"role": "assistant", "content": llm_response.content}
         if llm_response.tool_calls:
             assistant_msg["tool_calls"] = [
                 {
@@ -480,7 +524,7 @@ async def _execute_tool(
     tc: ToolCall,
     message_id: uuid.UUID | None,
     user_tz: str = "UTC",
-) -> dict:
+) -> dict[str, Any]:
     """Execute a tool call and log the result.
 
     SQLAlchemy errors propagate from dispatch() and are re-raised as RuntimeError
@@ -517,7 +561,7 @@ async def _execute_tool(
     return result
 
 
-def _tool_result_msg(tc: ToolCall, result: dict) -> dict:
+def _tool_result_msg(tc: ToolCall, result: dict[str, Any]) -> dict[str, Any]:
     """Build the tool-result message to feed back to the LLM."""
     import json as _json
 
@@ -528,7 +572,7 @@ def _tool_result_msg(tc: ToolCall, result: dict) -> dict:
     }
 
 
-def _dumps(obj: dict) -> str:
+def _dumps(obj: dict[str, Any]) -> str:
     import json as _json
 
     return _json.dumps(obj, ensure_ascii=False)

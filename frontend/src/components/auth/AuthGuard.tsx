@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/authStore";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 const PUBLIC_PATHS = ["/auth/login", "/auth/register"];
 
@@ -33,7 +33,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center" style={{ backgroundColor: "#030712" }}>
+      <div
+        className="flex h-full items-center justify-center"
+        style={{ backgroundColor: "#030712" }}
+      >
         <div
           className="h-8 w-8 animate-spin rounded-full border-2"
           style={{ borderColor: "rgba(0,180,216,0.6)", borderTopColor: "transparent" }}
