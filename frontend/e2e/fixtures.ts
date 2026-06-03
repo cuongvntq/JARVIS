@@ -45,8 +45,9 @@ export async function registerAndLogin(
     page.click('button[type="submit"]'),
   ]);
 
-  // API has responded — redirect should be near-instant now
-  await expect(page).toHaveURL("/", { timeout: 10_000 });
+  // API has responded — wait for navigation to complete.
+  // Next.js JIT-compiles the dashboard on first visit; allow extra time.
+  await page.waitForURL("/", { timeout: 30_000 });
 
   return { email, password };
 }
