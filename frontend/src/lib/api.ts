@@ -6,7 +6,6 @@ import {
   type ConversationListResponse,
   type DashboardOut,
   type MemoryCreate,
-  type PushSubscribeRequest,
   type MemoryListOut,
   type MemoryOut,
   type MemorySearchOut,
@@ -17,6 +16,7 @@ import {
   type NoteListOut,
   type NoteOut,
   type NoteUpdate,
+  type PushSubscribeRequest,
   type ReminderCreate,
   type ReminderListOut,
   type ReminderOut,
@@ -351,7 +351,10 @@ class ApiClient {
   // ── Push Notifications ──────────────────────────────────────────────────────
 
   async subscribePush(data: PushSubscribeRequest): Promise<void> {
-    return this.request("/v1/notifications/subscribe", { method: "POST", body: JSON.stringify(data) });
+    return this.request("/v1/notifications/subscribe", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
   }
 
   async unsubscribePush(): Promise<void> {

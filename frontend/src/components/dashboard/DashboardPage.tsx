@@ -1,13 +1,13 @@
 "use client";
 
-import { LayoutDashboard, Loader2, RefreshCw } from "lucide-react";
-import { formatInTimeZone } from "date-fns-tz";
+import type { Section } from "@/components/layout/Sidebar";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useAuthStore } from "@/stores/authStore";
-import type { Section } from "@/components/layout/Sidebar";
+import { formatInTimeZone } from "date-fns-tz";
+import { LayoutDashboard, Loader2, RefreshCw } from "lucide-react";
+import MemoryCount from "./MemoryCount";
 import TodayStats from "./TodayStats";
 import UpcomingReminders from "./UpcomingReminders";
-import MemoryCount from "./MemoryCount";
 
 interface DashboardPageProps {
   onNavigate?: (section: Section) => void;
@@ -84,10 +84,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
         {!isLoading && !isError && data && (
           <div className="space-y-6 max-w-lg">
             {/* Today's Todo Stats */}
-            <TodayStats
-              count={data.todos_count}
-              onNavigate={(s) => onNavigate?.(s as Section)}
-            />
+            <TodayStats count={data.todos_count} onNavigate={(s) => onNavigate?.(s as Section)} />
 
             {/* Divider */}
             <div style={{ height: 1, backgroundColor: "rgba(0,180,216,0.07)" }} />

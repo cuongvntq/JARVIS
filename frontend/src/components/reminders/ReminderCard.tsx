@@ -1,9 +1,9 @@
 "use client";
 
-import { BanIcon, Trash2 } from "lucide-react";
-import { formatInTimeZone } from "date-fns-tz";
-import { cn } from "@/lib/utils";
 import type { ReminderOut, ReminderStatus } from "@/lib/types/api";
+import { cn } from "@/lib/utils";
+import { formatInTimeZone } from "date-fns-tz";
+import { BanIcon, Trash2 } from "lucide-react";
 
 interface ReminderCardProps {
   reminder: ReminderOut;
@@ -14,12 +14,35 @@ interface ReminderCardProps {
   isDeletePending: boolean;
 }
 
-const STATUS_CONFIG: Record<ReminderStatus, { label: string; color: string; bg: string; strip: string }> = {
-  pending: { label: "ĐANG CHỜ", color: "#00b4d8", bg: "rgba(0,180,216,0.12)", strip: "bg-jarvis-accent/60" },
-  sending: { label: "ĐANG GỬI", color: "#ff9800", bg: "rgba(255,152,0,0.12)", strip: "bg-yellow-500/70" },
+const STATUS_CONFIG: Record<
+  ReminderStatus,
+  { label: string; color: string; bg: string; strip: string }
+> = {
+  pending: {
+    label: "ĐANG CHỜ",
+    color: "#00b4d8",
+    bg: "rgba(0,180,216,0.12)",
+    strip: "bg-jarvis-accent/60",
+  },
+  sending: {
+    label: "ĐANG GỬI",
+    color: "#ff9800",
+    bg: "rgba(255,152,0,0.12)",
+    strip: "bg-yellow-500/70",
+  },
   sent: { label: "ĐÃ GỬI", color: "#00e676", bg: "rgba(0,230,118,0.10)", strip: "bg-green-500/60" },
-  failed: { label: "THẤT BẠI", color: "#ff4444", bg: "rgba(255,68,68,0.12)", strip: "bg-jarvis-danger/70" },
-  cancelled: { label: "ĐÃ HỦY", color: "#5e8a9e", bg: "rgba(94,138,158,0.12)", strip: "bg-jarvis-muted/40" },
+  failed: {
+    label: "THẤT BẠI",
+    color: "#ff4444",
+    bg: "rgba(255,68,68,0.12)",
+    strip: "bg-jarvis-danger/70",
+  },
+  cancelled: {
+    label: "ĐÃ HỦY",
+    color: "#5e8a9e",
+    bg: "rgba(94,138,158,0.12)",
+    strip: "bg-jarvis-muted/40",
+  },
 };
 
 function formatCountdown(remindAt: string): string {
@@ -42,7 +65,8 @@ export default function ReminderCard({
   isDeletePending,
 }: ReminderCardProps) {
   const cfg = STATUS_CONFIG[reminder.status];
-  const isDone = reminder.status === "sent" || reminder.status === "cancelled" || reminder.status === "failed";
+  const isDone =
+    reminder.status === "sent" || reminder.status === "cancelled" || reminder.status === "failed";
   const canCancel = reminder.status === "pending" || reminder.status === "sending";
 
   return (

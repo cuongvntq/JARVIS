@@ -27,8 +27,7 @@ export default function MessageBubble({ message }: { message: Message }) {
           <div
             className="px-4 py-3 rounded-2xl rounded-tr-sm text-sm leading-relaxed"
             style={{
-              background:
-                "linear-gradient(135deg, rgba(0, 95, 138, 0.8), rgba(0, 180, 216, 0.4))",
+              background: "linear-gradient(135deg, rgba(0, 95, 138, 0.8), rgba(0, 180, 216, 0.4))",
               border: "1px solid rgba(0, 180, 216, 0.25)",
               color: "#dff3fd",
             }}
@@ -83,9 +82,18 @@ export default function MessageBubble({ message }: { message: Message }) {
         >
           {showDots && (
             <div className="flex items-center gap-1">
-              <span className="dot-1 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
-              <span className="dot-2 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
-              <span className="dot-3 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
+              <span
+                className="dot-1 w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: "#00b4d8" }}
+              />
+              <span
+                className="dot-2 w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: "#00b4d8" }}
+              />
+              <span
+                className="dot-3 w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: "#00b4d8" }}
+              />
             </div>
           )}
           {showToolOnly && (
@@ -105,7 +113,10 @@ export default function MessageBubble({ message }: { message: Message }) {
                 )}
               </p>
               {message.streaming && message.toolStatus && (
-                <p className="text-[10px] mt-1.5 tracking-wide animate-pulse" style={{ color: "#5e8a9e" }}>
+                <p
+                  className="text-[10px] mt-1.5 tracking-wide animate-pulse"
+                  style={{ color: "#5e8a9e" }}
+                >
                   {message.toolStatus}
                 </p>
               )}
@@ -113,10 +124,7 @@ export default function MessageBubble({ message }: { message: Message }) {
           )}
         </div>
         <div className="flex items-center gap-2 mt-1 pl-1">
-          <p
-            className="text-[10px]"
-            style={{ color: "rgba(0, 180, 216, 0.35)" }}
-          >
+          <p className="text-[10px]" style={{ color: "rgba(0, 180, 216, 0.35)" }}>
             {formatTime(message.timestamp)}
           </p>
           {message.model && (

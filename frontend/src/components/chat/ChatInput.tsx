@@ -10,12 +10,7 @@ interface ChatInputProps {
   loading: boolean;
 }
 
-export default function ChatInput({
-  value,
-  onChange,
-  onSend,
-  loading,
-}: ChatInputProps) {
+export default function ChatInput({ value, onChange, onSend, loading }: ChatInputProps) {
   function handleKey(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey && !loading) {
       e.preventDefault();
@@ -26,10 +21,7 @@ export default function ChatInput({
   const canSend = !loading && value.trim().length > 0;
 
   return (
-    <div
-      className="px-5 pb-5 pt-3 border-t"
-      style={{ borderColor: "rgba(0, 180, 216, 0.1)" }}
-    >
+    <div className="px-5 pb-5 pt-3 border-t" style={{ borderColor: "rgba(0, 180, 216, 0.1)" }}>
       <div
         className="flex items-end gap-3 rounded-xl px-4 py-3"
         style={{
@@ -63,9 +55,7 @@ export default function ChatInput({
           disabled={!canSend}
           className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200"
           style={{
-            background: canSend
-              ? "rgba(0, 180, 216, 0.75)"
-              : "rgba(0, 180, 216, 0.08)",
+            background: canSend ? "rgba(0, 180, 216, 0.75)" : "rgba(0, 180, 216, 0.08)",
             border: "1px solid rgba(0, 180, 216, 0.25)",
             cursor: canSend ? "pointer" : "not-allowed",
             boxShadow: canSend ? "0 0 10px rgba(0, 180, 216, 0.3)" : "none",
@@ -73,24 +63,12 @@ export default function ChatInput({
         >
           {loading ? (
             <div className="flex gap-0.5 items-center">
-              <span
-                className="dot-1 w-1 h-1 rounded-full"
-                style={{ backgroundColor: "#00b4d8" }}
-              />
-              <span
-                className="dot-2 w-1 h-1 rounded-full"
-                style={{ backgroundColor: "#00b4d8" }}
-              />
-              <span
-                className="dot-3 w-1 h-1 rounded-full"
-                style={{ backgroundColor: "#00b4d8" }}
-              />
+              <span className="dot-1 w-1 h-1 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
+              <span className="dot-2 w-1 h-1 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
+              <span className="dot-3 w-1 h-1 rounded-full" style={{ backgroundColor: "#00b4d8" }} />
             </div>
           ) : (
-            <Send
-              size={15}
-              style={{ color: canSend ? "white" : "#5e8a9e" }}
-            />
+            <Send size={15} style={{ color: canSend ? "white" : "#5e8a9e" }} />
           )}
         </button>
       </div>

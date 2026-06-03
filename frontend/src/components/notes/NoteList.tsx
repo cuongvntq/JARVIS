@@ -1,9 +1,9 @@
 "use client";
 
-import { Search, Pin, Trash2, PinOff } from "lucide-react";
-import { formatInTimeZone } from "date-fns-tz";
-import { cn } from "@/lib/utils";
 import type { NoteOut } from "@/lib/types/api";
+import { cn } from "@/lib/utils";
+import { formatInTimeZone } from "date-fns-tz";
+import { Pin, PinOff, Search, Trash2 } from "lucide-react";
 
 interface NoteListProps {
   notes: NoteOut[];
@@ -37,19 +37,13 @@ function NoteItem({
   onDelete: () => void;
   isSaving?: boolean;
 }) {
-  const updatedAt = formatInTimeZone(
-    new Date(note.updated_at),
-    timezone,
-    "dd/MM HH:mm",
-  );
+  const updatedAt = formatInTimeZone(new Date(note.updated_at), timezone, "dd/MM HH:mm");
 
   return (
     <div
       className={cn(
         "group flex items-start rounded-lg transition-all duration-150 border",
-        selected
-          ? "border-jarvis-accent/30"
-          : "border-transparent hover:border-jarvis-accent/15",
+        selected ? "border-jarvis-accent/30" : "border-transparent hover:border-jarvis-accent/15",
       )}
       style={{
         backgroundColor: selected ? "rgba(0,180,216,0.07)" : "transparent",
@@ -74,10 +68,7 @@ function NoteItem({
           )}
         </div>
         {note.content && (
-          <p
-            className="text-[10px] mt-0.5 line-clamp-1 text-left"
-            style={{ color: "#4a7a8e" }}
-          >
+          <p className="text-[10px] mt-0.5 line-clamp-1 text-left" style={{ color: "#4a7a8e" }}>
             {note.content}
           </p>
         )}
@@ -133,10 +124,7 @@ export default function NoteList({
   return (
     <div className="flex flex-col h-full">
       {/* Search */}
-      <div
-        className="px-3 py-3 border-b"
-        style={{ borderColor: "rgba(0,180,216,0.08)" }}
-      >
+      <div className="px-3 py-3 border-b" style={{ borderColor: "rgba(0,180,216,0.08)" }}>
         <div
           className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border"
           style={{

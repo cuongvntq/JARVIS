@@ -77,7 +77,7 @@ jobs:
 
       - name: Alembic upgrade head
         env:
-          DATABASE_URL_DIRECT: postgresql+asyncpg://jarvis:jarvis_pw@localhost:5432/jarvis_test
+          DATABASE_URL_DIRECT: postgresql+psycopg2://jarvis:jarvis_pw@localhost:5432/jarvis_test
           DATABASE_URL: postgresql+asyncpg://jarvis:jarvis_pw@localhost:5432/jarvis_test
           JWT_SECRET: test-jwt-secret-key-must-be-32-chars!!
           GEMINI_API_KEY: fake
@@ -86,7 +86,7 @@ jobs:
 
       - name: Alembic downgrade (smoke — one step back)
         env:
-          DATABASE_URL_DIRECT: postgresql+asyncpg://jarvis:jarvis_pw@localhost:5432/jarvis_test
+          DATABASE_URL_DIRECT: postgresql+psycopg2://jarvis:jarvis_pw@localhost:5432/jarvis_test
           DATABASE_URL: postgresql+asyncpg://jarvis:jarvis_pw@localhost:5432/jarvis_test
           JWT_SECRET: test-jwt-secret-key-must-be-32-chars!!
           GEMINI_API_KEY: fake

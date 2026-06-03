@@ -1,5 +1,5 @@
-import { create } from "zustand";
 import type { UserOut } from "@/lib/types/api";
+import { create } from "zustand";
 
 interface AuthState {
   user: UserOut | null;
@@ -21,8 +21,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setAuth: (user, token) =>
     set({ user, accessToken: token, isAuthenticated: true, isLoading: false }),
 
-  clearAuth: () =>
-    set({ user: null, accessToken: null, isAuthenticated: false, isLoading: false }),
+  clearAuth: () => set({ user: null, accessToken: null, isAuthenticated: false, isLoading: false }),
 
   setLoading: (v) => set({ isLoading: v }),
 

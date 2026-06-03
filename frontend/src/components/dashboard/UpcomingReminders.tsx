@@ -1,8 +1,8 @@
 "use client";
 
-import { Bell } from "lucide-react";
-import { formatInTimeZone } from "date-fns-tz";
 import type { ReminderOut } from "@/lib/types/api";
+import { formatInTimeZone } from "date-fns-tz";
+import { Bell } from "lucide-react";
 
 interface UpcomingRemindersProps {
   reminders: ReminderOut[];
@@ -27,10 +27,7 @@ export default function UpcomingReminders({
 }: UpcomingRemindersProps) {
   return (
     <div>
-      <p
-        className="text-[9px] font-semibold tracking-[0.2em] mb-3"
-        style={{ color: "#3a6a7e" }}
-      >
+      <p className="text-[9px] font-semibold tracking-[0.2em] mb-3" style={{ color: "#3a6a7e" }}>
         NHẮC NHỞ SẮP TỚI
       </p>
 

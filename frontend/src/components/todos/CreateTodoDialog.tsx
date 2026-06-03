@@ -1,12 +1,12 @@
 "use client";
 
+import { useCreateTodo } from "@/hooks/useTodos";
+import { cn } from "@/lib/utils";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { X } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { X } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useCreateTodo } from "@/hooks/useTodos";
 
 const schema = z.object({
   title: z.string().min(1, "Tiêu đề không được trống").max(500),
@@ -51,13 +51,14 @@ export default function CreateTodoDialog({ open, onClose }: CreateTodoDialogProp
 
   async function onSubmit(values: FormValues) {
     const tags = values.tags
-      ? values.tags.split(",").map((t) => t.trim()).filter(Boolean)
+      ? values.tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
       : [];
 
     const due_at =
-      values.due_at && values.due_at.length > 0
-        ? new Date(values.due_at).toISOString()
-        : undefined;
+      values.due_at && values.due_at.length > 0 ? new Date(values.due_at).toISOString() : undefined;
 
     await createTodo.mutateAsync({
       title: values.title,
@@ -77,7 +78,9 @@ export default function CreateTodoDialog({ open, onClose }: CreateTodoDialogProp
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
       onClick={onClose}
-      onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
     >
       <div
         aria-labelledby="create-todo-title"
@@ -87,7 +90,10 @@ export default function CreateTodoDialog({ open, onClose }: CreateTodoDialogProp
           borderColor: "rgba(0,180,216,0.25)",
         }}
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => { if (e.key === "Escape") onClose(); else e.stopPropagation(); }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+          else e.stopPropagation();
+        }}
       >
         {/* Header */}
         <div

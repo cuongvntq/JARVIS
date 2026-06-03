@@ -38,10 +38,9 @@ export async function registerAndLogin(
   // Wait for the login API to respond (cold-start can be slow on first request)
   // then assert the redirect — keeping the two concerns separate avoids flakiness.
   await Promise.all([
-    page.waitForResponse(
-      (r) => r.url().includes("/auth/login") && r.status() < 400,
-      { timeout: 30_000 },
-    ),
+    page.waitForResponse((r) => r.url().includes("/auth/login") && r.status() < 400, {
+      timeout: 30_000,
+    }),
     page.click('button[type="submit"]'),
   ]);
 

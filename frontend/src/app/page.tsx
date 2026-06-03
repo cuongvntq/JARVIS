@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import Sidebar, { type Section } from "@/components/layout/Sidebar";
 import ChatInterface from "@/components/chat/ChatInterface";
-import TodoPage from "@/components/todos/TodoPage";
-import NotesPage from "@/components/notes/NotesPage";
-import SettingsPage from "@/components/settings/SettingsPage";
-import MemoryPage from "@/components/memories/MemoryPage";
-import RemindersPage from "@/components/reminders/RemindersPage";
 import DashboardPage from "@/components/dashboard/DashboardPage";
+import Sidebar, { type Section } from "@/components/layout/Sidebar";
+import MemoryPage from "@/components/memories/MemoryPage";
+import NotesPage from "@/components/notes/NotesPage";
+import RemindersPage from "@/components/reminders/RemindersPage";
+import SettingsPage from "@/components/settings/SettingsPage";
+import TodoPage from "@/components/todos/TodoPage";
+import { useState } from "react";
 
 function ComingSoon({ name }: { name: string }) {
   return (
@@ -23,10 +23,7 @@ function ComingSoon({ name }: { name: string }) {
         >
           {name.toUpperCase()}
         </p>
-        <div
-          className="w-16 h-px mx-auto"
-          style={{ background: "rgba(0, 180, 216, 0.2)" }}
-        />
+        <div className="w-16 h-px mx-auto" style={{ background: "rgba(0, 180, 216, 0.2)" }} />
         <p className="text-sm" style={{ color: "#5e8a9e" }}>
           Đang phát triển...
         </p>
@@ -69,9 +66,13 @@ export default function HomePage() {
         {section === "memory" && <MemoryPage />}
         {section === "reminders" && <RemindersPage />}
         {section === "dashboard" && <DashboardPage onNavigate={setSection} />}
-        {section !== "chat" && section !== "todo" && section !== "notes" && section !== "settings" && section !== "memory" && section !== "reminders" && section !== "dashboard" && (
-          <ComingSoon name={section} />
-        )}
+        {section !== "chat" &&
+          section !== "todo" &&
+          section !== "notes" &&
+          section !== "settings" &&
+          section !== "memory" &&
+          section !== "reminders" &&
+          section !== "dashboard" && <ComingSoon name={section} />}
       </main>
     </div>
   );

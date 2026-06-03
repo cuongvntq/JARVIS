@@ -16,7 +16,9 @@ test("create reminder via form appears in reminders list", async ({ page }) => {
   await createButton.click();
 
   // Fill in the reminder form
-  const titleInput = page.locator('input[placeholder*="tiêu đề"], input[name="title"], input[type="text"]').first();
+  const titleInput = page
+    .locator('input[placeholder*="tiêu đề"], input[name="title"], input[type="text"]')
+    .first();
   await titleInput.fill("Uống thuốc buổi sáng");
 
   // Set datetime — use a future date
@@ -28,7 +30,10 @@ test("create reminder via form appears in reminders list", async ({ page }) => {
   }
 
   // Submit
-  await page.locator('button[type="submit"], button:has-text("Tạo"), button:has-text("Lưu")').last().click();
+  await page
+    .locator('button[type="submit"], button:has-text("Tạo"), button:has-text("Lưu")')
+    .last()
+    .click();
 
   // Reminder should appear in the list
   await expect(page.locator("text=Uống thuốc buổi sáng")).toBeVisible({ timeout: 8_000 });

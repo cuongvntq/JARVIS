@@ -18,9 +18,7 @@ export default function GlobalError({
     <html lang="vi">
       <body className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
         <h1 className="text-2xl font-bold">Đã xảy ra lỗi</h1>
-        <p className="text-muted-foreground">
-          Có sự cố bất ngờ. Vui lòng thử lại.
-        </p>
+        <p className="text-muted-foreground">Có sự cố bất ngờ. Vui lòng thử lại.</p>
         <button
           type="button"
           onClick={reset}

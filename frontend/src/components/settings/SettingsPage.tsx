@@ -1,10 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Settings, User, Globe, Bot, Bell, BellOff, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
-import { useAuthStore } from "@/stores/authStore";
-import { useUpdateProfile } from "@/hooks/useSettings";
 import { usePushNotification } from "@/hooks/usePushNotification";
+import { useUpdateProfile } from "@/hooks/useSettings";
+import { useAuthStore } from "@/stores/authStore";
+import {
+  AlertCircle,
+  Bell,
+  BellOff,
+  Bot,
+  CheckCircle,
+  Globe,
+  Loader2,
+  Settings,
+  User,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 const TIMEZONES = [
   { value: "Asia/Ho_Chi_Minh", label: "Hà Nội / TP. HCM (UTC+7)" },
@@ -27,7 +37,14 @@ const LOCALES = [
 
 export default function SettingsPage() {
   const user = useAuthStore((s) => s.user);
-  const { mutate: updateProfile, reset: resetMutation, isPending, isSuccess, isError, error } = useUpdateProfile();
+  const {
+    mutate: updateProfile,
+    reset: resetMutation,
+    isPending,
+    isSuccess,
+    isError,
+    error,
+  } = useUpdateProfile();
   const push = usePushNotification();
 
   const [name, setName] = useState("");
@@ -99,7 +116,6 @@ export default function SettingsPage() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
         <form onSubmit={handleSubmit} className="max-w-lg space-y-8">
-
           {/* Profile section */}
           <section className="space-y-4">
             <div className="flex items-center gap-2 mb-3">
@@ -292,12 +308,24 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={push.isSubscribed ? push.unsubscribe : push.subscribe}
-                disabled={push.isLoading || push.permission === "unsupported" || push.permission === "denied"}
+                disabled={
+                  push.isLoading ||
+                  push.permission === "unsupported" ||
+                  push.permission === "denied"
+                }
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold tracking-[0.1em] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 style={
                   push.isSubscribed
-                    ? { backgroundColor: "rgba(255,68,68,0.12)", color: "#ff6666", border: "1px solid rgba(255,68,68,0.25)" }
-                    : { background: "linear-gradient(135deg, rgba(0,180,216,0.7), rgba(0,95,138,0.7))", color: "#dff3fd" }
+                    ? {
+                        backgroundColor: "rgba(255,68,68,0.12)",
+                        color: "#ff6666",
+                        border: "1px solid rgba(255,68,68,0.25)",
+                      }
+                    : {
+                        background:
+                          "linear-gradient(135deg, rgba(0,180,216,0.7), rgba(0,95,138,0.7))",
+                        color: "#dff3fd",
+                      }
                 }
               >
                 {push.isLoading ? (

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Save, X } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { NoteOut } from "@/lib/types/api";
+import { cn } from "@/lib/utils";
+import { Save, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface NoteEditorProps {
   note: NoteOut | null;
@@ -12,8 +12,7 @@ interface NoteEditorProps {
   onClose: () => void;
 }
 
-const inputBase =
-  "w-full bg-transparent focus:outline-none transition-colors";
+const inputBase = "w-full bg-transparent focus:outline-none transition-colors";
 
 export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEditorProps) {
   const [title, setTitle] = useState("");
@@ -41,7 +40,10 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
     if (!title.trim()) return;
     const normalizedTitle = title.trim();
     const tags = tagsInput
-      ? tagsInput.split(",").map((t) => t.trim()).filter(Boolean)
+      ? tagsInput
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
       : [];
     try {
       await onSave({ title: normalizedTitle, content, tags });
@@ -62,10 +64,7 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
         className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0"
         style={{ borderColor: "rgba(0,180,216,0.1)" }}
       >
-        <span
-          className="text-[9px] tracking-[0.15em]"
-          style={{ color: "rgba(0,180,216,0.4)" }}
-        >
+        <span className="text-[9px] tracking-[0.15em]" style={{ color: "rgba(0,180,216,0.4)" }}>
           {note ? "CHỈNH SỬA GHI CHÚ" : "GHI CHÚ MỚI"}
         </span>
 
@@ -104,7 +103,11 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
       {validationError && (
         <div
           className="px-5 py-2 text-[10px] flex-shrink-0"
-          style={{ backgroundColor: "rgba(255,68,68,0.08)", color: "#ff4444", borderBottom: "1px solid rgba(255,68,68,0.2)" }}
+          style={{
+            backgroundColor: "rgba(255,68,68,0.08)",
+            color: "#ff4444",
+            borderBottom: "1px solid rgba(255,68,68,0.2)",
+          }}
         >
           {validationError}
         </div>
@@ -116,10 +119,16 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
         <input
           type="text"
           value={title}
-          onChange={(e) => { setTitle(e.target.value); setValidationError(null); }}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            setValidationError(null);
+          }}
           disabled={isSaving}
           placeholder="Tiêu đề ghi chú..."
-          className={cn(inputBase, "text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed")}
+          className={cn(
+            inputBase,
+            "text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed",
+          )}
           style={{ color: "#dff3fd" }}
           onKeyDown={(e) => {
             if (e.key === "Enter") e.preventDefault();
@@ -132,10 +141,16 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
         {/* Content */}
         <textarea
           value={content}
-          onChange={(e) => { setContent(e.target.value); setValidationError(null); }}
+          onChange={(e) => {
+            setContent(e.target.value);
+            setValidationError(null);
+          }}
           disabled={isSaving}
           placeholder="Nội dung ghi chú... (markdown hỗ trợ)"
-          className={cn(inputBase, "flex-1 resize-none text-sm leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed")}
+          className={cn(
+            inputBase,
+            "flex-1 resize-none text-sm leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed",
+          )}
           style={{ color: "#c0dde8", minHeight: 0 }}
         />
 
@@ -153,7 +168,10 @@ export default function NoteEditor({ note, isSaving, onSave, onClose }: NoteEdit
           <input
             type="text"
             value={tagsInput}
-            onChange={(e) => { setTagsInput(e.target.value); setValidationError(null); }}
+            onChange={(e) => {
+              setTagsInput(e.target.value);
+              setValidationError(null);
+            }}
             disabled={isSaving}
             placeholder="tag1, tag2, tag3"
             className={cn(inputBase, "text-[11px] disabled:opacity-50 disabled:cursor-not-allowed")}

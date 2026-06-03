@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import Link from "next/link";
 import { api, setAccessToken } from "@/lib/api";
-import { useAuthStore } from "@/stores/authStore";
 import { ApiException } from "@/lib/types/api";
+import { useAuthStore } from "@/stores/authStore";
+import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 const schema = z
   .object({
@@ -41,7 +41,11 @@ export default function RegisterPage() {
   const onSubmit = async (data: FormData) => {
     setErrorMsg("");
     try {
-      const resp = await api.register({ email: data.email, password: data.password, name: data.name });
+      const resp = await api.register({
+        email: data.email,
+        password: data.password,
+        name: data.name,
+      });
       setAccessToken(resp.access_token);
       setAuth(resp.user, resp.access_token);
       router.replace("/");
@@ -99,7 +103,9 @@ export default function RegisterPage() {
             className="w-full rounded-lg border bg-transparent px-4 py-3 text-sm outline-none"
             style={{ borderColor: "rgba(0,180,216,0.2)", color: "#e2e8f0" }}
           />
-          {errors.password && <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>}
+          {errors.password && (
+            <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
+          )}
         </div>
 
         <div>
@@ -125,7 +131,11 @@ export default function RegisterPage() {
           type="submit"
           disabled={isSubmitting}
           className="w-full rounded-lg py-3 text-sm font-semibold tracking-wider transition disabled:opacity-50"
-          style={{ backgroundColor: "rgba(0,180,216,0.15)", color: "rgba(0,180,216,0.9)", border: "1px solid rgba(0,180,216,0.3)" }}
+          style={{
+            backgroundColor: "rgba(0,180,216,0.15)",
+            color: "rgba(0,180,216,0.9)",
+            border: "1px solid rgba(0,180,216,0.3)",
+          }}
         >
           {isSubmitting ? "Đang tạo tài khoản..." : "ĐĂNG KÝ"}
         </button>

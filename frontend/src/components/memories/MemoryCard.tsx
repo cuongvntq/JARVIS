@@ -1,15 +1,15 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
 import type { MemoryOut, MemoryType } from "@/lib/types/api";
+import { Pencil, Trash2 } from "lucide-react";
 
 const TYPE_META: Record<MemoryType, { label: string; color: string; bg: string }> = {
-  fact:       { label: "Sự kiện",  color: "#00b4d8", bg: "rgba(0,180,216,0.12)" },
+  fact: { label: "Sự kiện", color: "#00b4d8", bg: "rgba(0,180,216,0.12)" },
   preference: { label: "Sở thích", color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
-  rule:       { label: "Quy tắc",  color: "#fb923c", bg: "rgba(251,146,60,0.12)" },
-  relation:   { label: "Quan hệ",  color: "#34d399", bg: "rgba(52,211,153,0.12)" },
-  goal:       { label: "Mục tiêu", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
-  other:      { label: "Khác",     color: "#5e8a9e", bg: "rgba(94,138,158,0.12)" },
+  rule: { label: "Quy tắc", color: "#fb923c", bg: "rgba(251,146,60,0.12)" },
+  relation: { label: "Quan hệ", color: "#34d399", bg: "rgba(52,211,153,0.12)" },
+  goal: { label: "Mục tiêu", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
+  other: { label: "Khác", color: "#5e8a9e", bg: "rgba(94,138,158,0.12)" },
 };
 
 interface MemoryCardProps {
@@ -48,8 +48,7 @@ export default function MemoryCard({ memory, onEdit, onDelete, isSaving }: Memor
                 key={`dot-${dot}`}
                 className="w-1 h-1 rounded-full"
                 style={{
-                  backgroundColor:
-                    dot <= memory.importance ? meta.color : "rgba(94,138,158,0.2)",
+                  backgroundColor: dot <= memory.importance ? meta.color : "rgba(94,138,158,0.2)",
                 }}
               />
             ))}
@@ -80,10 +79,7 @@ export default function MemoryCard({ memory, onEdit, onDelete, isSaving }: Memor
       </div>
 
       {/* Content */}
-      <p
-        className="text-sm leading-relaxed line-clamp-4"
-        style={{ color: "#dff3fd" }}
-      >
+      <p className="text-sm leading-relaxed line-clamp-4" style={{ color: "#dff3fd" }}>
         {memory.content}
       </p>
     </div>

@@ -12,7 +12,5 @@ test("dashboard section loads after login", async ({ page }) => {
   await page.click("text=DASHBOARD");
 
   // Dashboard should render — look for a stats section or dashboard heading
-  await expect(
-    page.locator("text=DASHBOARD").first(),
-  ).toBeVisible({ timeout: 8_000 });
+  await expect(page.locator("text=DASHBOARD").first()).toBeVisible({ timeout: 8_000 });
 });

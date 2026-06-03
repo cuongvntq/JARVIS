@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { Brain, Plus, Loader2 } from "lucide-react";
-import { useMemories, useCreateMemory, useUpdateMemory, useDeleteMemory } from "@/hooks/useMemories";
+import {
+  useCreateMemory,
+  useDeleteMemory,
+  useMemories,
+  useUpdateMemory,
+} from "@/hooks/useMemories";
 import type { MemoryOut, MemoryType } from "@/lib/types/api";
-import MemoryList from "./MemoryList";
+import { Brain, Loader2, Plus } from "lucide-react";
+import { useState } from "react";
 import MemoryEditor from "./MemoryEditor";
+import MemoryList from "./MemoryList";
 
-type EditorState =
-  | { mode: "closed" }
-  | { mode: "create" }
-  | { mode: "edit"; memory: MemoryOut };
+type EditorState = { mode: "closed" } | { mode: "create" } | { mode: "edit"; memory: MemoryOut };
 
 export default function MemoryPage() {
   const [typeFilter, setTypeFilter] = useState<MemoryType | "all">("all");
