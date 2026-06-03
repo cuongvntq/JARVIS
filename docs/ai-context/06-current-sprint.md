@@ -57,7 +57,8 @@
 
 ## Sprint 6 — DONE ✅ (merged 2026-06-03)
 
-**Goal:** QA + polish + beta deploy  
+**Goal:** QA + polish + beta deploy
+
 **PR:** #27 `feat/sprint6` — single PR, all tickets + review fixes
 
 | Ticket | Nội dung |
