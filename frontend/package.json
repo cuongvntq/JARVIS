@@ -30,9 +30,6 @@
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.5.0"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": ["@sentry/cli", "esbuild"]
-  },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@playwright/test": "^1.49.0",

@@ -1,2 +1,5 @@
 allowBuilds:
-  '@sentry/cli': set this to true or false
+  '@biomejs/biome': true
+  '@sentry/cli': true
+  esbuild: true
+  sharp: true
