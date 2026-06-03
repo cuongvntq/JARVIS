@@ -69,6 +69,11 @@ pgdata/
 # ============= Claude Code Worktrees =============
 .claude/worktrees/
 
+# ============= Playwright =============
+test-results/
+playwright-report/
+blob-report/
+
 # ============= Misc =============
 coverage/
 .nyc_output/
