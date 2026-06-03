@@ -80,6 +80,7 @@ backend/
 │   │   ├── auth_service.py     # register, login, refresh_tokens, logout; Sprint 4: + update_profile()
 │   │   ├── chat_service.py     # send_message (non-stream + stream_message generator);
 │   │   │                       # Sprint 4: + RAG call (search_semantic) before build_system_prompt
+│   │   │                       # Sprint 6: + _bg_tasks set + _schedule_summarize() (strong ref, RUF006)
 │   │   ├── todo_service.py     # create, get, list, replace, patch, complete, uncomplete, delete
 │   │   ├── note_service.py     # create, get, list, update, patch, pin, unpin, delete
 │   │   ├── embedding_service.py # embed_text(text) → list[float] via LiteLLM aembedding
@@ -131,12 +132,17 @@ backend/
 │       ├── 003_sprint2_todos_tool_logs.py  # todos, tool_execution_logs, llm_call_logs + ENUMs
 │       ├── 004_sprint3_notes.py            # notes table
 │       ├── 005_sprint4_memories.py         # memories + ENUM memory_type + HNSW index
-│       └── 006_sprint5_reminders.py        # reminders + push_subscriptions + ENUM reminder_status; Sprint 5
+│       ├── 006_sprint5_reminders.py        # reminders + push_subscriptions + ENUM reminder_status; Sprint 5
+│       └── 007_add_summary_to_conversations.py # ADD COLUMN summary TEXT to conversations; Sprint 6
 │
 └── tests/
     ├── conftest.py             # SQLite in-memory, fixtures: async_client, auth_headers, mock_llm,
     │                           # mock_llm_stream, mock_llm_stream_error,
     │                           # mock_embedding, mock_semantic_search, auth_headers_user_b
+    ├── eval/                   # Prompt eval set — chỉ chạy khi RUN_EVAL=1; Sprint 6
+    │   ├── __init__.py
+    │   ├── eval_cases.py       # 10 eval cases (E-01 to E-10)
+    │   └── test_prompt_eval.py # pytest -m eval — gọi real LLM, ghi kết quả vào eval_results/
     ├── test_auth.py            # Auth endpoint tests (23 tests)
     ├── test_chat.py            # Chat + conversation CRUD + streaming + RAG tests (18 tests)
     ├── test_todos.py           # Todo CRUD + filter + ownership (26 collected)
@@ -161,10 +167,13 @@ Per-file breakdown: auth=23, chat=18, todos=26, notes=19, memories=22, reminders
 
 ```
 frontend/src/
+├── instrumentation.ts          # Sentry server/edge init (Next.js App Router hook); Sprint 6
+│
 ├── app/
 │   ├── layout.tsx              # Root layout: QueryProvider + AuthGuard
 │   ├── page.tsx                # Single-page section nav (Dashboard|Chat|Todo|Reminders|Notes|Memory|Settings);
 │   │                           # Sprint 5: Dashboard is default section; mount RemindersPage + DashboardPage
+│   ├── global-error.tsx        # React render error boundary — captureException to Sentry; Sprint 6
 │   └── auth/
 │       ├── layout.tsx          # Auth pages layout (no sidebar)
 │       ├── login/page.tsx      # Login form
@@ -234,17 +243,39 @@ frontend/src/
 
 **Sprint 5 frontend additions:** `public/sw.js` (Service Worker — handles `push` event → `showNotification`)
 
+**Sprint 6 frontend additions:**
+- `src/instrumentation.ts` — Sentry server/edge init hook
+- `src/app/global-error.tsx` — React render error boundary
+- `e2e/` — Playwright E2E test suite (4 spec files + fixtures + globalSetup)
+- `playwright.config.ts` — 2 webServers (BE + FE), globalSetup, retries: 1 in CI
+
+---
+
+## E2E Tests: `frontend/e2e/`
+
+```
+frontend/e2e/
+├── global-setup.ts     # Pre-fetch /auth/login + / để warm up Next.js JIT trước khi tests chạy
+├── fixtures.ts         # registerAndLogin() helper — POST /auth/register rồi login via UI
+├── auth.spec.ts        # Login → redirect dashboard; wrong password → error
+├── chat.spec.ts        # Send "Xin chào" (MOCK_LLM=1), verify response bubble or input cleared (1 test)
+├── reminder.spec.ts    # Create reminder via UI form → appears in reminders section
+└── dashboard.spec.ts   # Dashboard loads with stats cards
+```
+
 ---
 
 ## Key Config Files
 
 | File | Purpose |
 |---|---|
-| `backend/pyproject.toml` | Python deps (+ slowapi, pywebpush Sprint 5), ruff config, pytest config |
+| `backend/pyproject.toml` | Python deps (+ slowapi, pywebpush S5; + redis, sentry-sdk S6), ruff config, mypy strict, pytest config |
 | `backend/alembic.ini` | Alembic migration settings |
-| `frontend/package.json` | Node deps |
-| `frontend/next.config.ts` | `typedRoutes: true` (top-level, not experimental — Next.js 15 stable) |
-| `frontend/biome.json` | Biome lint/format config |
+| `frontend/package.json` | Node deps; `check` script dùng `biome check .` (no --write, CI-safe) |
+| `frontend/next.config.ts` | `typedRoutes: true`; `withSentryConfig` + `deleteSourcemapsAfterUpload: true` |
+| `frontend/biome.json` | Biome lint/format; ignore: `.next, node_modules, test-results, playwright-report` |
+| `frontend/playwright.config.ts` | E2E config: globalSetup, 2 webServers, retries=1 CI |
 | `frontend/public/sw.js` | Service Worker for Web Push; Sprint 5 |
-| `.env.example` | All env var templates (+ NEXT_PUBLIC_VAPID_PUBLIC_KEY Sprint 5) |
-| `.gitignore` | Excludes .env, .venv, node_modules, __pycache__, .claude/worktrees/ |
+| `.env.example` | All env var templates (+ SENTRY_DSN, UPSTASH_REDIS_URL Sprint 6) |
+| `.gitignore` | Excludes .env, .venv, node_modules, __pycache__, test-results/, playwright-report/ |
+| `.github/workflows/ci.yml` | GitHub Actions: backend-test (SQLite) + migration-smoke (pgvector/pg16) + frontend-check |
