@@ -59,15 +59,28 @@ async def chat_completion(
     max_tokens: int | None = None,
 ) -> LLMResponse:
     """
-    Call the specified model (or primary→fallback chain if model is None).
+    Call LLM using a 4-tier fallback chain.
+
+    If model is None, the full chain [primary, fallback, tier3, tier4] is used.
+    If model is specified, the chain starts from that model and continues through
+    the remaining tiers — so non-primary routes still get tier3/tier4 fallback.
 
     Returns an LLMResponse with content, tool_calls, model, and token counts.
     """
-    chain = (
-        [model]
-        if model is not None
-        else [settings.llm_primary, settings.llm_fallback, settings.llm_tier3, settings.llm_tier4]
-    )
+    _all_tiers = [
+        settings.llm_primary,
+        settings.llm_fallback,
+        settings.llm_tier3,
+        settings.llm_tier4,
+    ]
+    if model is None:
+        chain = _all_tiers
+    else:
+        try:
+            start = _all_tiers.index(model)
+            chain = _all_tiers[start:]
+        except ValueError:
+            chain = [model]  # unknown model, use as single-entry chain
 
     last_error: Exception | None = None
 

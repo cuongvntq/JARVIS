@@ -86,13 +86,10 @@ async def refresh_tokens(db: AsyncSession, refresh_token: str) -> tuple[TokenRes
 
     raw_refresh, token_hash_new = create_refresh_token()
     expires_at = datetime.now(UTC) + timedelta(days=settings.jwt_refresh_ttl_days)
+    row_user_agent = row.user_agent  # type: ignore[attr-defined]
+    row_ip_address = row.ip_address  # type: ignore[attr-defined]
     await auth_repo.create_session(
-        db,
-        user.id,
-        token_hash_new,
-        row.user_agent,
-        row.ip_address,
-        expires_at,  # type: ignore[attr-defined]
+        db, user.id, token_hash_new, row_user_agent, row_ip_address, expires_at
     )
 
     access_token = create_access_token(user.id, user.name)

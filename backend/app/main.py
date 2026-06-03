@@ -51,6 +51,13 @@ if settings.sentry_dsn:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     log.info("jarvis.startup", env=settings.app_env, version="0.1.0")
+    # Auto-create schema for SQLite (E2E test environment — Alembic not run)
+    if settings.database_url.startswith("sqlite"):
+        from app.database import Base, engine
+
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        log.info("jarvis.sqlite_schema_created")
     if settings.app_env != "test":
         from app.services.scheduler_service import start_scheduler
 

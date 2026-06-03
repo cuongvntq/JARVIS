@@ -254,6 +254,9 @@ async def send_message(
     new_count = conv.message_count + 2
     await conversation_repo.increment_message_count(db, conv.id)
     await conversation_repo.increment_message_count(db, conv.id)
+    # Commit before spawning background task so the task's separate session reads
+    # the new messages — without this the get_db() dependency commits too late.
+    await db.commit()
 
     if new_count >= 20 and new_count % 20 == 0:
         task = asyncio.create_task(_auto_summarize_conversation(conv.id, current_user.id))

@@ -34,7 +34,7 @@ def _build_limiter() -> Limiter:
     if settings.upstash_redis_url:
         try:
             storage_uri = settings.upstash_redis_url
-            log.info("rate_limit.redis_backend", url=storage_uri[:30] + "...")
+            log.info("rate_limit.redis_backend", redis_backend_enabled=True)
             return Limiter(key_func=_get_rate_limit_key, storage_uri=storage_uri)
         except Exception as e:
             log.warning("rate_limit.redis_fallback_inmemory", error=str(e))

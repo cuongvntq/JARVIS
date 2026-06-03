@@ -306,6 +306,32 @@ async def run_stream(
     Streaming version of run(). Yields event dicts for SSE:
       tool_start / tool_done / delta (one char) / orchestrator_done (last, internal).
     """
+    # MOCK_LLM=1 — deterministic response for E2E tests; yields orchestrator_done directly
+    if os.getenv("MOCK_LLM") == "1":
+        from app.llm.router import Intent, RouteResult
+
+        mock_route = RouteResult(
+            intent=Intent.CHITCHAT,
+            model="mock",
+            confidence=1.0,
+            classify_source="mock",
+            effective_tools=[],
+        )
+        mock_content = "Mock response — E2E test mode."
+        for char in mock_content:
+            yield {"type": "delta", "content": char}
+        yield {
+            "type": "orchestrator_done",
+            "content": mock_content,
+            "model": "mock",
+            "route": mock_route,
+            "tool_results": [],
+            "total_tokens_in": 0,
+            "total_tokens_out": 0,
+            "total_llm_calls": 1,
+        }
+        return
+
     # ── Stage 0+1: Route ────────────────────────────────────────────────────────
     route_result = await route(user_message, all_tools)
 
