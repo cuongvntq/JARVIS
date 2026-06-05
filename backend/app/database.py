@@ -21,8 +21,6 @@ if not _is_sqlite:
             "pool_pre_ping": True,
             "pool_size": 10,
             "max_overflow": 20,
-            # Disable prepared statement cache for Supabase transaction pooler (pgbouncer)
-            "connect_args": {"statement_cache_size": 0},
         }
     )
 

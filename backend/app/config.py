@@ -1,5 +1,6 @@
 """Application configuration loaded from environment variables."""
 
+import os
 from functools import lru_cache
 
 from pydantic import Field
@@ -10,7 +11,7 @@ class Settings(BaseSettings):
     """Centralized app settings. Loaded from .env at startup."""
 
     model_config = SettingsConfigDict(
-        env_file="../.env",  # root-level .env
+        env_file=os.environ.get("ENV_FILE_PATH", "../.env"),
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,

@@ -5,9 +5,10 @@
 ```
 Javis/
 ├── backend/                    # FastAPI Python backend
-├── frontend/                   # Next.js 15 frontend
+├── frontend/                   # Next.js 15 frontend + Tauri desktop wrapper
 ├── docs/                       # Technical documentation
 │   ├── ai-context/             # AI session context (this folder)
+│   ├── migration-desktop-app.md # Tauri desktop migration plan + lessons learned
 │   ├── 01_Database_Schema_ERD.md
 │   ├── 02_API_Specification.md
 │   ├── 03_AI_Tool_Schemas.md
@@ -123,6 +124,8 @@ backend/
 │       └── datetime_parser.py  # parse_datetime() — ISO fast path → dict replace → regex → LLM fallback
 │
 ├── vi_time_dict.json           # ~40 Vietnamese time expression mappings
+├── jarvis_server.py            # PyInstaller entry point — reads .env từ exe dir, start uvicorn
+├── jarvis_server.spec          # PyInstaller build spec — collect_all(litellm+tiktoken), hiddenimports, onefile
 │
 ├── migrations/
 │   ├── env.py                  # Alembic env config
@@ -160,6 +163,28 @@ backend/
 
 **Total: 211 tests collected** (`pytest --collect-only`; some functions expand via `@pytest.mark.parametrize`)
 Per-file breakdown: auth=23, chat=18, todos=26, notes=19, memories=22, reminders=30, dashboard=5, notifications=6, rate_limit=3, orchestrator=28, tool_executors=17, datetime_parser=12, health=2
+
+---
+
+## Tauri: `frontend/src-tauri/`
+
+```
+frontend/src-tauri/
+├── src/
+│   ├── main.rs                 # Entry point (calls lib::run)
+│   └── lib.rs                  # Sidecar spawn (#[cfg(not(debug_assertions))]) + kill on Destroyed
+│                               # BackendProcess(Mutex<Option<CommandChild>>) managed state
+├── capabilities/
+│   └── default.json            # shell:allow-execute, shell:allow-spawn (cần cho Rust sidecar.spawn)
+├── binaries/
+│   └── jarvis-server-x86_64-pc-windows-msvc.exe  # PyInstaller onefile (~106MB, NOT committed to git)
+├── icons/                      # App icons (32x32, 128x128, icns, ico)
+├── gen/schemas/                # Auto-generated Tauri capability schemas
+├── Cargo.toml                  # tauri, tauri-plugin-shell, tauri-plugin-log deps
+└── tauri.conf.json             # productName=JARVIS, externalBin=binaries/jarvis-server, security.csp=null
+```
+
+> **Quan trọng:** `binaries/*.exe` (~106MB) KHÔNG commit vào git — phải copy thủ công từ `backend/dist/` sau mỗi PyInstaller build.
 
 ---
 
