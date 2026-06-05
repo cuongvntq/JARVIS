@@ -43,6 +43,12 @@ const STATUS_CONFIG: Record<
     bg: "rgba(94,138,158,0.12)",
     strip: "bg-jarvis-muted/40",
   },
+  due: {
+    label: "ĐẾN HẠN",
+    color: "#ffb300",
+    bg: "rgba(255,179,0,0.12)",
+    strip: "bg-amber-500/70",
+  },
 };
 
 function formatCountdown(remindAt: string): string {
@@ -67,7 +73,8 @@ export default function ReminderCard({
   const cfg = STATUS_CONFIG[reminder.status];
   const isDone =
     reminder.status === "sent" || reminder.status === "cancelled" || reminder.status === "failed";
-  const canCancel = reminder.status === "pending" || reminder.status === "sending";
+  const canCancel =
+    reminder.status === "pending" || reminder.status === "sending" || reminder.status === "due";
 
   return (
     <div

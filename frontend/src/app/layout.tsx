@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Inter, Orbitron } from "next/font/google";
 import "./globals.css";
 import AuthGuard from "@/components/auth/AuthGuard";
+import { ReminderPolling } from "@/components/reminders/ReminderPolling";
 import QueryProvider from "@/providers/QueryProvider";
+import { Toaster } from "sonner";
 
 const orbitron = Orbitron({
   subsets: ["latin"],
@@ -30,6 +32,18 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       >
         <QueryProvider>
           <AuthGuard>{children}</AuthGuard>
+          <ReminderPolling />
+          <Toaster
+            position="bottom-right"
+            theme="dark"
+            toastOptions={{
+              style: {
+                background: "rgba(10,20,30,0.95)",
+                border: "1px solid rgba(0,180,216,0.3)",
+                color: "#e2e8f0",
+              },
+            }}
+          />
         </QueryProvider>
       </body>
     </html>

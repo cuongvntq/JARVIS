@@ -16,8 +16,11 @@ if _env_path.exists():
     os.environ.setdefault("ENV_FILE_PATH", str(_env_path))
 
 import uvicorn  # noqa: E402 — must come after ENV_FILE_PATH is set
+
 from app.config import get_settings  # noqa: E402
-from app.main import app as fastapi_app  # noqa: E402 — import object, not string (required for PyInstaller)
+from app.main import (  # noqa: E402
+    app as fastapi_app,
+)
 
 if __name__ == "__main__":
     settings = get_settings()

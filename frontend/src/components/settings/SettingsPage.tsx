@@ -1,12 +1,9 @@
 "use client";
 
-import { usePushNotification } from "@/hooks/usePushNotification";
 import { useUpdateProfile } from "@/hooks/useSettings";
 import { useAuthStore } from "@/stores/authStore";
 import {
   AlertCircle,
-  Bell,
-  BellOff,
   Bot,
   CheckCircle,
   Globe,
@@ -45,7 +42,6 @@ export default function SettingsPage() {
     isError,
     error,
   } = useUpdateProfile();
-  const push = usePushNotification();
 
   const [name, setName] = useState("");
   const [assistantName, setAssistantName] = useState("");
@@ -269,85 +265,6 @@ export default function SettingsPage() {
                 ))}
               </select>
             </div>
-          </section>
-
-          {/* Push Notifications section */}
-          <section className="space-y-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Bell size={13} style={{ color: "#00b4d8" }} />
-              <span
-                className="text-[10px] font-semibold tracking-[0.2em] uppercase"
-                style={{ fontFamily: "var(--font-orbitron)", color: "#5e8a9e" }}
-              >
-                Thông báo đẩy
-              </span>
-            </div>
-
-            <div
-              className="flex items-center justify-between rounded-lg px-4 py-3"
-              style={{
-                backgroundColor: "rgba(0,20,40,0.6)",
-                border: "1px solid rgba(0,180,216,0.15)",
-              }}
-            >
-              <div className="space-y-0.5">
-                <p className="text-xs" style={{ color: "#dff3fd" }}>
-                  Bật thông báo đẩy
-                </p>
-                <p className="text-[10px]" style={{ color: "rgba(94,138,158,0.7)" }}>
-                  {push.permission === "unsupported"
-                    ? "Trình duyệt không hỗ trợ"
-                    : push.permission === "denied"
-                      ? "Bị chặn — cho phép trong cài đặt trình duyệt"
-                      : push.isSubscribed
-                        ? "Đang bật — bạn sẽ nhận thông báo nhắc nhở"
-                        : "Tắt — nhắc nhở sẽ không gửi thông báo"}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={push.isSubscribed ? push.unsubscribe : push.subscribe}
-                disabled={
-                  push.isLoading ||
-                  push.permission === "unsupported" ||
-                  push.permission === "denied"
-                }
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold tracking-[0.1em] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                style={
-                  push.isSubscribed
-                    ? {
-                        backgroundColor: "rgba(255,68,68,0.12)",
-                        color: "#ff6666",
-                        border: "1px solid rgba(255,68,68,0.25)",
-                      }
-                    : {
-                        background:
-                          "linear-gradient(135deg, rgba(0,180,216,0.7), rgba(0,95,138,0.7))",
-                        color: "#dff3fd",
-                      }
-                }
-              >
-                {push.isLoading ? (
-                  <Loader2 size={11} className="animate-spin" />
-                ) : push.isSubscribed ? (
-                  <BellOff size={11} />
-                ) : (
-                  <Bell size={11} />
-                )}
-                {push.isLoading ? "..." : push.isSubscribed ? "TẮT" : "BẬT"}
-              </button>
-            </div>
-
-            {push.error && (
-              <div
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-[10px]"
-                style={{ backgroundColor: "rgba(255,68,68,0.08)", color: "#ff4444" }}
-              >
-                <AlertCircle size={11} />
-                {push.error}
-              </div>
-            )}
           </section>
 
           {/* Status messages */}

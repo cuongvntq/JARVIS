@@ -382,8 +382,8 @@ def _make_reminder(user_id, title: str, remind_at):
 
 
 @pytest.mark.asyncio
-async def test_claim_pending_due_transitions_status_to_sending(db_session, test_user):
-    """claim_pending_due() must atomically flip status pending→sending and return those rows."""
+async def test_claim_pending_due_transitions_status_to_due(db_session, test_user):
+    """claim_pending_due() must atomically flip status pending→due and return those rows."""
     from datetime import UTC, datetime, timedelta
 
     from app.repositories.reminder_repo import claim_pending_due
@@ -404,7 +404,7 @@ async def test_claim_pending_due_transitions_status_to_sending(db_session, test_
     # synchronize_session=False means the identity-map object is not updated in-memory;
     # refresh to verify the DB was actually written
     await db_session.refresh(claimed[0])
-    assert claimed[0].status == "sending"
+    assert claimed[0].status == "due"
 
     # The future reminder must remain pending
     await db_session.refresh(future)

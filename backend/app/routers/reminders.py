@@ -14,7 +14,7 @@ from app.services import reminder_service
 
 router = APIRouter()
 
-_VALID_STATUS = {"pending", "sending", "sent", "failed", "cancelled"}
+_VALID_STATUS = {"pending", "sending", "sent", "failed", "cancelled", "due"}
 
 
 @router.get("", response_model=ReminderListOut)
@@ -42,6 +42,24 @@ async def create_reminder(
     db: AsyncSession = Depends(get_db),
 ) -> ReminderOut:
     return await reminder_service.create_reminder(db, current_user.id, data)
+
+
+# Static routes must come BEFORE /{reminder_id} to avoid FastAPI matching "due" as a UUID
+@router.get("/due", response_model=list[ReminderOut])
+async def list_due_reminders(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[ReminderOut]:
+    return await reminder_service.list_due(db, current_user.id)
+
+
+@router.post("/{reminder_id}/ack", response_model=ReminderOut)
+async def ack_reminder(
+    reminder_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ReminderOut:
+    return await reminder_service.ack_reminder(db, reminder_id, current_user.id)
 
 
 @router.get("/{reminder_id}", response_model=ReminderOut)

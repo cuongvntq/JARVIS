@@ -90,6 +90,41 @@ async def cancel_reminder(
     return ReminderOut.model_validate(updated)
 
 
+async def cancel_reminder_cancellable(
+    db: AsyncSession, reminder_id: uuid.UUID, user_id: uuid.UUID
+) -> ReminderOut:
+    reminder = await reminder_repo.get_by_id(db, reminder_id, user_id)
+    if reminder is None:
+        raise JarvisError(404, "reminder_not_found", "Lời nhắc không tồn tại")
+    if reminder.status not in ("pending", "sending", "due"):
+        raise JarvisError(
+            409, "reminder_not_cancellable", "Chỉ có thể hủy reminder đang pending hoặc due"
+        )
+    await reminder_repo.update_fields(db, reminder_id, status="cancelled")
+    await db.commit()
+    updated = await reminder_repo.get_by_id(db, reminder_id, user_id)
+    return ReminderOut.model_validate(updated)
+
+
+async def list_due(db: AsyncSession, user_id: uuid.UUID) -> list[ReminderOut]:
+    """Return reminders with status='due' — frontend polls this to show toast notifications."""
+    rows = await reminder_repo.list_due(db, user_id)
+    return [ReminderOut.model_validate(r) for r in rows]
+
+
+async def ack_reminder(db: AsyncSession, reminder_id: uuid.UUID, user_id: uuid.UUID) -> ReminderOut:
+    """Mark a 'due' reminder as 'sent' (acknowledged by frontend after showing toast)."""
+    reminder = await reminder_repo.get_by_id(db, reminder_id, user_id)
+    if reminder is None:
+        raise JarvisError(404, "reminder_not_found", "Lời nhắc không tồn tại")
+    if reminder.status != "due":
+        raise JarvisError(409, "reminder_not_due", "Chỉ có thể ack reminder đang due")
+    await reminder_repo.update_fields(db, reminder_id, status="sent")
+    await db.commit()
+    updated = await reminder_repo.get_by_id(db, reminder_id, user_id)
+    return ReminderOut.model_validate(updated)
+
+
 async def delete_reminder(db: AsyncSession, reminder_id: uuid.UUID, user_id: uuid.UUID) -> None:
     reminder = await reminder_repo.get_by_id(db, reminder_id, user_id)
     if reminder is None:

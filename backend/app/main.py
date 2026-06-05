@@ -30,7 +30,6 @@ from app.routers import (
     health,
     memories,
     notes,
-    notifications,
     reminders,
     todos,
 )
@@ -126,7 +125,6 @@ app.include_router(notes.router, prefix="/v1/notes", tags=["notes"])
 app.include_router(memories.router, prefix="/v1/memories", tags=["memories"])
 app.include_router(reminders.router, prefix="/v1/reminders", tags=["reminders"])
 app.include_router(dashboard.router, prefix="/v1/dashboard", tags=["dashboard"])
-app.include_router(notifications.router, prefix="/v1/notifications", tags=["notifications"])
 
 
 @app.get("/")

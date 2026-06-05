@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from app.models.conversation import Conversation
     from app.models.memory import Memory
     from app.models.note import Note
-    from app.models.push_subscription import PushSubscription
     from app.models.reminder import Reminder
     from app.models.todo import Todo
 
@@ -62,9 +61,6 @@ class User(Base):
     )
     reminders: Mapped[list[Reminder]] = relationship(
         "Reminder", back_populates="user", cascade="all, delete-orphan"
-    )
-    push_subscription: Mapped[PushSubscription | None] = relationship(
-        "PushSubscription", back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
 
 

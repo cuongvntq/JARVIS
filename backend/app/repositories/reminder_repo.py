@@ -123,11 +123,7 @@ async def list_upcoming_for_dashboard(
 
 
 async def claim_pending_due(db: AsyncSession, before_utc: datetime) -> list[Reminder]:
-    """Atomically claim pending due reminders by setting status='sending'.
-
-    Single UPDATE...RETURNING statement prevents duplicate sends when multiple
-    scheduler instances run concurrently (each instance claims a disjoint set).
-    """
+    """Atomically set pending due reminders to 'due' via UPDATE...RETURNING."""
     stmt = (
         update(Reminder)
         .where(
@@ -135,9 +131,23 @@ async def claim_pending_due(db: AsyncSession, before_utc: datetime) -> list[Remi
             Reminder.remind_at <= before_utc,
             Reminder.deleted_at.is_(None),
         )
-        .values(status="sending", updated_at=datetime.now(UTC))
+        .values(status="due", updated_at=datetime.now(UTC))
         .returning(Reminder)
         .execution_options(synchronize_session=False)
     )
     result = await db.execute(stmt)
+    return list(result.scalars())
+
+
+async def list_due(db: AsyncSession, user_id: uuid.UUID) -> list[Reminder]:
+    """Return all reminders with status='due' for the user (frontend polls this)."""
+    result = await db.execute(
+        select(Reminder)
+        .where(
+            Reminder.user_id == user_id,
+            Reminder.status == "due",
+            Reminder.deleted_at.is_(None),
+        )
+        .order_by(Reminder.remind_at.asc())
+    )
     return list(result.scalars())

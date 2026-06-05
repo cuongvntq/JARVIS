@@ -56,14 +56,9 @@ class Settings(BaseSettings):
     google_client_secret: str | None = None
 
     # ---- Cookie ----
-    cookie_samesite: str = "lax"  # production cross-site (Vercel→Railway): set "none"
-    cookie_secure: bool = False  # production HTTPS: set True
+    cookie_samesite: str = "lax"
+    cookie_secure: bool = False
     cookie_domain: str | None = None
-
-    # ---- Web Push ----
-    vapid_public_key: str | None = None
-    vapid_private_key: str | None = None
-    vapid_subject: str = "mailto:admin@example.com"
 
     # ---- Redis (optional) ----
     upstash_redis_url: str = ""
