@@ -48,8 +48,6 @@ code .
 |---------|------|----------|-------------|
 | Google AI Studio | https://aistudio.google.com/apikey | Gemini API key (FREE 1500/ngày) | `GEMINI_API_KEY` |
 | OpenAI Platform | https://platform.openai.com | Fallback model + có $5 free credit | `OPENAI_API_KEY` |
-| Supabase | https://supabase.com | Postgres + pgvector (FREE 500MB) | `DATABASE_URL` |
-| Google Cloud Console | https://console.cloud.google.com | OAuth client (login Google) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
 
 ### Bước 3 — Tạo file `.env`
 
@@ -91,12 +89,11 @@ pnpm dev                         # Chạy dev server
 ## Cấu trúc môi trường
 
 ### `.env` (root, dùng chung)
-- `DATABASE_URL` — Supabase Postgres connection string
+- `DATABASE_URL` — local PostgreSQL connection string (xem `.env.example` để biết format)
 - `GEMINI_API_KEY` — Google AI Studio key
 - `OPENAI_API_KEY` — OpenAI key (fallback)
-- `ANTHROPIC_API_KEY` — (optional) Claude key cho fallback chain
 - `JWT_SECRET` — random string ≥ 32 ký tự
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — OAuth
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — Google OAuth (optional, chưa implement UI)
 
 ### `frontend/.env.local`
 - `NEXT_PUBLIC_API_URL` — URL Backend (mặc định `http://localhost:8000`)

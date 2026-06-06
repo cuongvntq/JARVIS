@@ -32,8 +32,8 @@ Write-Host "==> Building PyInstaller sidecar (via uv run)..."
 
 Push-Location $BackendDir
 try {
-    # uv run resolves the venv automatically — no hard-coded .venv path needed
-    uv run pyinstaller jarvis_server.spec --noconfirm
+    # --extra dev ensures pyinstaller (dev-only dep) is included in the resolved env
+    uv run --extra dev pyinstaller jarvis_server.spec --noconfirm
     if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed (exit $LASTEXITCODE)" }
 } finally {
     Pop-Location
