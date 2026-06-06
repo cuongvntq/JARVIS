@@ -204,19 +204,6 @@ Error codes: `reminder_not_found` (404)
 
 ---
 
-## Notifications (`/v1/notifications`) — Sprint 5
-
-### POST /v1/notifications/subscribe → 201
-```json
-{ "endpoint": "...", "p256dh": "...", "auth": "..." }
-```
-Upserts (1 active subscription per user — overwrites previous if exists).
-
-### POST /v1/notifications/unsubscribe → 204
-Deactivates current user's push subscription (sets is_active=false).
-
----
-
 ## Memories (`/v1/memories`) — Sprint 4
 
 ### GET /v1/memories

@@ -93,6 +93,53 @@ jobs:
           OPENAI_API_KEY: sk-fake
         run: alembic downgrade -1
 
+  desktop-build:
+    name: Desktop — PyInstaller sidecar + Tauri build (Windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust artifacts
+        uses: swatinem/rust-cache@v2
+        with:
+          workdir: frontend
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install backend dev deps (includes pyinstaller)
+        working-directory: backend
+        run: uv sync --extra dev
+
+      - name: Build PyInstaller sidecar
+        run: .\scripts\build-sidecar.ps1
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Tauri build
+        working-directory: frontend
+        run: pnpm tauri build
+
   frontend-check:
     name: Frontend — lint + typecheck
     runs-on: ubuntu-latest

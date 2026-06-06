@@ -16,7 +16,6 @@ import {
   type NoteListOut,
   type NoteOut,
   type NoteUpdate,
-  type PushSubscribeRequest,
   type ReminderCreate,
   type ReminderListOut,
   type ReminderOut,
@@ -342,23 +341,18 @@ class ApiClient {
     return this.request(`/v1/reminders/${id}`, { method: "DELETE" });
   }
 
+  async getDueReminders(): Promise<ReminderOut[]> {
+    return this.request("/v1/reminders/due");
+  }
+
+  async ackReminder(id: string): Promise<ReminderOut> {
+    return this.request(`/v1/reminders/${id}/ack`, { method: "POST" });
+  }
+
   // ── Dashboard ──────────────────────────────────────────────────────────────
 
   async getDashboardToday(): Promise<DashboardOut> {
     return this.request("/v1/dashboard/today");
-  }
-
-  // ── Push Notifications ──────────────────────────────────────────────────────
-
-  async subscribePush(data: PushSubscribeRequest): Promise<void> {
-    return this.request("/v1/notifications/subscribe", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async unsubscribePush(): Promise<void> {
-    return this.request("/v1/notifications/unsubscribe", { method: "POST" });
   }
 }
 

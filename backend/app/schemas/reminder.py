@@ -64,4 +64,4 @@ class ReminderListOut(BaseModel):
     next_cursor: str | None
 
 
-ReminderStatus = Literal["pending", "sending", "sent", "failed", "cancelled"]
+ReminderStatus = Literal["pending", "sending", "sent", "failed", "cancelled", "due"]

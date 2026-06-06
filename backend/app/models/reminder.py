@@ -33,6 +33,7 @@ class Reminder(Base):
             "sent",
             "failed",
             "cancelled",
+            "due",
             name="reminder_status",
             create_type=False,
         ),

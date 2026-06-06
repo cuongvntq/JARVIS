@@ -356,7 +356,7 @@ async def execute_list_reminders(
 ) -> ToolResult:
     # Distinguish missing key (→ default "pending") from explicit None (→ all statuses)
     status = params["status"] if "status" in params else "pending"  # noqa: SIM401
-    _valid_statuses = {"pending", "sending", "sent", "failed", "cancelled"}
+    _valid_statuses = {"pending", "sending", "sent", "failed", "cancelled", "due"}
     if status is not None and status not in _valid_statuses:
         return _err(
             "invalid_status",

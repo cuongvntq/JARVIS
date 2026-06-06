@@ -3,7 +3,7 @@
 > Sprint history (what each PR built): `memory/project-sprint-status.md` *(external Claude memory, không nằm trong repo)*
 > This file covers: current state, design decisions chốt.
 
-**As of:** 2026-06-03 | **Branch:** `main` (Sprint 6 merged) | **Tests:** 211 collected backend (+ Playwright E2E)
+**As of:** 2026-06-06 | **Branch:** `main` (Sprint 6 merged) | **Tests:** 211 collected backend (+ Playwright E2E)
 
 ---
 
@@ -11,7 +11,12 @@
 
 - Sprint 0–6: MERGED vào main ✅
   - Sprint 6: QA + Polish + Beta Deploy (PR #27, 2026-06-03, 211 backend tests + E2E)
-- **MVP 1 hoàn tất** — tiếp theo là post-MVP 1 features hoặc beta deploy
+- **MVP 1 hoàn tất**
+- **Tauri desktop migration đang thực hiện** — Phase 3/4 xong, Phase 4 (notification) là tiếp theo
+  - Phase 1 ✅ DB local (PostgreSQL 18 + pgvector)
+  - Phase 2 ✅ Tauri setup (Rust + WebView2 + tauri-plugin-shell)
+  - Phase 3 ✅ PyInstaller sidecar + CORS fix + login hoạt động trong release build
+  - Phase 4 ⬜ Reminders overhaul (xóa web push → in-app polling) + final MSI
 
 ---
 
@@ -88,6 +93,32 @@
 
 ---
 
+## Tauri Desktop Migration — Design Decisions
+
+| Decision | Why |
+|---|---|
+| Tauri v2 + WebView2 dùng origin `http://tauri.localhost` (không phải `tauri://localhost`) | WebView2 trên Windows set origin này; docs Tauri ghi sai. CORS phải include `http://tauri.localhost` |
+| `#[cfg(not(debug_assertions))]` guard cho sidecar spawn | Trong dev mode (`pnpm tauri dev`) backend chạy riêng bên ngoài — không spawn sidecar |
+| tiktoken cần `collect_all("tiktoken")` + `hiddenimports: ["tiktoken_ext", "tiktoken_ext.openai_public"]` | `collect_all("litellm")` không tự kéo tiktoken BPE data; thiếu → `ValueError: Unknown encoding cl100k_base` |
+| `.env` phải copy thủ công vào `target/release/.env` sau mỗi build | Tauri không bundle `.env` (gitignored); không thể automate vì file chứa secret |
+| PyInstaller `console=False` trong onefile | Không hiện terminal window khi user chạy app; log qua structlog JSON vào file nếu cần |
+| Sidecar kill trong `on_window_event(Destroyed)` | Nếu kill trong `CloseRequested`, window có thể bị cancel close; `Destroyed` là event chắc chắn window đã đóng |
+
+---
+
+## Phase 4 — Tiếp theo (reminders overhaul)
+
+Xem chi tiết trong [`docs/migration-desktop-app.md`](../migration-desktop-app.md#phase-4--notification--build-installer).
+
+Tóm tắt việc cần làm:
+1. Migration: `ALTER TYPE reminder_status ADD VALUE 'due'`
+2. Backend: `GET /due` + `POST /{id}/ack` routes, scheduler set `due` thay vì gọi push
+3. Xóa: `push_service.py`, `push_subscription_repo.py`, `notifications.py`, `push_subscriptions` table
+4. Frontend: `useReminderPolling` hook poll 60s + toast + ack; xóa `usePushNotification.ts`, `sw.js`
+5. Build final `.msi` + test cài đặt
+
+---
+
 ## Post-MVP 1 Backlog
 
 | Feature | Lý do defer |
@@ -95,5 +126,6 @@
 | Google OAuth | Scope reduction Sprint 1 |
 | Idempotency-Key header | Không cần MVP1 |
 | Per-device push subscription | 1 sub/user đủ MVP1 |
-| Beta deploy (Railway + Vercel) | Cần set prod env vars + domain |
-| Sentry DSN thật trên prod | Cần tạo Sentry project, set `SENTRY_DSN` env |
+| Native OS notification khi app minimize | Dùng `@tauri-apps/plugin-notification`; cùng API `/due`+`/ack` |
+| Loading state khi sidecar start (~25s) | UX: hiện spinner thay vì login form khi backend chưa ready |
+| Beta deploy (Railway + Vercel) | Bỏ — đã chuyển sang desktop app |

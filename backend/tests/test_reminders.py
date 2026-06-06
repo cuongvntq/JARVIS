@@ -372,6 +372,174 @@ async def test_executor_list_reminders_missing_status_defaults_pending(db_sessio
     assert all(r["status"] == "pending" for r in items)
 
 
+# ── GET /v1/reminders/due ─────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_list_due_reminders_empty_when_none(async_client, auth_headers):
+    resp = await async_client.get("/v1/reminders/due", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_list_due_reminders_returns_only_due_status(async_client, auth_headers, db_session):
+    """Only reminders with status='due' are returned; pending ones are excluded."""
+    import uuid as _uuid
+    from datetime import UTC, datetime, timedelta
+
+    from app.models.reminder import Reminder
+
+    me_resp = await async_client.get("/auth/me", headers=auth_headers)
+    user_id = _uuid.UUID(me_resp.json()["id"])
+
+    now = datetime.now(UTC)
+    due_r = Reminder(
+        user_id=user_id,
+        title="Due reminder",
+        remind_at=now - timedelta(minutes=1),
+        status="due",
+    )
+    pending_r = Reminder(
+        user_id=user_id,
+        title="Still pending",
+        remind_at=now + timedelta(hours=1),
+        status="pending",
+    )
+    db_session.add(due_r)
+    db_session.add(pending_r)
+    await db_session.commit()
+
+    resp = await async_client.get("/v1/reminders/due", headers=auth_headers)
+    assert resp.status_code == 200
+    items = resp.json()
+    assert len(items) >= 1
+    assert all(r["status"] == "due" for r in items)
+    titles = [r["title"] for r in items]
+    assert "Due reminder" in titles
+    assert "Still pending" not in titles
+
+
+@pytest.mark.asyncio
+async def test_list_due_reminders_ownership_isolation(async_client, auth_headers, db_session):
+    """GET /due returns only the requesting user's due reminders."""
+    import uuid as _uuid
+    from datetime import UTC, datetime, timedelta
+
+    from app.models.reminder import Reminder
+
+    user_b_data = {"email": "due_other@jarvis.dev", "password": "Test1234!", "name": "User B"}
+    reg = await async_client.post("/auth/register", json=user_b_data)
+    token_b = reg.json()["access_token"]
+    me_b = await async_client.get("/auth/me", headers={"Authorization": f"Bearer {token_b}"})
+    user_b_id = _uuid.UUID(me_b.json()["id"])
+
+    now = datetime.now(UTC)
+    other_due = Reminder(
+        user_id=user_b_id,
+        title="Other user due",
+        remind_at=now - timedelta(minutes=1),
+        status="due",
+    )
+    db_session.add(other_due)
+    await db_session.commit()
+
+    resp = await async_client.get("/v1/reminders/due", headers=auth_headers)
+    assert resp.status_code == 200
+    titles = [r["title"] for r in resp.json()]
+    assert "Other user due" not in titles
+
+
+@pytest.mark.asyncio
+async def test_list_due_reminders_unauthenticated(async_client):
+    resp = await async_client.get("/v1/reminders/due")
+    assert resp.status_code == 401
+
+
+# ── POST /v1/reminders/{id}/ack ───────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_ack_reminder_happy_path(async_client, auth_headers, db_session):
+    """Acking a 'due' reminder transitions it to 'sent'."""
+    import uuid as _uuid
+    from datetime import UTC, datetime, timedelta
+
+    from app.models.reminder import Reminder
+
+    me_resp = await async_client.get("/auth/me", headers=auth_headers)
+    user_id = _uuid.UUID(me_resp.json()["id"])
+
+    now = datetime.now(UTC)
+    due_r = Reminder(
+        user_id=user_id,
+        title="Ack me",
+        remind_at=now - timedelta(minutes=1),
+        status="due",
+    )
+    db_session.add(due_r)
+    await db_session.commit()
+    await db_session.refresh(due_r)
+
+    resp = await async_client.post(f"/v1/reminders/{due_r.id}/ack", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "sent"
+
+
+@pytest.mark.asyncio
+async def test_ack_reminder_returns_409_for_non_due(async_client, auth_headers):
+    """Acking a pending reminder (not yet due) must return 409."""
+    create_resp = await _create_reminder(async_client, auth_headers, "Still pending")
+    reminder_id = create_resp.json()["id"]
+
+    resp = await async_client.post(f"/v1/reminders/{reminder_id}/ack", headers=auth_headers)
+    assert resp.status_code == 409
+    assert resp.json()["error"]["code"] == "reminder_not_due"
+
+
+@pytest.mark.asyncio
+async def test_ack_reminder_not_found(async_client, auth_headers):
+    resp = await async_client.post(f"/v1/reminders/{uuid.uuid4()}/ack", headers=auth_headers)
+    assert resp.status_code == 404
+    assert resp.json()["error"]["code"] == "reminder_not_found"
+
+
+@pytest.mark.asyncio
+async def test_ack_reminder_ownership_isolation(async_client, auth_headers, db_session):
+    """User B cannot ack User A's reminder."""
+    import uuid as _uuid
+    from datetime import UTC, datetime, timedelta
+
+    from app.models.reminder import Reminder
+
+    me_resp = await async_client.get("/auth/me", headers=auth_headers)
+    user_a_id = _uuid.UUID(me_resp.json()["id"])
+
+    now = datetime.now(UTC)
+    due_r = Reminder(
+        user_id=user_a_id,
+        title="User A due",
+        remind_at=now - timedelta(minutes=1),
+        status="due",
+    )
+    db_session.add(due_r)
+    await db_session.commit()
+    await db_session.refresh(due_r)
+
+    user_b_data = {"email": "ack_other@jarvis.dev", "password": "Test1234!", "name": "User B"}
+    reg = await async_client.post("/auth/register", json=user_b_data)
+    headers_b = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+
+    resp = await async_client.post(f"/v1/reminders/{due_r.id}/ack", headers=headers_b)
+    assert resp.status_code == 404  # treated as not found, not 403
+
+
+@pytest.mark.asyncio
+async def test_ack_reminder_unauthenticated(async_client):
+    resp = await async_client.post(f"/v1/reminders/{uuid.uuid4()}/ack")
+    assert resp.status_code == 401
+
+
 # ── Repository: claim_pending_due ─────────────────────────────────────────────
 
 
@@ -382,8 +550,8 @@ def _make_reminder(user_id, title: str, remind_at):
 
 
 @pytest.mark.asyncio
-async def test_claim_pending_due_transitions_status_to_sending(db_session, test_user):
-    """claim_pending_due() must atomically flip status pending→sending and return those rows."""
+async def test_claim_pending_due_transitions_status_to_due(db_session, test_user):
+    """claim_pending_due() must atomically flip status pending→due and return those rows."""
     from datetime import UTC, datetime, timedelta
 
     from app.repositories.reminder_repo import claim_pending_due
@@ -404,7 +572,7 @@ async def test_claim_pending_due_transitions_status_to_sending(db_session, test_
     # synchronize_session=False means the identity-map object is not updated in-memory;
     # refresh to verify the DB was actually written
     await db_session.refresh(claimed[0])
-    assert claimed[0].status == "sending"
+    assert claimed[0].status == "due"
 
     # The future reminder must remain pending
     await db_session.refresh(future)

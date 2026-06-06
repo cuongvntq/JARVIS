@@ -334,22 +334,23 @@ Tóm tắt tự nhiên do AI sinh (cache 1h).
 
 ---
 
-## 10. NOTIFICATIONS API
+## 10. REMINDER POLLING ENDPOINTS (Phase 4 — replaces Web Push)
 
-### `GET /notifications`
+### `GET /v1/reminders/due`
+Returns reminders with `status=due` for the current user (scheduler has already transitioned them from `pending`).
+
+**Response 200** — plain array (no pagination wrapper):
+```json
+[ReminderOut, ...]
 ```
-?status=pending|delivered|read|dismissed&limit=20&cursor=...
-```
 
-### `PATCH /notifications/{id}/read` — set status=read. **200**.
+### `POST /v1/reminders/{id}/ack`
+Frontend calls this after displaying the in-app toast. Transitions status `due → sent`.
 
-### `PATCH /notifications/mark-all-read` — bulk. **200** `{ "updated": 12 }`.
-
-### `DELETE /notifications/{id}` — dismiss. **204**.
-
-### Web Push Subscription
-- `POST /notifications/push/subscribe` body `{ "endpoint": "...", "keys": {...} }`.
-- `DELETE /notifications/push/subscribe`.
+- **200** `ReminderOut` with `status="sent"` on success
+- **409** `{ "error": { "code": "reminder_not_due", ... } }` if reminder is not in `due` status
+- **404** `{ "error": { "code": "reminder_not_found", ... } }` if not found or belongs to another user
+- **401** if unauthenticated
 
 ---
 

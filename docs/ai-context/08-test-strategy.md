@@ -169,7 +169,7 @@ _orch = OrchestratorResult(
 - PATCH /cancel → status=cancelled
 - DELETE soft delete
 - **Sprint 5 tool executors:** execute_create_reminder, execute_list_reminders (Vietnamese datetime, past time → error)
-- **Unit:** claim_pending_due — transitions status to sending, ignores non-pending/deleted
+- **Unit:** claim_pending_due — transitions status to `due`, ignores non-pending/deleted
 
 ### `tests/test_dashboard.py` (5 collected) — Sprint 5
 - GET /dashboard/today authenticated
@@ -178,11 +178,16 @@ _orch = OrchestratorResult(
 - memories_count active only
 - unauthenticated → 401
 
-### `tests/test_notifications.py` (6 collected) — Sprint 5
-- POST /notifications/subscribe upserts (returns 201 on new + re-subscribe)
-- POST /notifications/unsubscribe deactivates subscription
-- Unsubscribe without subscription → 404
-- Unauthenticated → 401 for both endpoints
+### `tests/test_reminders.py` — due/ack endpoints (Phase 4, added 9 tests)
+- GET /v1/reminders/due → 200 `[]` when no due reminders
+- GET /v1/reminders/due → 200 array containing only `status=due` items (pending excluded)
+- GET /v1/reminders/due ownership isolation — user B's due reminders not returned to user A
+- GET /v1/reminders/due unauthenticated → 401
+- POST /v1/reminders/{id}/ack happy path → 200 `ReminderOut` with `status="sent"`
+- POST /v1/reminders/{id}/ack non-due reminder → 409 `reminder_not_due`
+- POST /v1/reminders/{id}/ack not found → 404 `reminder_not_found`
+- POST /v1/reminders/{id}/ack ownership isolation → 404 (not 403)
+- POST /v1/reminders/{id}/ack unauthenticated → 401
 
 ### `tests/test_rate_limit.py` (3 collected) — Sprint 5
 - 429 response has correct format `{ "error": { "code": "rate_limit_exceeded", ... } }`
@@ -347,7 +352,7 @@ backend/tests/eval/
 
 - Frontend vitest unit tests (components, hooks)
 - RAG end-to-end on real Postgres (SQLite tests mock semantic_search → `[]`) — manual test only
-- Actual push delivery end-to-end (pywebpush call mocked in tests) — manual with VAPID keys
+- In-app reminder polling end-to-end (scheduler marks due, frontend polls /due, acks /ack) — manual only; scheduler job runs every 60s, cannot simulate in SQLite unit tests
 - Token refresh race condition
 - LLM actual API calls (all mocked in tests)
 - Alembic migration smoke test runs in CI (GitHub Actions `backend-migration-smoke` job with pgvector/pg16)

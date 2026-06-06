@@ -192,7 +192,7 @@ export interface MemorySearchOut {
 
 // ── Reminder ─────────────────────────────────────────────────────────────────
 
-export type ReminderStatus = "pending" | "sending" | "sent" | "failed" | "cancelled";
+export type ReminderStatus = "pending" | "sending" | "sent" | "failed" | "cancelled" | "due";
 
 export interface ReminderOut {
   id: string;
@@ -238,14 +238,6 @@ export interface DashboardOut {
   reminders_upcoming: ReminderOut[];
   memories_count: number;
   as_of: string;
-}
-
-// ── Push Notification ─────────────────────────────────────────────────────────
-
-export interface PushSubscribeRequest {
-  endpoint: string;
-  p256dh: string;
-  auth: string;
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────

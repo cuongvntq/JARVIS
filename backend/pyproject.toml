@@ -40,9 +40,6 @@ dependencies = [
     # Scheduler
     "apscheduler>=3.11.0",
 
-    # Web Push
-    "pywebpush>=2.0.3",
-
     # Logging
     "structlog>=24.4.0",
 
@@ -65,6 +62,7 @@ dev = [
     "mypy>=1.13.0",
     "httpx>=0.28.0",
     "aiosqlite>=0.20.0",
+    "pyinstaller>=6.0.0",
 ]
 
 [build-system]

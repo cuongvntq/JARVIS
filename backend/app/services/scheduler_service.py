@@ -11,7 +11,7 @@ async def check_reminders() -> None:
     """
     Scheduler job: runs every 60s.
     Step A — recovery: reset stuck 'sending' reminders (updated_at > 5 min ago) -> 'failed'
-    Step B — claim pending due reminders -> send push -> mark sent/failed
+    Step B — bulk set pending due reminders -> 'due' (frontend polls GET /due to show toast)
     """
     from datetime import UTC, datetime, timedelta
 
@@ -19,13 +19,12 @@ async def check_reminders() -> None:
 
     from app.database import AsyncSessionLocal
     from app.models.reminder import Reminder
-    from app.repositories import push_subscription_repo, reminder_repo
-    from app.services import push_service
+    from app.repositories import reminder_repo
 
     async with AsyncSessionLocal() as db:
         now = datetime.now(UTC)
 
-        # Step A: recovery — reset stuck sending reminders
+        # Step A: recovery — reset stuck sending reminders (legacy from web push flow)
         stuck_cutoff = now - timedelta(minutes=5)
         result = await db.execute(
             select(Reminder).where(
@@ -41,44 +40,12 @@ async def check_reminders() -> None:
         if stuck:
             await db.commit()
 
-        # Step B: atomically claim pending due reminders via UPDATE...RETURNING
+        # Step B: atomically claim pending due reminders -> set status to 'due'
         due = await reminder_repo.claim_pending_due(db, before_utc=now)
-        await db.commit()
-        if not due:
-            return
-
-        # Send push for each claimed reminder
-        for r in due:
-            try:
-                sub = await push_subscription_repo.get_active_by_user_id(db, r.user_id)
-                if sub is None:
-                    log.info(
-                        "scheduler.no_subscription",
-                        reminder_id=str(r.id),
-                        user_id=str(r.user_id),
-                    )
-                    await reminder_repo.update_fields(db, r.id, status="failed")
-                    continue
-
-                success = await push_service.send_push(
-                    endpoint=sub.endpoint,
-                    p256dh=sub.p256dh,
-                    auth=sub.auth,
-                    title=r.title,
-                    body=r.description or "",
-                )
-                new_status = "sent" if success else "failed"
-                await reminder_repo.update_fields(db, r.id, status=new_status)
-                log.info(
-                    "scheduler.reminder_processed",
-                    reminder_id=str(r.id),
-                    status=new_status,
-                )
-            except Exception:
-                log.exception("scheduler.reminder_error", reminder_id=str(r.id))
-                await reminder_repo.update_fields(db, r.id, status="failed")
-
-        await db.commit()
+        if due:
+            await db.commit()
+            for r in due:
+                log.info("scheduler.reminder_due", reminder_id=str(r.id), user_id=str(r.user_id))
 
 
 def start_scheduler() -> None:

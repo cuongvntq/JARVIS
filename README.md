@@ -48,8 +48,6 @@ code .
 |---------|------|----------|-------------|
 | Google AI Studio | https://aistudio.google.com/apikey | Gemini API key (FREE 1500/ngày) | `GEMINI_API_KEY` |
 | OpenAI Platform | https://platform.openai.com | Fallback model + có $5 free credit | `OPENAI_API_KEY` |
-| Supabase | https://supabase.com | Postgres + pgvector (FREE 500MB) | `DATABASE_URL` |
-| Google Cloud Console | https://console.cloud.google.com | OAuth client (login Google) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
 
 ### Bước 3 — Tạo file `.env`
 
@@ -60,17 +58,7 @@ Copy-Item .env.example .env
 notepad .env
 ```
 
-### Bước 4 — Sinh VAPID keys cho Web Push
-
-```powershell
-# Cài tool 1 lần
-npm install -g web-push
-# Generate
-web-push generate-vapid-keys
-# Copy 2 key (public + private) vào .env
-```
-
-### Bước 5 — Setup Backend
+### Bước 4 — Setup Backend
 
 ```powershell
 cd backend
@@ -84,7 +72,7 @@ uvicorn app.main:app --reload    # Chạy dev server
 → Backend chạy tại http://localhost:8000
 → OpenAPI docs tự sinh tại http://localhost:8000/docs
 
-### Bước 6 — Setup Frontend
+### Bước 5 — Setup Frontend
 
 Mở terminal mới:
 
@@ -101,17 +89,14 @@ pnpm dev                         # Chạy dev server
 ## Cấu trúc môi trường
 
 ### `.env` (root, dùng chung)
-- `DATABASE_URL` — Supabase Postgres connection string
+- `DATABASE_URL` — local PostgreSQL connection string (xem `.env.example` để biết format)
 - `GEMINI_API_KEY` — Google AI Studio key
 - `OPENAI_API_KEY` — OpenAI key (fallback)
-- `ANTHROPIC_API_KEY` — (optional) Claude key cho fallback chain
 - `JWT_SECRET` — random string ≥ 32 ký tự
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — OAuth
-- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` — Web Push
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — Google OAuth (optional, chưa implement UI)
 
 ### `frontend/.env.local`
 - `NEXT_PUBLIC_API_URL` — URL Backend (mặc định `http://localhost:8000`)
-- `NEXT_PUBLIC_VAPID_PUBLIC_KEY` — copy từ root `.env`
 
 ---
 
@@ -175,7 +160,7 @@ alembic upgrade head
 - **Sprint 2:** Tool router + 3 todo tool + LLM fallback chain.
 - **Sprint 3:** Todo UI + Note module.
 - **Sprint 4:** Memory + RAG.
-- **Sprint 5:** Reminder + Dashboard + Web Push.
+- **Sprint 5:** Reminder + Dashboard + In-app notification polling.
 - **Sprint 6:** QA, polish, deploy beta.
 
 ---
