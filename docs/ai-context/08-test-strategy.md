@@ -169,7 +169,7 @@ _orch = OrchestratorResult(
 - PATCH /cancel → status=cancelled
 - DELETE soft delete
 - **Sprint 5 tool executors:** execute_create_reminder, execute_list_reminders (Vietnamese datetime, past time → error)
-- **Unit:** claim_pending_due — transitions status to sending, ignores non-pending/deleted
+- **Unit:** claim_pending_due — transitions status to `due`, ignores non-pending/deleted
 
 ### `tests/test_dashboard.py` (5 collected) — Sprint 5
 - GET /dashboard/today authenticated
@@ -179,14 +179,15 @@ _orch = OrchestratorResult(
 - unauthenticated → 401
 
 ### `tests/test_reminders.py` — due/ack endpoints (Phase 4, added 9 tests)
-- GET /v1/reminders/due returns only `status=due` reminders for current user
-- GET /v1/reminders/due returns empty list when no due reminders
-- GET /v1/reminders/due ownership isolation (user B cannot see user A's due reminders)
+- GET /v1/reminders/due → 200 `[]` when no due reminders
+- GET /v1/reminders/due → 200 array containing only `status=due` items (pending excluded)
+- GET /v1/reminders/due ownership isolation — user B's due reminders not returned to user A
 - GET /v1/reminders/due unauthenticated → 401
-- POST /v1/reminders/{id}/ack happy path → 204, status transitions to `sent`
-- POST /v1/reminders/{id}/ack when status is not `due` → 409
-- POST /v1/reminders/{id}/ack not found → 404
-- POST /v1/reminders/{id}/ack ownership isolation → 404
+- POST /v1/reminders/{id}/ack happy path → 200 `ReminderOut` with `status="sent"`
+- POST /v1/reminders/{id}/ack non-due reminder → 409 `reminder_not_due`
+- POST /v1/reminders/{id}/ack not found → 404 `reminder_not_found`
+- POST /v1/reminders/{id}/ack ownership isolation → 404 (not 403)
+- POST /v1/reminders/{id}/ack unauthenticated → 401
 
 ### `tests/test_rate_limit.py` (3 collected) — Sprint 5
 - 429 response has correct format `{ "error": { "code": "rate_limit_exceeded", ... } }`
