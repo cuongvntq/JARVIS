@@ -33,7 +33,7 @@ backend/
 │   │                           # Sprint 5: + lifespan (APScheduler start/stop) + SlowAPI state + rate_limit exception handler
 │   ├── config.py               # Settings (pydantic-settings), get_settings() lru_cache
 │   │                           # Sprint 4: + embedding_model, embedding_dim
-│   │                           # Sprint 5: + vapid_public_key, vapid_private_key, vapid_subject
+│   │                           # Sprint 5: + backend_port; Phase 4: removed vapid_* fields
 │   ├── database.py             # SQLAlchemy engine, AsyncSessionLocal, Base, get_db()
 │   │
 │   ├── core/
@@ -45,13 +45,12 @@ backend/
 │   │   └── rate_limit.py       # SlowAPI limiter setup, in-memory store; Sprint 5 (S5-5)
 │   │
 │   ├── models/                 # SQLAlchemy ORM models (table definitions)
-│   │   ├── user.py             # User, AuthSession; +notes relationship; Sprint 4: +memories relationship; Sprint 5: +reminders, +push_subscriptions relationships
+│   │   ├── user.py             # User, AuthSession; +notes relationship; Sprint 4: +memories relationship; Sprint 5: +reminders relationship
 │   │   ├── conversation.py     # Conversation, Message; Sprint 4 stretch: +summary column
 │   │   ├── todo.py             # Todo
 │   │   ├── note.py             # Note
 │   │   ├── memory.py           # Memory — embedding=sa.JSON (SQLite compat)
 │   │   ├── reminder.py         # Reminder — status ENUM (pending|sending|sent|failed|cancelled); Sprint 5
-│   │   ├── push_subscription.py # PushSubscription — endpoint/p256dh/auth/is_active (1 per user); Sprint 5
 │   │   └── tool_log.py         # ToolExecutionLog, LLMCallLog
 │   │
 │   ├── schemas/                # Pydantic request/response schemas
@@ -72,8 +71,7 @@ backend/
 │   │   ├── todos.py            # /v1/todos CRUD
 │   │   ├── notes.py            # /v1/notes CRUD + pin/unpin
 │   │   ├── memories.py         # /v1/memories CRUD + /search
-│   │   ├── reminders.py        # /v1/reminders CRUD + /cancel; Sprint 5
-│   │   ├── notifications.py    # /v1/notifications/subscribe, /unsubscribe; Sprint 5
+│   │   ├── reminders.py        # /v1/reminders CRUD + /cancel + /due + /{id}/ack; Sprint 5; Phase 4: +due/ack
 │   │   ├── dashboard.py        # /v1/dashboard/today; Sprint 5
 │   │   └── health.py           # /health, /health/ready
 │   │
@@ -88,8 +86,7 @@ backend/
 │   │   ├── memory_service.py   # create (+async embed task), create_committed (tool path), search_semantic, get, list, update, forget
 │   │   ├── reminder_service.py # create (validate remind_at future), get, list, update, cancel, delete; Sprint 5
 │   │   ├── scheduler_service.py # APScheduler (max_instances=1, coalesce=True), check_reminders() job 60s; Sprint 5
-│   │   │                        # 2-step: A) reset stuck-sending (>5min) → failed; B) claim pending → send push → update status
-│   │   ├── push_service.py     # pywebpush wrapper: send_push(endpoint, p256dh, auth, payload); Sprint 5
+│   │   │                        # Phase 4: marks pending→due (no push), frontend polls /due + acks /ack
 │   │   └── dashboard_service.py # get_today_dashboard(db, user_id, user_tz) → DashboardOut; Sprint 5
 │   │
 │   ├── repositories/           # DB queries (SQLAlchemy 2.0, no business logic)
@@ -103,7 +100,6 @@ backend/
 │   │   │                       # soft_delete, _build_semantic_search_stmt(), semantic_search (SQLite→[])
 │   │   ├── reminder_repo.py    # get_by_id, list_reminders, create, update_fields, cancel, soft_delete,
 │   │   │                       # get_pending_due(before_utc), claim_pending_due() — atomic UPDATE...RETURNING; Sprint 5
-│   │   ├── push_subscription_repo.py # upsert_subscription (1 per user), get_active_by_user_id, deactivate; Sprint 5
 │   │   ├── tool_log_repo.py    # log_execution()
 │   │   └── llm_call_log_repo.py # log_call() + _calc_cost()
 │   │
@@ -135,7 +131,7 @@ backend/
 │       ├── 003_sprint2_todos_tool_logs.py  # todos, tool_execution_logs, llm_call_logs + ENUMs
 │       ├── 004_sprint3_notes.py            # notes table
 │       ├── 005_sprint4_memories.py         # memories + ENUM memory_type + HNSW index
-│       ├── 006_sprint5_reminders.py        # reminders + push_subscriptions + ENUM reminder_status; Sprint 5
+│       ├── 006_sprint5_reminders.py        # reminders + ENUM reminder_status (pending|due|sent|failed|cancelled); Sprint 5
 │       └── 007_add_summary_to_conversations.py # ADD COLUMN summary TEXT to conversations; Sprint 6
 │
 └── tests/
@@ -151,9 +147,8 @@ backend/
     ├── test_todos.py           # Todo CRUD + filter + ownership (26 collected)
     ├── test_notes.py           # Note CRUD + pin/unpin + search + ownership (19 tests)
     ├── test_memories.py        # Memory CRUD + search + ownership + query structure (22 tests)
-    ├── test_reminders.py       # Reminder CRUD + cancel + ownership + tool executors (30 collected); Sprint 5
+    ├── test_reminders.py       # Reminder CRUD + cancel + due/ack endpoints + ownership (214 lines); Sprint 5; Phase 4: +9 tests
     ├── test_dashboard.py       # Dashboard today summary tests (5 collected); Sprint 5
-    ├── test_notifications.py   # Push subscribe/unsubscribe tests (6 collected); Sprint 5
     ├── test_rate_limit.py      # SlowAPI 429 response format (3 collected); Sprint 5
     ├── test_orchestrator.py    # Orchestrator + router + fallback chain + memory tools (28 collected)
     ├── test_tool_executors.py  # Tool executor unit tests: todo/note/memory/summary (17 collected)
@@ -161,8 +156,8 @@ backend/
     └── test_health.py          # Health endpoint tests (2 collected)
 ```
 
-**Total: 211 tests collected** (`pytest --collect-only`; some functions expand via `@pytest.mark.parametrize`)
-Per-file breakdown: auth=23, chat=18, todos=26, notes=19, memories=22, reminders=30, dashboard=5, notifications=6, rate_limit=3, orchestrator=28, tool_executors=17, datetime_parser=12, health=2
+**Total: ~214 tests collected** (`pytest --collect-only`; some functions expand via `@pytest.mark.parametrize`)
+Per-file breakdown: auth=23, chat=18, todos=26, notes=19, memories=22, reminders=~39, dashboard=5, rate_limit=3, orchestrator=28, tool_executors=17, datetime_parser=12, health=2
 
 ---
 
@@ -226,8 +221,7 @@ frontend/src/
 │   │   ├── ReminderCard.tsx    # Status badge, countdown to remind_at, cancel/delete actions
 │   │   └── CreateReminderDialog.tsx # Modal dialog: title + datetime input + submit
 │   ├── settings/
-│   │   └── SettingsPage.tsx    # Form: name, assistant_name, timezone select (11 IANA), locale select (vi-VN/en-US);
-│   │                           # Sprint 5: + push notification toggle (calls usePushNotification)
+│   │   └── SettingsPage.tsx    # Form: name, assistant_name, timezone select (11 IANA), locale select (vi-VN/en-US)
 │   ├── todos/
 │   │   ├── TodoPage.tsx        # Section root; filter tabs; empty state
 │   │   ├── TodoCard.tsx        # Status checkbox, title, due_at, priority badge, delete
@@ -245,7 +239,7 @@ frontend/src/
 │   ├── useDashboard.ts         # useQuery GET /v1/dashboard/today, refetchInterval 5min; Sprint 5
 │   ├── useMemories.ts          # useInfiniteQuery (cursor), useCreateMemory, useUpdateMemory, useDeleteMemory
 │   ├── useNotes.ts             # useInfiniteQuery (cursor), useCreateNote, useUpdateNote, usePinNote, useDeleteNote
-│   ├── usePushNotification.ts  # register SW → PushManager.subscribe(vapidKey) → POST /v1/notifications/subscribe; Sprint 5
+│   ├── useReminderPolling.ts   # polls GET /v1/reminders/due (30s), shows toast, POSTs /ack; Phase 4
 │   ├── useReminders.ts         # useInfiniteQuery (cursor), useCreateReminder, useCancelReminder, useDeleteReminder; Sprint 5
 │   ├── useSettings.ts          # useMutation → PATCH /auth/me + setAuth to update authStore
 │   └── useTodos.ts             # useInfiniteQuery (cursor), useCreateTodo, useCompleteTodo, useDeleteTodo
@@ -256,8 +250,7 @@ frontend/src/
 │   ├── queryClient.ts          # Tanstack QueryClient singleton
 │   ├── utils.ts                # Utility helpers (cn() classname merge)
 │   └── types/api.ts            # TypeScript types: all API response/request types including Sprint 5
-│                               # (ReminderOut, ReminderCreate, ReminderUpdate, ReminderListOut,
-│                               #  DashboardOut, PushSubscribeRequest, SSEEvent)
+│                               # (ReminderOut, ReminderCreate, ReminderUpdate, ReminderListOut, DashboardOut, SSEEvent)
 │
 ├── providers/
 │   └── QueryProvider.tsx       # QueryClientProvider wrapper
@@ -266,7 +259,7 @@ frontend/src/
     └── authStore.ts            # Zustand: { user, accessToken, setAuth, clearAuth }
 ```
 
-**Sprint 5 frontend additions:** `public/sw.js` (Service Worker — handles `push` event → `showNotification`)
+**Phase 4 frontend additions:** `hooks/useReminderPolling.ts` (replaces Web Push — polls `/due` every 30s, shows toast, acks)
 
 **Sprint 6 frontend additions:**
 - `src/instrumentation.ts` — Sentry server/edge init hook
@@ -294,13 +287,15 @@ frontend/e2e/
 
 | File | Purpose |
 |---|---|
-| `backend/pyproject.toml` | Python deps (+ slowapi, pywebpush S5; + redis, sentry-sdk S6), ruff config, mypy strict, pytest config |
+| `backend/pyproject.toml` | Python deps (+ slowapi S5; + redis, sentry-sdk S6; + pyinstaller Phase 4 dev), ruff config, mypy strict, pytest config |
 | `backend/alembic.ini` | Alembic migration settings |
+| `backend/jarvis_server.py` | PyInstaller entry point; resolves .env: %APPDATA%\JARVIS\.env → next to exe |
+| `backend/jarvis_server.spec` | PyInstaller build spec — collect_all(litellm+tiktoken), dynamic path resolution |
+| `scripts/build-sidecar.ps1` | Build PyInstaller exe + stage to `frontend/src-tauri/binaries/` with correct triple |
 | `frontend/package.json` | Node deps; `check` script dùng `biome check .` (no --write, CI-safe) |
 | `frontend/next.config.ts` | `typedRoutes: true`; `withSentryConfig` + `deleteSourcemapsAfterUpload: true` |
 | `frontend/biome.json` | Biome lint/format; ignore: `.next, node_modules, test-results, playwright-report` |
 | `frontend/playwright.config.ts` | E2E config: globalSetup, 2 webServers, retries=1 CI |
-| `frontend/public/sw.js` | Service Worker for Web Push; Sprint 5 |
-| `.env.example` | All env var templates (+ SENTRY_DSN, UPSTASH_REDIS_URL Sprint 6) |
+| `.env.example` | Env var template: local Postgres + LLM keys + JWT + Google OAuth; no VAPID (removed Phase 4) |
 | `.gitignore` | Excludes .env, .venv, node_modules, __pycache__, test-results/, playwright-report/ |
-| `.github/workflows/ci.yml` | GitHub Actions: backend-test (SQLite) + migration-smoke (pgvector/pg16) + frontend-check |
+| `.github/workflows/ci.yml` | GitHub Actions: backend-test + migration-smoke + frontend-check + desktop-build (Windows/Tauri) |

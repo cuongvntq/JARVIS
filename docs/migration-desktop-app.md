@@ -229,8 +229,11 @@ Tauri v2 yêu cầu `tauri-plugin-shell` để dùng sidecar — không thể d�
   >     extra="ignore",
   > )
   > ```
-  > **Phase đầu (dev):** đặt `.env` cạnh `jarvis-server.exe` là đủ — exe chạy từ thư mục dev nên writable.
-  > **Lưu ý cho production MSI:** install dir thường là `C:\Program Files\JARVIS\` — không writable bởi user thường. Phase sau nên chuyển sang `%APPDATA%\JARVIS\.env` (dùng `os.path.expandvars("%APPDATA%/JARVIS/.env")` làm fallback thứ hai).
+  > **Env lookup order (implemented):**
+  > 1. `%APPDATA%\JARVIS\.env` — user config dir, writable even when installed to `C:\Program Files\JARVIS\`
+  > 2. `.env` cạnh exe — dev hoặc portable mode
+  >
+  > Với installed MSI: copy `.env` vào `%APPDATA%\JARVIS\.env` một lần sau khi cài đặt. File này tồn tại qua upgrade (Tauri MSI không xóa AppData khi update).
 
 - [ ] Tạo `backend/jarvis_server.spec` (KHÔNG dùng `--onefile` đơn giản):
   ```python
@@ -600,9 +603,15 @@ Dùng `#[cfg(not(debug_assertions))]` guard — sidecar không spawn khi `pnpm t
 
 Onefile exe extract ra temp dir trước khi chạy — mất ~20-25 giây lần đầu. Frontend không nên hiện login form ngay, cần loading state. **(UX todo cho Phase 4)**
 
-### .env phải copy thủ công sau mỗi build
+### .env phải tạo thủ công sau khi cài MSI
+
+Tauri không bundle `.env` (gitignored). Sau khi cài MSI, copy `.env` vào thư mục user config:
 
 ```powershell
-Copy-Item .env frontend\src-tauri\target\release\.env
+# Tạo thư mục nếu chưa có
+New-Item -ItemType Directory -Force "$env:APPDATA\JARVIS"
+# Copy .env từ repo vào user config dir
+Copy-Item .env "$env:APPDATA\JARVIS\.env"
 ```
-Tauri không tự bundle `.env` (gitignored). Phải copy sau mỗi `pnpm tauri build`.
+
+Sidecar sẽ tự tìm `%APPDATA%\JARVIS\.env` trước khi tìm cạnh exe. File này không bị xóa khi upgrade MSI.

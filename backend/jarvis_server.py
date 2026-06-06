@@ -7,13 +7,20 @@ import os
 import sys
 from pathlib import Path
 
-# When running as a PyInstaller exe, sys.executable points to the .exe file.
-# config.py uses env_file="../.env" which only works when running from backend/.
-# Override with ENV_FILE_PATH so Settings() finds the correct .env.
+# Resolve .env for packaged app. Priority:
+# 1. %APPDATA%\JARVIS\.env — user config dir, writable even when installed to Program Files
+# 2. .env next to executable — dev or portable mode
 _exe_dir = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).parent
-_env_path = _exe_dir / ".env"
-if _env_path.exists():
-    os.environ.setdefault("ENV_FILE_PATH", str(_env_path))
+_env_candidates: list[Path] = []
+_appdata = os.environ.get("APPDATA")
+if _appdata:
+    _env_candidates.append(Path(_appdata) / "JARVIS" / ".env")
+_env_candidates.append(_exe_dir / ".env")
+
+for _candidate in _env_candidates:
+    if _candidate.exists():
+        os.environ.setdefault("ENV_FILE_PATH", str(_candidate))
+        break
 
 import uvicorn  # noqa: E402 — must come after ENV_FILE_PATH is set
 
