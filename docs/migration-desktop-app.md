@@ -221,7 +221,7 @@ Tauri v2 yêu cầu `tauri-plugin-shell` để dùng sidecar — không thể d�
   > **Cần sửa `config.py`** để nhận `ENV_FILE_PATH` override:
   > ```python
   > import os  # thêm import này ở đầu file nếu chưa có
-  > 
+  >
   > model_config = SettingsConfigDict(
   >     env_file=os.environ.get("ENV_FILE_PATH", "../.env"),
   >     env_file_encoding="utf-8",
@@ -270,7 +270,7 @@ Tauri v2 yêu cầu `tauri-plugin-shell` để dùng sidecar — không thể d�
   ```
 
 - [ ] Build: `pyinstaller jarvis_server.spec`
-  
+
 - [ ] **Test exe độc lập TRƯỚC khi tích hợp Tauri** (rủi ro cao nhất):
   ```powershell
   dist\jarvis-server.exe
@@ -376,7 +376,7 @@ Bỏ trạng thái `sending` (chỉ cần cho web push async). Giữ `failed` ch
   def upgrade():
       op.execute("ALTER TYPE reminder_status ADD VALUE IF NOT EXISTS 'due'")
       # Không cần downgrade: Postgres không cho DROP enum value
-  
+
   def downgrade():
       pass  # intentionally no-op — Postgres không support DROP ENUM VALUE
   ```
