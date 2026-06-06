@@ -175,7 +175,7 @@ frontend/src-tauri/
 │   └── lib.rs                  # Sidecar spawn (#[cfg(not(debug_assertions))]) + kill on Destroyed
 │                               # BackendProcess(Mutex<Option<CommandChild>>) managed state
 ├── capabilities/
-│   └── default.json            # shell:allow-execute, shell:allow-spawn (cần cho Rust sidecar.spawn)
+│   └── default.json            # core:default only — sidecar spawn là Rust-side, không cần JS shell permission
 ├── binaries/
 │   └── jarvis-server-x86_64-pc-windows-msvc.exe  # PyInstaller onefile (~106MB, NOT committed to git)
 ├── icons/                      # App icons (32x32, 128x128, icns, ico)
@@ -184,7 +184,7 @@ frontend/src-tauri/
 └── tauri.conf.json             # productName=JARVIS, externalBin=binaries/jarvis-server, security.csp=null
 ```
 
-> **Quan trọng:** `binaries/*.exe` (~106MB) KHÔNG commit vào git — phải copy thủ công từ `backend/dist/` sau mỗi PyInstaller build.
+> **Quan trọng:** `binaries/*.exe` (~106MB) KHÔNG commit vào git. Trước khi `tauri build`: chạy `cd backend && uv sync --extra dev` rồi `.\scripts\build-sidecar.ps1` từ repo root (tự build + copy đúng tên target triple).
 
 ---
 

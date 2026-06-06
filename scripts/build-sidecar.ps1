@@ -3,15 +3,21 @@
 # Run from repo root:
 #   .\scripts\build-sidecar.ps1
 #
-# This script must be run before `tauri build` on a fresh clone because
+# Prerequisites (fresh clone):
+#   cd backend
+#   uv sync --extra dev   # installs pyinstaller + all dev deps
+#   cd ..
+#   .\scripts\build-sidecar.ps1
+#
+# This script must be run before `tauri build` because
 # frontend/src-tauri/binaries/*.exe is git-ignored (106 MB binary).
-# CI should run this step before the Tauri build step.
+# CI should run `uv sync --extra dev` then this script before the Tauri build step.
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$RepoRoot   = $PSScriptRoot | Split-Path -Parent
-$BackendDir = Join-Path $RepoRoot "backend"
+$RepoRoot    = $PSScriptRoot | Split-Path -Parent
+$BackendDir  = Join-Path $RepoRoot "backend"
 $BinariesDir = Join-Path $RepoRoot "frontend" "src-tauri" "binaries"
 
 # Detect the Rust target triple so the binary is named correctly for Tauri
@@ -22,11 +28,12 @@ if (-not $TargetTriple) {
 }
 
 Write-Host "==> Target triple: $TargetTriple"
-Write-Host "==> Building PyInstaller sidecar..."
+Write-Host "==> Building PyInstaller sidecar (via uv run)..."
 
 Push-Location $BackendDir
 try {
-    & ".venv\Scripts\python.exe" -m PyInstaller jarvis_server.spec --noconfirm
+    # uv run resolves the venv automatically — no hard-coded .venv path needed
+    uv run pyinstaller jarvis_server.spec --noconfirm
     if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed (exit $LASTEXITCODE)" }
 } finally {
     Pop-Location
