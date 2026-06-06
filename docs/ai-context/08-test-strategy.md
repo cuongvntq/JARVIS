@@ -178,11 +178,15 @@ _orch = OrchestratorResult(
 - memories_count active only
 - unauthenticated → 401
 
-### `tests/test_notifications.py` (6 collected) — Sprint 5
-- POST /notifications/subscribe upserts (returns 201 on new + re-subscribe)
-- POST /notifications/unsubscribe deactivates subscription
-- Unsubscribe without subscription → 404
-- Unauthenticated → 401 for both endpoints
+### `tests/test_reminders.py` — due/ack endpoints (Phase 4, added 9 tests)
+- GET /v1/reminders/due returns only `status=due` reminders for current user
+- GET /v1/reminders/due returns empty list when no due reminders
+- GET /v1/reminders/due ownership isolation (user B cannot see user A's due reminders)
+- GET /v1/reminders/due unauthenticated → 401
+- POST /v1/reminders/{id}/ack happy path → 204, status transitions to `sent`
+- POST /v1/reminders/{id}/ack when status is not `due` → 409
+- POST /v1/reminders/{id}/ack not found → 404
+- POST /v1/reminders/{id}/ack ownership isolation → 404
 
 ### `tests/test_rate_limit.py` (3 collected) — Sprint 5
 - 429 response has correct format `{ "error": { "code": "rate_limit_exceeded", ... } }`
@@ -347,7 +351,7 @@ backend/tests/eval/
 
 - Frontend vitest unit tests (components, hooks)
 - RAG end-to-end on real Postgres (SQLite tests mock semantic_search → `[]`) — manual test only
-- Actual push delivery end-to-end (pywebpush call mocked in tests) — manual with VAPID keys
+- In-app reminder polling end-to-end (scheduler marks due, frontend polls /due, acks /ack) — manual only; scheduler job runs every 60s, cannot simulate in SQLite unit tests
 - Token refresh race condition
 - LLM actual API calls (all mocked in tests)
 - Alembic migration smoke test runs in CI (GitHub Actions `backend-migration-smoke` job with pgvector/pg16)

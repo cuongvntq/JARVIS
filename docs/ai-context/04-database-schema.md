@@ -14,7 +14,8 @@
 | 003 | `003_sprint2_todos_tool_logs.py` | todos, tool_execution_logs, llm_call_logs + ENUMs todo_status, todo_priority, tool_status | Applied |
 | 004 | `004_sprint3_notes.py` | notes | Applied |
 | 005 | `005_sprint4_memories.py` | memories + ENUM memory_type + HNSW index | Applied (Sprint 4 done) |
-| 006 | `006_sprint5_reminders.py` | reminders + push_subscriptions + ENUM reminder_status | Applied (Sprint 5 done) |
+| 006 | `006_sprint5_reminders.py` | reminders + ENUM reminder_status (pending\|sending\|sent\|failed\|cancelled) | Applied (Sprint 5 done) |
+| 008 | `008_desktop_reminders.py` | ADD `due` to reminder_status ENUM; DROP TABLE push_subscriptions | Applied (Phase 4) |
 
 **Not yet created:** conversations.summary (deferred Sprint 6)
 
@@ -28,7 +29,7 @@ todo_status:      pending | in_progress | completed | cancelled
 todo_priority:    low | medium | high | urgent
 tool_status:      success | failed | timeout
 memory_type:      fact | preference | rule | relation | goal | other
-reminder_status:  pending | sending | sent | failed | cancelled   (Sprint 5)
+reminder_status:  pending | sending | sent | failed | cancelled | due   (Sprint 5; +due Phase 4)
 ```
 
 ---
@@ -45,7 +46,6 @@ reminder_status:  pending | sending | sent | failed | cancelled   (Sprint 5)
 | notes | YES (`deleted_at`) | |
 | memories | YES (`deleted_at` + `is_active`) | also has `is_active` flag for RAG filter |
 | reminders | YES (`deleted_at`) | Sprint 5 |
-| push_subscriptions | NO | `is_active=false` to deactivate (not deleted) |
 | tool_execution_logs | NO | |
 | llm_call_logs | NO | |
 
@@ -63,7 +63,6 @@ reminder_status:  pending | sending | sent | failed | cancelled   (Sprint 5)
 | `Note` | `models/note.py` | → user |
 | `Memory` | `models/memory.py` | → user |
 | `Reminder` | `models/reminder.py` | → user; Sprint 5 |
-| `PushSubscription` | `models/push_subscription.py` | → user (UNIQUE per user); Sprint 5 |
 | `ToolExecutionLog` | `models/tool_log.py` | → user |
 | `LLMCallLog` | `models/tool_log.py` | → user |
 
