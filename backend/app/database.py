@@ -21,6 +21,10 @@ if not _is_sqlite:
             "pool_pre_ping": True,
             "pool_size": 10,
             "max_overflow": 20,
+            # Required for asyncpg + PgBouncer/Supabase transaction pooler:
+            # prepared statement cache must be disabled to avoid
+            # "prepared statement already exists" errors across connections.
+            "connect_args": {"statement_cache_size": 0},
         }
     )
 
