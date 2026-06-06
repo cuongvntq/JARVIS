@@ -393,12 +393,12 @@ TOOLS: list[dict[str, Any]] = [
                 "properties": {
                     "status": {
                         "type": ["string", "null"],
-                        "enum": ["pending", "sent", "cancelled", "failed", None],
+                        "enum": ["pending", "due", "sent", "cancelled", "failed", None],
                         "default": "pending",
                         "description": (
                             "Lọc theo trạng thái. "
-                            "pending=chưa gửi (mặc định), sent=đã gửi, "
-                            "cancelled=đã hủy, null=tất cả."
+                            "pending=chưa gửi (mặc định), due=đã đến hạn chờ ack, "
+                            "sent=đã gửi, cancelled=đã hủy, null=tất cả."
                         ),
                     },
                     "limit": {

@@ -1,8 +1,11 @@
 # Migration Plan: Web App → Tauri Desktop App
 
-**Ngày tạo:** 2026-06-04  
-**Cập nhật:** 2026-06-04 (review pass 4 + self-review + review pass 5)  
-**Trạng thái:** FINAL — sẵn sàng implement  
+**Ngày tạo:** 2026-06-04
+
+**Cập nhật:** 2026-06-06 (Phase 4 complete)
+
+**Trạng thái:** DONE — tất cả 4 phase đã hoàn thành
+
 **Lý do:** Giảm chi phí hosting, chạy offline trên máy cá nhân
 
 ---
@@ -39,7 +42,8 @@ Phần lớn domain code giữ nguyên — chỉ thay đổi ở lớp infrastru
 
 ## Phase 1 — Đổi DB sang local PostgreSQL
 
-**Thời gian ước tính:** 30 phút  
+**Thời gian ước tính:** 30 phút
+
 **Rủi ro:** Thấp
 
 ### Việc cần làm
@@ -85,7 +89,8 @@ Phần lớn domain code giữ nguyên — chỉ thay đổi ở lớp infrastru
 
 ## Phase 2 — Setup Tauri
 
-**Thời gian ước tính:** 2–3 giờ  
+**Thời gian ước tính:** 2–3 giờ
+
 **Rủi ro:** Trung bình (cần cài Rust lần đầu)
 
 ### Prerequisites
@@ -156,7 +161,8 @@ Phần lớn domain code giữ nguyên — chỉ thay đổi ở lớp infrastru
 
 ## Phase 3 — FastAPI sidecar (PyInstaller + Tauri shell plugin)
 
-**Thời gian ước tính:** 2–3 giờ  
+**Thời gian ước tính:** 2–3 giờ
+
 **Rủi ro:** Trung bình-cao (PyInstaller + hidden imports phức tạp)
 
 ### 3.0 — Setup Tauri shell plugin (bắt buộc cho sidecar)
@@ -223,7 +229,7 @@ Tauri v2 yêu cầu `tauri-plugin-shell` để dùng sidecar — không thể d�
   >     extra="ignore",
   > )
   > ```
-  > **Phase đầu (dev):** đặt `.env` cạnh `jarvis-server.exe` là đủ — exe chạy từ thư mục dev nên writable.  
+  > **Phase đầu (dev):** đặt `.env` cạnh `jarvis-server.exe` là đủ — exe chạy từ thư mục dev nên writable.
   > **Lưu ý cho production MSI:** install dir thường là `C:\Program Files\JARVIS\` — không writable bởi user thường. Phase sau nên chuyển sang `%APPDATA%\JARVIS\.env` (dùng `os.path.expandvars("%APPDATA%/JARVIS/.env")` làm fallback thứ hai).
 
 - [ ] Tạo `backend/jarvis_server.spec` (KHÔNG dùng `--onefile` đơn giản):
@@ -332,7 +338,8 @@ Tauri v2 yêu cầu `tauri-plugin-shell` để dùng sidecar — không thể d�
 
 ## Phase 4 — Notification + Build installer
 
-**Thời gian ước tính:** 1–2 giờ  
+**Thời gian ước tính:** 1–2 giờ
+
 **Rủi ro:** Thấp-Trung bình
 
 ### 4.1 — Thay Web Push bằng in-app notification (Phase đầu)
@@ -486,7 +493,7 @@ Frontend:
 
 - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
 
-> **Backlog — Native OS notification (phase sau):**  
+> **Backlog — Native OS notification (phase sau):**
 > Dùng Tauri plugin `@tauri-apps/plugin-notification`. Scheduler và `/due` + `/ack` API giữ nguyên, chỉ thêm Tauri notification call trước khi gọi `/ack`. App có thể show OS notification kể cả khi window bị minimize.
 
 ### 4.2 — Build installer
