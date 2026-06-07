@@ -9,7 +9,9 @@
       "build",
       "public",
       "test-results",
-      "playwright-report"
+      "playwright-report",
+      "src-tauri/target",
+      "src-tauri/gen"
     ]
   },
   "formatter": {
