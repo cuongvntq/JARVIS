@@ -99,6 +99,15 @@ class ApiClient {
     return this.request("/auth/login", { method: "POST", body: JSON.stringify(data) });
   }
 
+  async health(): Promise<boolean> {
+    try {
+      const res = await fetch(`${BASE_URL}/health`);
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   async silentRefresh(): Promise<boolean> {
     try {
       // Browser sends the httponly refresh_token cookie automatically via credentials: "include"
