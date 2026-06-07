@@ -3,7 +3,7 @@
 > Sprint history (what each PR built): `memory/project-sprint-status.md` *(external Claude memory, không nằm trong repo)*
 > This file covers: current state, design decisions chốt.
 
-**As of:** 2026-06-06 | **Branch:** `main` (Sprint 6 merged) | **Tests:** 211 collected backend (+ Playwright E2E)
+**As of:** 2026-06-07 | **Branch:** `main` (PR #34 merged) | **Tests:** 211+ collected backend (+ Playwright E2E)
 
 ---
 
@@ -12,11 +12,11 @@
 - Sprint 0–6: MERGED vào main ✅
   - Sprint 6: QA + Polish + Beta Deploy (PR #27, 2026-06-03, 211 backend tests + E2E)
 - **MVP 1 hoàn tất**
-- **Tauri desktop migration đang thực hiện** — Phase 3/4 xong, Phase 4 (notification) là tiếp theo
+- **Tauri Desktop Migration: Phase 1-4 hoàn tất 100%** (PR #34, squash merged 2026-06-07, commit `066c011`)
   - Phase 1 ✅ DB local (PostgreSQL 18 + pgvector)
   - Phase 2 ✅ Tauri setup (Rust + WebView2 + tauri-plugin-shell)
   - Phase 3 ✅ PyInstaller sidecar + CORS fix + login hoạt động trong release build
-  - Phase 4 ⬜ Reminders overhaul (xóa web push → in-app polling) + final MSI
+  - Phase 4 ✅ Reminders overhaul (in-app polling) + build `.msi` cuối + test cài đặt clean-install PASS (2026-06-07)
 
 ---
 
@@ -103,19 +103,25 @@
 | `.env` phải copy thủ công vào `target/release/.env` sau mỗi build | Tauri không bundle `.env` (gitignored); không thể automate vì file chứa secret |
 | PyInstaller `console=False` trong onefile | Không hiện terminal window khi user chạy app; log qua structlog JSON vào file nếu cần |
 | Sidecar kill trong `on_window_event(Destroyed)` | Nếu kill trong `CloseRequested`, window có thể bị cancel close; `Destroyed` là event chắc chắn window đã đóng |
+| Uninstall không xóa `HKCU\Software\jarvis\JARVIS` | WiX/MSI lưu `InstallDir` ở key này và tái dùng khi cài lại — gỡ uninstall entry "sạch" chưa đủ để có clean-install thật; phải xóa thêm registry key này trước khi test cài lại từ đầu |
 
 ---
 
-## Phase 4 — Tiếp theo (reminders overhaul)
+## Phase 4 — DONE ✅ (merged trong PR #34, 2026-06-07)
 
 Xem chi tiết trong [`docs/migration-desktop-app.md`](../migration-desktop-app.md#phase-4--notification--build-installer).
 
-Tóm tắt việc cần làm:
-1. Migration: `ALTER TYPE reminder_status ADD VALUE 'due'`
-2. Backend: `GET /due` + `POST /{id}/ack` routes, scheduler set `due` thay vì gọi push
-3. Xóa: `push_service.py`, `push_subscription_repo.py`, `notifications.py`, `push_subscriptions` table
-4. Frontend: `useReminderPolling` hook poll 60s + toast + ack; xóa `usePushNotification.ts`, `sw.js`
-5. Build final `.msi` + test cài đặt
+Đã hoàn thành:
+1. ✅ Migration 008: `ALTER TYPE reminder_status ADD VALUE 'due'` + drop `push_subscriptions`
+2. ✅ Backend: `GET /v1/reminders/due` + `POST /v1/reminders/{id}/ack` routes, scheduler set `due` thay vì gọi push
+3. ✅ Xóa: `push_service.py`, `push_subscription_repo.py`, `notifications.py`, `push_subscriptions` table
+4. ✅ Frontend: `useReminderPolling` hook poll 30s + toast + ack; xóa `usePushNotification.ts`, `sw.js`
+
+5. ✅ Build final `.msi` (2026-06-07, `JARVIS_1.0.0_x64_en-US.msi` ~110MB, chứa Phase 4 code) — bản cũ Jun 6 00:24 thiếu reminders overhaul, đã bị ghi đè
+6. ✅ Test cài đặt thực tế trên máy sạch (2026-06-07) — PASS cả 3 điểm: `%APPDATA%\JARVIS\.env` resolution, sidecar startup (~20-25s cold start), in-app reminder polling (`/due` + `/ack`, toast 30s)
+   - Lưu ý: uninstall không xóa `HKCU\Software\jarvis\JARVIS` (WiX nhớ `InstallDir`) — phải xóa key này thủ công để có clean-install thật; lần test đầu (chưa xóa key) không tính
+
+**→ Phase 4 hoàn tất 100%. Tauri Desktop Migration (Phase 1-4) DONE.**
 
 ---
 
