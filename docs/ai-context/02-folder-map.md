@@ -239,7 +239,7 @@ frontend/src/
 │   ├── useDashboard.ts         # useQuery GET /v1/dashboard/today, refetchInterval 5min; Sprint 5
 │   ├── useMemories.ts          # useInfiniteQuery (cursor), useCreateMemory, useUpdateMemory, useDeleteMemory
 │   ├── useNotes.ts             # useInfiniteQuery (cursor), useCreateNote, useUpdateNote, usePinNote, useDeleteNote
-│   ├── useReminderPolling.ts   # polls GET /v1/reminders/due (30s), shows toast, POSTs /ack; Phase 4
+│   ├── useReminderPolling.ts   # polls GET /v1/reminders/due (60s), shows toast (manual dismiss → ack), POSTs /ack; Phase 4
 │   ├── useReminders.ts         # useInfiniteQuery (cursor), useCreateReminder, useCancelReminder, useDeleteReminder; Sprint 5
 │   ├── useSettings.ts          # useMutation → PATCH /auth/me + setAuth to update authStore
 │   └── useTodos.ts             # useInfiniteQuery (cursor), useCreateTodo, useCompleteTodo, useDeleteTodo
@@ -259,7 +259,7 @@ frontend/src/
     └── authStore.ts            # Zustand: { user, accessToken, setAuth, clearAuth }
 ```
 
-**Phase 4 frontend additions:** `hooks/useReminderPolling.ts` (replaces Web Push — polls `/due` every 30s, shows toast, acks)
+**Phase 4 frontend additions:** `hooks/useReminderPolling.ts` (replaces Web Push — polls `/due` every 60s, shows toast with infinite duration, acks on manual dismiss)
 
 **Sprint 6 frontend additions:**
 - `src/instrumentation.ts` — Sentry server/edge init hook

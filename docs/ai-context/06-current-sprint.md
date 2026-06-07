@@ -115,10 +115,11 @@ Xem chi tiết trong [`docs/migration-desktop-app.md`](../migration-desktop-app.
 1. ✅ Migration 008: `ALTER TYPE reminder_status ADD VALUE 'due'` + drop `push_subscriptions`
 2. ✅ Backend: `GET /v1/reminders/due` + `POST /v1/reminders/{id}/ack` routes, scheduler set `due` thay vì gọi push
 3. ✅ Xóa: `push_service.py`, `push_subscription_repo.py`, `notifications.py`, `push_subscriptions` table
-4. ✅ Frontend: `useReminderPolling` hook poll 30s + toast + ack; xóa `usePushNotification.ts`, `sw.js`
+4. ✅ Frontend: `useReminderPolling` hook poll 60s + toast (infinite duration, ack khi user dismiss) + ack; xóa `usePushNotification.ts`, `sw.js`
 
 5. ✅ Build final `.msi` (2026-06-07, `JARVIS_1.0.0_x64_en-US.msi` ~110MB, chứa Phase 4 code) — bản cũ Jun 6 00:24 thiếu reminders overhaul, đã bị ghi đè
-6. ✅ Test cài đặt thực tế trên máy sạch (2026-06-07) — PASS cả 3 điểm: `%APPDATA%\JARVIS\.env` resolution, sidecar startup (~20-25s cold start), in-app reminder polling (`/due` + `/ack`, toast 30s)
+6. ✅ Test cài đặt thực tế trên máy sạch (2026-06-07) — PASS cả 3 điểm: `%APPDATA%\JARVIS\.env` resolution, sidecar startup (~20-25s cold start), backend `/due` + `/ack` endpoints hoạt động đúng
+   - Lưu ý: chỉ xác nhận backend endpoints; chưa xác nhận trực quan toast hiển thị trong WebView (toast dùng `duration: Infinity`, ack khi user dismiss thủ công — không phải auto-close 30s)
    - Lưu ý: uninstall không xóa `HKCU\Software\jarvis\JARVIS` (WiX nhớ `InstallDir`) — phải xóa key này thủ công để có clean-install thật; lần test đầu (chưa xóa key) không tính
 
 **→ Phase 4 hoàn tất 100%. Tauri Desktop Migration (Phase 1-4) DONE.**
