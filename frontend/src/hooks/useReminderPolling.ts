@@ -1,9 +1,28 @@
 "use client";
 
 import { api } from "@/lib/api";
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
+
+async function notifyOs(title: string, body?: string) {
+  try {
+    let granted = await isPermissionGranted();
+    if (!granted) {
+      granted = (await requestPermission()) === "granted";
+    }
+    if (granted) {
+      sendNotification({ title, body });
+    }
+  } catch {
+    // Notification plugin unavailable (e.g. browser dev mode) — ignore
+  }
+}
 
 export function useReminderPolling() {
   const queryClient = useQueryClient();
@@ -24,6 +43,8 @@ export function useReminderPolling() {
     for (const r of dueReminders) {
       if (pendingAckIds.current.has(r.id)) continue;
       pendingAckIds.current.add(r.id);
+
+      notifyOs(r.title, r.description ?? undefined);
 
       toast(r.title, {
         description: r.description ?? undefined,
