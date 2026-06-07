@@ -104,6 +104,7 @@
 | PyInstaller `console=False` trong onefile | Không hiện terminal window khi user chạy app; log qua structlog JSON vào file nếu cần |
 | Sidecar kill trong `on_window_event(Destroyed)` | Nếu kill trong `CloseRequested`, window có thể bị cancel close; `Destroyed` là event chắc chắn window đã đóng |
 | Uninstall không xóa `HKCU\Software\jarvis\JARVIS` | WiX/MSI lưu `InstallDir` ở key này và tái dùng khi cài lại — gỡ uninstall entry "sạch" chưa đủ để có clean-install thật; phải xóa thêm registry key này trước khi test cài lại từ đầu |
+| `tauri-plugin-notification` gọi song song với in-app toast (không thay thế) | OS notification hiện kể cả khi window minimize; giữ toast để có nút dismiss/ack trong app — đơn giản hơn track `isFocused()` để chọn 1 trong 2 |
 
 ---
 
@@ -133,6 +134,4 @@ Xem chi tiết trong [`docs/migration-desktop-app.md`](../migration-desktop-app.
 | Google OAuth | Scope reduction Sprint 1 |
 | Idempotency-Key header | Không cần MVP1 |
 | Per-device push subscription | 1 sub/user đủ MVP1 |
-| Native OS notification khi app minimize | Dùng `@tauri-apps/plugin-notification`; cùng API `/due`+`/ack` |
-| Loading state khi sidecar start (~25s) | UX: hiện spinner thay vì login form khi backend chưa ready |
 | Beta deploy (Railway + Vercel) | Bỏ — đã chuyển sang desktop app |

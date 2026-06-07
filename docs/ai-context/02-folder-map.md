@@ -239,7 +239,7 @@ frontend/src/
 │   ├── useDashboard.ts         # useQuery GET /v1/dashboard/today, refetchInterval 5min; Sprint 5
 │   ├── useMemories.ts          # useInfiniteQuery (cursor), useCreateMemory, useUpdateMemory, useDeleteMemory
 │   ├── useNotes.ts             # useInfiniteQuery (cursor), useCreateNote, useUpdateNote, usePinNote, useDeleteNote
-│   ├── useReminderPolling.ts   # polls GET /v1/reminders/due (60s), shows toast (manual dismiss → ack), POSTs /ack; Phase 4
+│   ├── useReminderPolling.ts   # polls GET /v1/reminders/due (60s), shows toast + native OS notification (manual dismiss → ack), POSTs /ack; Phase 4
 │   ├── useReminders.ts         # useInfiniteQuery (cursor), useCreateReminder, useCancelReminder, useDeleteReminder; Sprint 5
 │   ├── useSettings.ts          # useMutation → PATCH /auth/me + setAuth to update authStore
 │   └── useTodos.ts             # useInfiniteQuery (cursor), useCreateTodo, useCompleteTodo, useDeleteTodo

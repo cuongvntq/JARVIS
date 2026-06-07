@@ -496,8 +496,8 @@ Frontend:
 
 - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
 
-> **Backlog — Native OS notification (phase sau):**
-> Dùng Tauri plugin `@tauri-apps/plugin-notification`. Scheduler và `/due` + `/ack` API giữ nguyên, chỉ thêm Tauri notification call trước khi gọi `/ack`. App có thể show OS notification kể cả khi window bị minimize.
+> **Native OS notification — DONE:**
+> Đã thêm `@tauri-apps/plugin-notification` (+ `tauri-plugin-notification` Rust crate, `notification:default` capability). `useReminderPolling.ts` gọi `sendNotification()` song song với in-app toast mỗi khi reminder due — request permission qua `isPermissionGranted()`/`requestPermission()`. OS notification hiện kể cả khi window bị minimize; toast vẫn giữ để user dismiss → trigger `/ack`.
 
 ### 4.2 — Build installer
 
