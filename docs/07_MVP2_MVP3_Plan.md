@@ -29,8 +29,9 @@ máy người dùng, không có public endpoint**. Các ràng buộc mới chi p
   đẩy token qua IPC Tauri → Python; thay vào đó **sidecar Python đọc/ghi token trực tiếp**
   vào **Windows Credential Manager** qua lib `keyring` (cross-platform, dùng đúng credential
   store của OS).
-- **DB chỉ lưu metadata/reference**: account email, scopes đã cấp, expiry, `sync_token` —
-  **không** lưu access/refresh token.
+- **DB chỉ lưu metadata/reference**: account email, scopes đã cấp, expiry —
+  **không** lưu access/refresh token. Calendar `sync_token` là per-calendar sync state
+  (bảng `calendar_sync_states`, xem Sprint 9) — không thuộc OAuth account metadata.
 - Không có "encryption key tự quản" → tránh hẳn bài toán key-from-where / rotate.
 - **Tuyệt đối không log** access token, refresh token, authorization code (kể cả debug/test).
 - Disconnect = xóa entry trong Credential Manager + gọi Google **revoke endpoint** + xóa metadata DB.
