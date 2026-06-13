@@ -56,8 +56,14 @@ Mỗi sprint ~2 tuần.
 - [ ] **Release safety:** kill-switch (server-side flag tắt update nếu phát hiện bản hỏng) +
       staged rollout tối thiểu (publish cho 1 máy test trước) + giữ bản trước để rollback thủ công
 - [ ] UI: thông báo có bản mới + nút "Cập nhật"
-- [ ] Tech debt gom kèm: **Idempotency-Key** header (POST /todos, /notes, /memories,
-      /reminders); xác nhận trực quan **toast reminder trong WebView** (chưa verify từ Phase 4)
+- [x] Tech debt: **Idempotency-Key** header (POST /todos, /notes, /memories, /reminders) —
+      `IdempotencyMiddleware` (`backend/app/middleware/idempotency.py`), **in-memory dict +
+      TTL** (`idempotency_key_ttl_seconds`, default 86400s) — không dùng Redis như
+      `05_security.md` ghi, vì desktop app single-process/single-user (lý do ghi trong
+      docstring của middleware). Cùng key + body khác → `409 idempotency_conflict`; cùng
+      key + body giống → trả lại response đã cache, không tạo bản ghi mới.
+- [ ] Verify trực quan **toast reminder trong WebView** (chưa verify từ Phase 4) — QA thủ
+      công, không có code thay đổi
 - **DoD:** Bump version → build → app đang chạy nhận diện bản mới → cập nhật thành công không cài lại tay; **test bật kill-switch → app không tự update**; verify updater signature key tách biệt code-signing cert.
 
 ### Sprint 8 — Google OAuth (desktop) + kết nối Calendar
