@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     # ---- Redis (optional) ----
     upstash_redis_url: str = ""
 
+    # ---- Idempotency ----
+    idempotency_key_ttl_seconds: int = 86400
+
     # ---- Observability ----
     sentry_dsn: str = ""
 

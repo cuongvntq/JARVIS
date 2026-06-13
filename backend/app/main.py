@@ -22,6 +22,7 @@ from app.core.errors import (
     jarvis_exception_handler,
     validation_exception_handler,
 )
+from app.middleware.idempotency import IdempotencyMiddleware
 from app.middleware.rate_limit import limiter
 from app.routers import (
     auth,
@@ -82,7 +83,9 @@ app = FastAPI(
 # Attach limiter to app state (required by SlowAPI)
 app.state.limiter = limiter
 
-# Middleware (order matters — RequestID first so handlers can read it)
+# Middleware (registration order is reversed at execution: last-added runs first.
+# CORS -> RequestID -> Idempotency, so request_id is set before Idempotency runs)
+app.add_middleware(IdempotencyMiddleware)
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
