@@ -3,6 +3,7 @@ import { Inter, Orbitron } from "next/font/google";
 import "./globals.css";
 import AuthGuard from "@/components/auth/AuthGuard";
 import { ReminderPolling } from "@/components/reminders/ReminderPolling";
+import { UpdatePrompt } from "@/components/updater/UpdatePrompt";
 import QueryProvider from "@/providers/QueryProvider";
 import { Toaster } from "sonner";
 
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <QueryProvider>
           <AuthGuard>{children}</AuthGuard>
           <ReminderPolling />
+          <UpdatePrompt />
           <Toaster
             position="bottom-right"
             theme="dark"
