@@ -71,7 +71,8 @@ Mỗi sprint ~2 tuần.
       - Loopback server chỉ sống trong lúc auth rồi đóng; timeout nếu user không hoàn tất
 - [ ] Lưu token theo Quyết định kiến trúc (Credential Manager qua `keyring`); DB chỉ metadata
 - [ ] Token refresh tự động khi access token hết hạn; xử lý refresh token bị **revoke** (re-auth)
-- [ ] DB: bảng `google_oauth_accounts` (email, scopes, expiry, sync_token — **không token**) + migration
+- [ ] DB: bảng `google_oauth_accounts` (email, scopes, expiry — **không token**) + migration
+      (`sync_token` thuộc per-calendar sync state, xem `calendar_sync_states` ở Sprint 9 — không để ở đây)
 - [ ] Backend: service gọi Google API (httpx, không cần SDK nặng) + endpoints connect/disconnect/status
 - [ ] UI: Settings → "Kết nối Google Calendar" / "Ngắt kết nối" / trạng thái
 - **DoD:** Kết nối → list calendars OK → **giả lập access token hết hạn → refresh tự động thành công** → **disconnect gọi revoke endpoint → token mất hiệu lực tại Google** → reconnect lại được. State/PKCE sai → từ chối.
@@ -89,7 +90,8 @@ Mỗi sprint ~2 tuần.
       - **All-day events**: `start.date` (không `start.dateTime`) → xử lý riêng với event có giờ
       - **Timezone**: tôn trọng `start.timeZone`; convert sang tz user ở app layer
       - **Chọn calendar nào sync**: mặc định primary; cho user chọn (multi-calendar = post-MVP nếu cần)
-- [ ] DB: bảng `calendar_events` (cache local) + lưu `sync_token` per calendar + migration
+- [ ] DB: bảng `calendar_events` (cache local) + bảng `calendar_sync_states` (per calendar:
+      `calendar_id`, `sync_token`, `last_synced_at`) + migration
 - [ ] APScheduler job poll định kỳ (vd 5 phút) — tái dùng infra scheduler
 - [ ] Dashboard: hiển thị event hôm nay cạnh todo/reminder
 - [ ] Tool mới: `list_calendar_events`; `get_today_summary` gộp thêm lịch
