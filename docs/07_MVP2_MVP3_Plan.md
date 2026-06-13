@@ -48,14 +48,35 @@ Mỗi sprint ~2 tuần.
 > Làm riêng, **trước** mọi feature MVP2: app đã ship `.msi` nhưng chưa có cơ chế update —
 > cần có trước khi đẩy thêm feature để không phải bắt user cài lại thủ công mỗi lần.
 
-- [ ] Tauri **updater plugin** (`tauri-plugin-updater`) — check + tải + cài bản mới
-- [ ] Hạ tầng phân phối update (signed update manifest `latest.json` + nơi host `.msi`/update artifact)
-- [ ] **Phân biệt 2 loại key (đừng nhầm):**
-      - **Updater signature key** (minisign/ed25519 của Tauri) — ký *gói update*, public key nhúng trong app
-      - **Windows code-signing cert** (Authenticode) — ký *MSI/exe*, để OS/SmartScreen tin tưởng
-- [ ] **Release safety:** kill-switch (server-side flag tắt update nếu phát hiện bản hỏng) +
-      staged rollout tối thiểu (publish cho 1 máy test trước) + giữ bản trước để rollback thủ công
-- [ ] UI: thông báo có bản mới + nút "Cập nhật"
+- [x] Tauri **updater plugin** (`tauri-plugin-updater` + `tauri-plugin-process`) — check +
+      tải + cài bản mới + relaunch. Rust: đăng ký plugin trong `lib.rs`, permission
+      `updater:default` + `process:default` trong `capabilities/default.json`. Frontend:
+      hook `useUpdateAvailable` (check lúc mount + mỗi 6h) + component `UpdatePrompt`
+      (mount trong `layout.tsx`) — hiện toast sonner "Có bản cập nhật mới: vX.Y.Z" với nút
+      "Cập nhật ngay" → `downloadAndInstall()` → `relaunch()`.
+- [x] Hạ tầng phân phối update — **đã chốt: GitHub Releases**. `tauri.conf.json`:
+      `bundle.createUpdaterArtifacts: true` + `plugins.updater.endpoints` trỏ
+      `https://github.com/cuongvntq/JARVIS/releases/latest/download/latest.json`. CI mới
+      `.github/workflows/release.yml` (trigger tag `v*.*.*`, Windows, dùng
+      `tauri-apps/tauri-action@v0`) build + ký + tạo `latest.json` + draft release.
+- [x] **Phân biệt 2 loại key (đừng nhầm):**
+      - **Updater signature key** (minisign/ed25519 của Tauri) — đã generate, public key
+        nhúng trong `tauri.conf.json` (`plugins.updater.pubkey`); private key + password
+        lưu ở GitHub Actions secrets `TAURI_SIGNING_PRIVATE_KEY` /
+        `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (không commit — file gốc ở
+        `frontend/src-tauri/secrets/`, đã gitignore).
+      - **Windows code-signing cert** (Authenticode) — **DEFERRED**. App vẫn unsigned ở OS
+        level (SmartScreen sẽ warning khi cài `.msi`) — chấp nhận được cho personal use.
+        Mua + cấu hình Authenticode cert là việc riêng, ngoài scope Sprint 7.
+- [x] **Release safety:**
+      - **Staged rollout:** CI tạo release ở trạng thái **draft** (`releaseDraft: true`) —
+        không xuất hiện ở `releases/latest` nên updater không thấy. Cài thử `.msi` từ draft
+        trên 1 máy test → nếu OK, `gh release edit <tag> --draft=false` để publish.
+      - **Kill-switch:** nếu bản đã publish bị lỗi, `gh release edit <tag> --prerelease` →
+        GitHub `releases/latest` tự fallback về release ổn định trước đó → app dừng nhận
+        update lỗi. **Lưu ý:** máy đã update lên bản lỗi sẽ không tự downgrade (updater chỉ
+        đi tới); kill-switch chỉ bảo vệ máy *chưa* update — fix thật cần ship version mới hơn.
+- [x] UI: thông báo có bản mới + nút "Cập nhật" — xem `UpdatePrompt`/`useUpdateAvailable` ở trên.
 - [x] Tech debt: **Idempotency-Key** header (POST /todos, /notes, /memories, /reminders) —
       `IdempotencyMiddleware` (`backend/app/middleware/idempotency.py`), **in-memory dict +
       TTL** (`idempotency_key_ttl_seconds`, default 86400s) — không dùng Redis như
@@ -65,6 +86,16 @@ Mỗi sprint ~2 tuần.
 - [ ] Verify trực quan **toast reminder trong WebView** (chưa verify từ Phase 4) — QA thủ
       công, không có code thay đổi
 - **DoD:** Bump version → build → app đang chạy nhận diện bản mới → cập nhật thành công không cài lại tay; **test bật kill-switch → app không tự update**; verify updater signature key tách biệt code-signing cert.
+
+**Checklist QA thủ công (sau khi merge PR1 — user tự thực hiện):**
+- [ ] Verify toast reminder hiển thị đúng trong WebView (item còn lại từ Phase 4)
+- [ ] Bump `version` trong `frontend/src-tauri/tauri.conf.json` → tag `vX.Y.Z` → `git push --tags`
+      → CI `release.yml` build xong tạo **draft release** với `.msi` + `latest.json` + `.sig`
+- [ ] Cài `.msi` từ draft release trên máy test (version cũ hơn) → `gh release edit <tag>
+      --draft=false` để publish → app cũ tự phát hiện bản mới (trong vòng 6h hoặc mở lại
+      app) → bấm "Cập nhật ngay" → cài thành công + tự relaunch ở version mới
+- [ ] Test kill-switch: `gh release edit <tag> --prerelease` trên bản vừa publish → xác nhận
+      `releases/latest/download/latest.json` trả về bản trước đó (app không nhận update lỗi)
 
 ### Sprint 8 — Google OAuth (desktop) + kết nối Calendar
 
@@ -208,7 +239,7 @@ Thứ tự C → A → B chọn theo rủi ro tăng dần + dependency.
 - `docs/06` §8: đã đánh dấu STALE + trỏ sang tài liệu này làm source of truth.
 
 **Còn để ngỏ — chốt trước khi start sprint liên quan:**
-1. Sprint 7: **ai/đâu host update artifact** (`latest.json` + `.msi`) — GitHub Releases hay storage riêng.
+1. ~~Sprint 7: ai/đâu host update artifact~~ — **đã chốt: GitHub Releases** (xem Sprint 7).
 2. Sprint 11: nudge có cần chạy **nền khi app đóng / sau reboot** không? (mặc định: KHÔNG — chỉ khi app mở).
    Nếu CÓ → thêm scope auto-start + background process.
 3. MVP3 Track 2 (Voice): **offline (whisper.cpp/Piper) vs cloud** — riêng tư+free ↔ chất lượng.
