@@ -3,7 +3,7 @@
 > Sprint history (what each PR built): `memory/project-sprint-status.md` *(external Claude memory, không nằm trong repo)*
 > This file covers: current state, design decisions chốt.
 
-**As of:** 2026-06-07 | **Branch:** `main` (PR #34 merged) | **Tests:** 211+ collected backend (+ Playwright E2E)
+**As of:** 2026-06-07 | **Branch:** `main` (PR #36 merged) | **Tests:** 211+ collected backend (+ Playwright E2E)
 
 ---
 
@@ -17,6 +17,9 @@
   - Phase 2 ✅ Tauri setup (Rust + WebView2 + tauri-plugin-shell)
   - Phase 3 ✅ PyInstaller sidecar + CORS fix + login hoạt động trong release build
   - Phase 4 ✅ Reminders overhaul (in-app polling) + build `.msi` cuối + test cài đặt clean-install PASS (2026-06-07)
+- **Post-Phase 4 polish** (2026-06-07, merged sau PR #34):
+  - PR #35 ✅ Loading state khi sidecar khởi động — `AuthGuard` poll `GET /health` (1s, tối đa 90s) trước khi chạy auth flow; fix biome ignore `src-tauri/target`, thêm `jsdom` dep
+  - PR #36 ✅ Native OS notification cho reminder đến hạn — `@tauri-apps/plugin-notification`, gọi song song với in-app toast trong `useReminderPolling`
 
 ---
 
