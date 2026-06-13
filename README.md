@@ -1,202 +1,330 @@
-# J.A.R.V.I.S — Personal AI Assistant
+# J.A.R.V.I.S - Personal AI Assistant
 
-Trợ lý cá nhân lấy cảm hứng từ J.A.R.V.I.S trong Iron Man, hỗ trợ đời sống hằng ngày bằng tiếng Việt.
+Trợ lý cá nhân lấy cảm hứng từ J.A.R.V.I.S trong Iron Man, ưu tiên hỗ trợ đời sống hằng ngày bằng tiếng Việt: chat AI, todo, ghi chú, bộ nhớ cá nhân, nhắc nhở và dashboard.
 
-> **Trạng thái:** MVP1 — Sprint 0 (setup foundation).
+> **Trạng thái hiện tại:** MVP 1 đã hoàn tất. Bản desktop Tauri cũng đã hoàn tất phase 1-4, gồm frontend local, FastAPI sidecar, local PostgreSQL và native OS notification cho reminder.
 
 ---
 
-## Kiến trúc
+## App hiện có
 
 ```
 Javis/
-├── backend/          # FastAPI + SQLAlchemy + LiteLLM
-├── frontend/         # Next.js 15 + React 19 + Tailwind + shadcn/ui
-├── docs/             # Tài liệu kỹ thuật (6 file, đọc theo thứ tự)
+├── backend/          # FastAPI + SQLAlchemy async + LiteLLM + Alembic
+├── frontend/         # Next.js 15 + React 19 + Tailwind + Tauri v2
+├── docs/             # Tài liệu kiến trúc, API, sprint, desktop migration
+├── scripts/          # Script build sidecar
 ├── .env.example      # Template environment variables
-├── .gitignore
-└── README.md         # File này
+└── README.md
 ```
+
+### Backend
+
+- FastAPI API server, OpenAPI tại `/docs`.
+- PostgreSQL + pgvector qua SQLAlchemy async.
+- Alembic migrations.
+- JWT access token + refresh token HttpOnly cookie.
+- LiteLLM routing: Gemini primary, OpenAI fallback/tier routing.
+- APScheduler cho reminder due-state.
+- Sentry, request id middleware, unified error envelope.
+- SlowAPI rate limit, có thể dùng Upstash Redis hoặc fallback in-memory.
+
+### Frontend
+
+- Next.js App Router, React 19, TypeScript.
+- TanStack Query cho server state.
+- Zustand cho auth state.
+- Single-page app với sidebar: Dashboard, Chat, Todo, Notes, Reminders, Memory, Settings.
+- Streaming chat qua SSE.
+- In-app toast reminder và Tauri native notification.
+
+### Desktop
+
+- Tauri v2 desktop shell.
+- Next.js static export chạy trong WebView.
+- FastAPI backend chạy dạng PyInstaller sidecar trong release build.
+- App config đọc `.env` từ `%APPDATA%\JARVIS\.env` khi chạy bản MSI.
+- Installer output theo tài liệu: `frontend/src-tauri/target/release/bundle/msi/JARVIS_1.0.0_x64_en-US.msi`.
+
+---
+
+## Chức năng đã hoàn thành
+
+### Auth
+
+- Đăng ký, đăng nhập, đăng xuất.
+- Refresh token rotation, refresh token lưu bằng HttpOnly cookie.
+- `/auth/me` và cập nhật profile.
+- Chỉnh tên người dùng, tên trợ lý, timezone, locale.
+
+### Chat AI
+
+- Chat với J.A.R.V.I.S bằng tiếng Việt.
+- Streaming response qua SSE.
+- Lưu conversation và message history.
+- Danh sách hội thoại, xem chi tiết, đổi title, soft delete.
+- Tool calling loop để AI thao tác todo, note, memory, reminder.
+- Conversation summary background task khi hội thoại dài.
+
+### Todo
+
+- Tạo, xem, lọc, tìm kiếm todo.
+- Filter: hôm nay, sắp tới, quá hạn, đã hoàn thành, tất cả.
+- Complete/uncomplete.
+- Xóa mềm.
+- AI có thể tạo/list/update todo qua tool.
+
+### Notes
+
+- Tạo, sửa, xóa ghi chú.
+- Tìm kiếm theo từ khóa.
+- Pin/unpin note.
+- AI có thể tạo và tìm ghi chú.
+
+### Memory
+
+- Lưu bộ nhớ cá nhân: fact, preference, rule, relation, goal, other.
+- Semantic search bằng embedding.
+- RAG: memory liên quan được inject vào system prompt trước khi chat.
+- Soft delete memory.
+- AI có thể lưu, tìm và quên memory theo yêu cầu.
+
+### Reminders
+
+- Tạo, xem, cập nhật, hủy, xóa reminder.
+- Scheduler chuyển reminder đến hạn từ `pending` sang `due`.
+- Frontend poll `/v1/reminders/due`.
+- Người dùng dismiss toast để ack reminder sang `sent`.
+- Native OS notification trong Tauri song song với in-app toast.
+- AI có thể tạo và list reminder.
+
+### Dashboard
+
+- Thống kê todo hôm nay.
+- Danh sách reminder sắp tới.
+- Số lượng memory.
+- Refresh thủ công.
+
+### QA / Tooling
+
+- Backend test suite bằng pytest.
+- Frontend E2E bằng Playwright: auth, chat, dashboard, reminder.
+- Vitest config cho frontend.
+- Ruff, mypy strict, Biome, TypeScript typecheck.
+- GitHub Actions CI có migration smoke test theo tài liệu sprint.
 
 ---
 
 ## Yêu cầu hệ thống
 
-| Tool | Version | Cài đặt |
-|------|---------|---------|
-| Python | 3.12+ | https://www.python.org/downloads/ |
-| Node.js | 22+ | https://nodejs.org |
-| pnpm | 9+ | `npm install -g pnpm` |
-| uv (Python pkg manager) | latest | `pip install uv` hoặc `pipx install uv` |
-| Git | any | https://git-scm.com |
-| VS Code | latest | https://code.visualstudio.com |
+| Tool | Version | Mục đích |
+|---|---:|---|
+| Python | 3.12+ | Backend |
+| Node.js | 22+ | Frontend |
+| pnpm | 9+ | Frontend package manager |
+| uv | latest | Python package manager |
+| PostgreSQL | 15+ khuyến nghị | Database local |
+| pgvector | installed | Memory semantic search |
+| Rust | 1.77+ | Build Tauri desktop |
+| WebView2 | Windows runtime | Tauri WebView |
 
 ---
 
-## Setup nhanh (lần đầu)
+## Environment
 
-### Bước 1 — Clone & mở VS Code
-
-```powershell
-# Trong thư mục C:\Users\Admin\Desktop\Javis
-code .
-```
-
-### Bước 2 — Đăng ký các service (free, không cần card)
-
-| Service | Link | Mục đích | Lưu vào env |
-|---------|------|----------|-------------|
-| Google AI Studio | https://aistudio.google.com/apikey | Gemini API key (FREE 1500/ngày) | `GEMINI_API_KEY` |
-| OpenAI Platform | https://platform.openai.com | Fallback model + có $5 free credit | `OPENAI_API_KEY` |
-
-### Bước 3 — Tạo file `.env`
+Tạo `.env` tại root project từ `.env.example`:
 
 ```powershell
-# Tại root project
 Copy-Item .env.example .env
-# Mở .env và điền các key đã lấy ở Bước 2
 notepad .env
 ```
 
-### Bước 4 — Setup Backend
+Các biến quan trọng:
 
-```powershell
-cd backend
-uv venv                          # Tạo virtualenv
-.venv\Scripts\activate           # Kích hoạt (PowerShell)
-uv pip install -e ".[dev]"       # Cài deps
-alembic upgrade head             # Chạy migration
-uvicorn app.main:app --reload    # Chạy dev server
+```env
+# Database
+DATABASE_URL=postgresql+asyncpg://jarvis_user:local_pass@localhost:5432/jarvis
+DATABASE_URL_DIRECT=postgresql://jarvis_user:local_pass@localhost:5432/jarvis
+
+# LLM
+GEMINI_API_KEY=...
+OPENAI_API_KEY=...
+
+# Auth
+JWT_SECRET=your-random-secret-at-least-32-chars
+
+# CORS
+BACKEND_CORS_ORIGINS=http://localhost:3000,http://tauri.localhost,https://tauri.localhost,tauri://localhost
+
+# Optional
+SENTRY_DSN=
+UPSTASH_REDIS_URL=
+APP_ENV=development
 ```
 
-→ Backend chạy tại http://localhost:8000
-→ OpenAPI docs tự sinh tại http://localhost:8000/docs
+Frontend dev cần `frontend/.env.local`:
 
-### Bước 5 — Setup Frontend
-
-Mở terminal mới:
-
-```powershell
-cd frontend
-pnpm install                     # Cài deps
-pnpm dev                         # Chạy dev server
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-→ Frontend chạy tại http://localhost:3000
+> Không thêm `/v1` vào `NEXT_PUBLIC_API_URL`; API client tự append `/auth/*` và `/v1/*`.
 
 ---
 
-## Cấu trúc môi trường
+## Setup database local
 
-### `.env` (root, dùng chung)
-- `DATABASE_URL` — local PostgreSQL connection string (xem `.env.example` để biết format)
-- `GEMINI_API_KEY` — Google AI Studio key
-- `OPENAI_API_KEY` — OpenAI key (fallback)
-- `JWT_SECRET` — random string ≥ 32 ký tự
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — Google OAuth (optional, chưa implement UI)
+Tạo database và user trong PostgreSQL:
 
-### `frontend/.env.local`
-- `NEXT_PUBLIC_API_URL` — URL Backend (mặc định `http://localhost:8000`)
+```sql
+CREATE DATABASE jarvis;
+CREATE USER jarvis_user WITH PASSWORD 'local_pass';
+GRANT ALL PRIVILEGES ON DATABASE jarvis TO jarvis_user;
 
----
-
-## VS Code Extensions khuyến nghị
-
-Mở VS Code → Cmd/Ctrl+Shift+X → cài:
-
-- **Python** (ms-python.python)
-- **Pylance** (ms-python.vscode-pylance)
-- **Ruff** (charliermarsh.ruff)
-- **ESLint** (dbaeumer.vscode-eslint)
-- **Biome** (biomejs.biome)
-- **Tailwind CSS IntelliSense** (bradlc.vscode-tailwindcss)
-- **Prisma** (Prisma.prisma) — optional, nếu xem SQL syntax
-- **dotenv** (mikestead.dotenv)
-- **Error Lens** (usernamehw.errorlens)
-- **GitLens** (eamodio.gitlens)
-
-Hoặc đơn giản: VS Code sẽ tự gợi ý cài khi mở project (do có file `.vscode/extensions.json`).
-
----
-
-## Workflow phát triển
-
-### Mỗi ngày
-1. `git pull` (nếu làm nhóm)
-2. Bật 2 terminal: backend (`uvicorn`) + frontend (`pnpm dev`).
-3. Mở browser http://localhost:3000.
-4. Code, hot reload tự update.
-
-### Trước khi commit
-```powershell
-# Backend
-cd backend
-ruff check . --fix
-ruff format .
-pytest
-
-# Frontend
-cd ../frontend
-pnpm lint
-pnpm typecheck
-pnpm test
+\c jarvis
+GRANT USAGE, CREATE ON SCHEMA public TO jarvis_user;
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 ```
 
-### Tạo migration mới (khi đổi DB schema)
+Chạy migration:
+
 ```powershell
 cd backend
-alembic revision --autogenerate -m "add field xyz to todos"
 alembic upgrade head
 ```
 
 ---
 
-## Roadmap
+## Chạy dev
 
-Đọc chi tiết tại [`docs/06_Updated_Execution_Plan.md`](./docs/06_Updated_Execution_Plan.md).
+### 1. Backend
 
-- **Sprint 0** (đang ở đây): Setup hạ tầng, env, repo structure.
-- **Sprint 1:** Auth + Chat 1 chiều với Gemini.
-- **Sprint 2:** Tool router + 3 todo tool + LLM fallback chain.
-- **Sprint 3:** Todo UI + Note module.
-- **Sprint 4:** Memory + RAG.
-- **Sprint 5:** Reminder + Dashboard + In-app notification polling.
-- **Sprint 6:** QA, polish, deploy beta.
+```powershell
+cd backend
+uv venv
+.venv\Scripts\activate
+uv pip install -e ".[dev]"
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
+```
+
+Backend chạy tại:
+
+- API: http://localhost:8000
+- Docs: http://localhost:8000/docs
+- Health: http://localhost:8000/health
+
+### 2. Frontend
+
+Mở terminal khác:
+
+```powershell
+cd frontend
+pnpm install
+pnpm dev
+```
+
+Frontend chạy tại http://localhost:3000.
+
+### 3. Tauri dev
+
+Trong dev mode, Tauri không spawn sidecar; backend cần chạy riêng như bước trên.
+
+```powershell
+cd frontend
+pnpm tauri dev
+```
 
 ---
 
-## Tài liệu
+## Build desktop app
+
+### 1. Build backend sidecar
+
+```powershell
+.\scripts\build-sidecar.ps1
+```
+
+Script build PyInstaller sidecar và copy binary vào `frontend/src-tauri/binaries/`.
+
+### 2. Build Tauri installer
+
+```powershell
+cd frontend
+pnpm tauri build
+```
+
+Sau khi cài MSI, tạo config user-local:
+
+```powershell
+New-Item -ItemType Directory -Force "$env:APPDATA\JARVIS"
+Copy-Item ..\.env "$env:APPDATA\JARVIS\.env"
+```
+
+---
+
+## Lệnh kiểm tra
+
+### Backend
+
+```powershell
+cd backend
+ruff check .
+ruff format --check .
+mypy app/
+pytest
+```
+
+### Frontend
+
+```powershell
+cd frontend
+pnpm check
+pnpm typecheck
+pnpm test
+pnpm test:e2e
+```
+
+---
+
+## API chính
+
+| Area | Endpoints |
+|---|---|
+| Health | `GET /health`, `GET /health/ready` |
+| Auth | `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET/PATCH /auth/me` |
+| Chat | `POST /v1/chat/send`, `GET /v1/chat/conversations`, `GET/PATCH/DELETE /v1/chat/conversations/{id}` |
+| Todo | `GET/POST /v1/todos`, `GET/PUT/DELETE /v1/todos/{id}`, `PATCH /complete`, `PATCH /uncomplete` |
+| Notes | `GET/POST /v1/notes`, `GET/PATCH/DELETE /v1/notes/{id}`, `PATCH /pin`, `PATCH /unpin` |
+| Memory | `GET/POST /v1/memories`, `POST /v1/memories/search`, `GET/PATCH/DELETE /v1/memories/{id}` |
+| Reminders | `GET/POST /v1/reminders`, `GET /v1/reminders/due`, `POST /v1/reminders/{id}/ack`, `GET/PATCH/DELETE /v1/reminders/{id}`, `PATCH /cancel` |
+| Dashboard | `GET /v1/dashboard/today` |
+
+---
+
+## Tài liệu quan trọng
 
 | File | Nội dung |
-|------|----------|
-| [01_Database_Schema_ERD.md](./docs/01_Database_Schema_ERD.md) | DB schema, ERD, SQL DDL |
-| [02_API_Specification.md](./docs/02_API_Specification.md) | REST API endpoints, error codes |
-| [03_AI_Tool_Schemas.md](./docs/03_AI_Tool_Schemas.md) | 11 tool JSON Schema cho LLM |
-| [04_System_Prompt.md](./docs/04_System_Prompt.md) | Production system prompt |
-| [05_Tech_Stack_Decision.md](./docs/05_Tech_Stack_Decision.md) | Stack chốt + cost |
-| [05a_LLM_Provider_Comparison.md](./docs/05a_LLM_Provider_Comparison.md) | So sánh OpenAI vs Anthropic |
-| [05b_Ollama_Local_LLM_Analysis.md](./docs/05b_Ollama_Local_LLM_Analysis.md) | Phân tích Ollama local |
-| [05c_Tiered_Routing_Strategy.md](./docs/05c_Tiered_Routing_Strategy.md) | LLM router code |
-| [06_Updated_Execution_Plan.md](./docs/06_Updated_Execution_Plan.md) | Plan 6 sprint chi tiết |
+|---|---|
+| [docs/ai-context/01-architecture.md](./docs/ai-context/01-architecture.md) | Kiến trúc hiện tại |
+| [docs/ai-context/02-folder-map.md](./docs/ai-context/02-folder-map.md) | Folder map |
+| [docs/ai-context/04-database-schema.md](./docs/ai-context/04-database-schema.md) | Schema hiện tại |
+| [docs/ai-context/05-api-contract.md](./docs/ai-context/05-api-contract.md) | API contract |
+| [docs/ai-context/06-current-sprint.md](./docs/ai-context/06-current-sprint.md) | Trạng thái sprint mới nhất |
+| [docs/ai-context/07-known-issues.md](./docs/ai-context/07-known-issues.md) | Known issues |
+| [docs/migration-desktop-app.md](./docs/migration-desktop-app.md) | Desktop migration plan và lessons learned |
+| [docs/beta-deploy-plan.md](./docs/beta-deploy-plan.md) | Beta deploy notes |
 
 ---
 
-## Troubleshooting
+## Lưu ý hiện tại
 
-### Backend không chạy được
-- Check Python version: `python --version` (cần 3.12+).
-- Activate venv: `.venv\Scripts\activate` (PowerShell) hoặc `source .venv/bin/activate` (Mac/Linux).
-- Database connection fail → check `DATABASE_URL` trong `.env`.
-
-### Frontend không chạy được
-- Check Node version: `node -v` (cần 22+).
-- Xóa `node_modules` + `pnpm install` lại.
-- Port 3000 đã dùng → `pnpm dev -p 3001`.
-
-### LLM call fail
-- Check Gemini API key tại https://aistudio.google.com/apikey.
-- Check OpenAI credit tại https://platform.openai.com/usage.
-- Xem log tại `backend/logs/` hoặc terminal output.
+- Google OAuth đã bị bỏ khỏi MVP 1, vẫn là backlog.
+- LLM vẫn cần internet vì Gemini/OpenAI API không chạy local.
+- Desktop build hiện giả định máy có local PostgreSQL + pgvector. Nếu muốn phân phối cho máy khác không cài PostgreSQL, cần phase riêng cho embedded DB hoặc SQLite/vector alternative.
+- README backend/frontend có thể còn một số mô tả sprint cũ; README root này phản ánh trạng thái mới nhất của project.
 
 ---
 
