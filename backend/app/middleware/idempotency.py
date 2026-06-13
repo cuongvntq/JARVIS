@@ -7,6 +7,7 @@ requiring Upstash/Redis setup just for this. This deviates from
 multi-instance cloud deployment.
 """
 
+import asyncio
 import hashlib
 import time
 from collections.abc import Awaitable, Callable
@@ -30,6 +31,15 @@ class _CacheEntry(NamedTuple):
 
 
 _cache: dict[tuple[str, str], _CacheEntry] = {}
+_locks: dict[tuple[str, str], asyncio.Lock] = {}
+
+
+def _get_lock(cache_key: tuple[str, str]) -> asyncio.Lock:
+    lock = _locks.get(cache_key)
+    if lock is None:
+        lock = asyncio.Lock()
+        _locks[cache_key] = lock
+    return lock
 
 
 def _get_user_id(request: Request) -> str | None:
@@ -53,6 +63,7 @@ def _prune_expired() -> None:
     expired = [key for key, entry in _cache.items() if entry.expires_at < now]
     for key in expired:
         del _cache[key]
+        _locks.pop(key, None)
 
 
 class IdempotencyMiddleware(BaseHTTPMiddleware):
@@ -74,55 +85,59 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         body = await request.body()
-        request_hash = hashlib.sha256(body).hexdigest()
+        hash_input = f"{request.method}:{request.url.path}:{request.url.query}:".encode()
+        hash_input += body
+        request_hash = hashlib.sha256(hash_input).hexdigest()
 
-        _prune_expired()
         cache_key = (user_id, idempotency_key)
-        cached = _cache.get(cache_key)
 
-        if cached:
-            if cached.request_hash != request_hash:
-                request_id = getattr(request.state, "request_id", "unknown")
-                return JSONResponse(
-                    status_code=409,
-                    content={
-                        "error": {
-                            "code": "idempotency_conflict",
-                            "message": "Idempotency-Key đã được dùng với nội dung khác",
-                            "details": {"idempotency_key": idempotency_key},
-                            "request_id": request_id,
-                        }
-                    },
+        async with _get_lock(cache_key):
+            _prune_expired()
+            cached = _cache.get(cache_key)
+
+            if cached:
+                if cached.request_hash != request_hash:
+                    request_id = getattr(request.state, "request_id", "unknown")
+                    return JSONResponse(
+                        status_code=409,
+                        content={
+                            "error": {
+                                "code": "idempotency_conflict",
+                                "message": "Idempotency-Key đã được dùng với nội dung khác",
+                                "details": {"idempotency_key": idempotency_key},
+                                "request_id": request_id,
+                            }
+                        },
+                    )
+                return Response(
+                    content=cached.body,
+                    status_code=cached.status_code,
+                    headers=cached.headers,
                 )
-            return Response(
-                content=cached.body,
-                status_code=cached.status_code,
-                headers=cached.headers,
-            )
 
-        response = await call_next(request)
+            response = await call_next(request)
 
-        if 200 <= response.status_code < 300:
-            response_body = b""
-            async for chunk in response.body_iterator:  # type: ignore[attr-defined]
-                response_body += chunk if isinstance(chunk, bytes) else bytes(chunk)
+            if 200 <= response.status_code < 300:
+                response_body = b""
+                async for chunk in response.body_iterator:  # type: ignore[attr-defined]
+                    response_body += chunk if isinstance(chunk, bytes) else bytes(chunk)
 
-            cache_headers = {
-                k: v for k, v in response.headers.items() if k.lower() != "content-length"
-            }
-            ttl = get_settings().idempotency_key_ttl_seconds
-            _cache[cache_key] = _CacheEntry(
-                request_hash=request_hash,
-                status_code=response.status_code,
-                body=response_body,
-                headers=cache_headers,
-                expires_at=time.monotonic() + ttl,
-            )
-            return Response(
-                content=response_body,
-                status_code=response.status_code,
-                headers=cache_headers,
-                background=getattr(response, "background", None),
-            )
+                cache_headers = {
+                    k: v for k, v in response.headers.items() if k.lower() != "content-length"
+                }
+                ttl = get_settings().idempotency_key_ttl_seconds
+                _cache[cache_key] = _CacheEntry(
+                    request_hash=request_hash,
+                    status_code=response.status_code,
+                    body=response_body,
+                    headers=cache_headers,
+                    expires_at=time.monotonic() + ttl,
+                )
+                return Response(
+                    content=response_body,
+                    status_code=response.status_code,
+                    headers=cache_headers,
+                    background=getattr(response, "background", None),
+                )
 
-        return response
+            return response
