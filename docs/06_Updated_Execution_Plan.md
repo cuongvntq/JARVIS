@@ -250,16 +250,23 @@ Sprint 1 chỉ được start khi:
 
 ## 8. UPDATED RISK CHECKLIST: J.A.R.V.I.S vs "JARVIS phim"
 
+> ⚠️ **STALE — đã có nguồn chính thức:** Tài liệu này viết khi JARVIS còn là web app deploy cloud.
+> Sau Tauri desktop migration, **MVP2/MVP3 được lập kế hoạch lại** trong
+> [`docs/07_MVP2_MVP3_Plan.md`](./07_MVP2_MVP3_Plan.md) — đó là **source of truth** cho MVP2/MVP3.
+> Đặc biệt: Calendar **dùng polling + `syncToken`, KHÔNG dùng webhook** (app local không có public
+> endpoint). Bảng dưới chỉ giữ làm tham chiếu lịch sử.
+
 Sau khi xong MVP 1, vẫn còn các khoảng cách dưới đây với JARVIS Iron Man — nên ghi nhận để planning MVP 2-Advanced:
 
 | Khoảng cách | Phase tới đây |
 |------------|---------------|
-| Voice in/out (STT + TTS) | MVP 3 — chọn Whisper API + ElevenLabs/OpenAI TTS |
-| Calendar 2-way sync | MVP 2 — Google Calendar API + webhook |
-| Proactive nudge (chủ động) | MVP 2 — cron job phân tích pattern + push gợi ý |
+| Voice in/out (STT + TTS) | MVP 3 — xem docs/07 Track 2 (offline whisper.cpp/Piper vs cloud) |
+| Calendar 2-way sync | MVP 2 — Google Calendar API + **polling/syncToken** (KHÔNG webhook); xem docs/07 |
+| Proactive nudge (chủ động) | MVP 2 — cron job phân tích pattern + OS notification; xem docs/07 |
 | Agentic multi-step planning | MVP 4 — chuyển từ function call sang ReAct/Plan-Execute loop |
+| Computer-use / automation | MVP 3 — xem docs/07 Track 3 (tier tăng dần, local-only) |
 | Smart home / IoT | Advanced — Home Assistant API bridge |
-| Visual context (camera) | Advanced — multimodal model + screen share |
+| Visual context (camera) | MVP 3 — docs/07 Track 1 (multimodal); camera/screen-share = Advanced |
 | Multi-agent (sub-agents) | Advanced — agent orchestrator + memory chia sẻ |
 
 ---
