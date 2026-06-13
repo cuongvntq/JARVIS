@@ -31,9 +31,11 @@ backend/
 ├── app/
 │   ├── main.py                 # FastAPI app factory, middleware, routers registration
 │   │                           # Sprint 5: + lifespan (APScheduler start/stop) + SlowAPI state + rate_limit exception handler
+│   │                           # Sprint 7: + IdempotencyMiddleware (registered after RequestIDMiddleware)
 │   ├── config.py               # Settings (pydantic-settings), get_settings() lru_cache
 │   │                           # Sprint 4: + embedding_model, embedding_dim
 │   │                           # Sprint 5: + backend_port; Phase 4: removed vapid_* fields
+│   │                           # Sprint 7: + idempotency_key_ttl_seconds (default 86400)
 │   ├── database.py             # SQLAlchemy engine, AsyncSessionLocal, Base, get_db()
 │   │
 │   ├── core/
@@ -42,7 +44,10 @@ backend/
 │   │   └── security.py         # JWT encode/decode, bcrypt hash/verify, token helpers
 │   │
 │   ├── middleware/
-│   │   └── rate_limit.py       # SlowAPI limiter setup, in-memory store; Sprint 5 (S5-5)
+│   │   ├── rate_limit.py       # SlowAPI limiter setup, in-memory store; Sprint 5 (S5-5)
+│   │   └── idempotency.py      # Sprint 7: IdempotencyMiddleware — POST /v1/todos|notes|memories|reminders
+│   │                           # (exact path match, không bắt /search hoặc /{id}/ack), in-memory dict + TTL
+│   │                           # (idempotency_key_ttl_seconds), per-(user_id,key) asyncio.Lock chống concurrent dup
 │   │
 │   ├── models/                 # SQLAlchemy ORM models (table definitions)
 │   │   ├── user.py             # User, AuthSession; +notes relationship; Sprint 4: +memories relationship; Sprint 5: +reminders relationship
@@ -169,17 +174,28 @@ frontend/src-tauri/
 │   ├── main.rs                 # Entry point (calls lib::run)
 │   └── lib.rs                  # Sidecar spawn (#[cfg(not(debug_assertions))]) + kill on Destroyed
 │                               # BackendProcess(Mutex<Option<CommandChild>>) managed state
+│                               # Sprint 7: + tauri_plugin_updater, tauri_plugin_process
 ├── capabilities/
-│   └── default.json            # core:default only — sidecar spawn là Rust-side, không cần JS shell permission
+│   └── default.json            # core:default + notification:default (PR #36)
+│                               # Sprint 7: + updater:default, process:default
+├── secrets/                     # Updater signing keypair (gitignored, KHÔNG commit)
 ├── binaries/
 │   └── jarvis-server-x86_64-pc-windows-msvc.exe  # PyInstaller onefile (~106MB, NOT committed to git)
 ├── icons/                      # App icons (32x32, 128x128, icns, ico)
 ├── gen/schemas/                # Auto-generated Tauri capability schemas
 ├── Cargo.toml                  # tauri, tauri-plugin-shell, tauri-plugin-log deps
+│                               # Sprint 7: + tauri-plugin-updater, tauri-plugin-process
 └── tauri.conf.json             # productName=JARVIS, externalBin=binaries/jarvis-server, security.csp=null
+                                # Sprint 7: + bundle.createUpdaterArtifacts=true,
+                                # plugins.updater.pubkey + endpoints (GitHub Releases latest.json)
 ```
 
 > **Quan trọng:** `binaries/*.exe` (~106MB) KHÔNG commit vào git. Trước khi `tauri build`: chạy `cd backend && uv sync --extra dev` rồi `.\scripts\build-sidecar.ps1` từ repo root (tự build + copy đúng tên target triple).
+>
+> **Sprint 7 updater key:** private key + password lưu ở GitHub Actions secrets
+> (`TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`), KHÔNG commit. Public key
+> nhúng trong `tauri.conf.json`. Authenticode code-signing cert: **deferred** (app unsigned ở OS
+> level, SmartScreen sẽ warning).
 
 ---
 
@@ -222,6 +238,8 @@ frontend/src/
 │   │   └── CreateReminderDialog.tsx # Modal dialog: title + datetime input + submit
 │   ├── settings/
 │   │   └── SettingsPage.tsx    # Form: name, assistant_name, timezone select (11 IANA), locale select (vi-VN/en-US)
+│   ├── updater/                 # Sprint 7
+│   │   └── UpdatePrompt.tsx    # Client component, no own UI — calls useUpdateAvailable(); mounted in layout.tsx
 │   ├── todos/
 │   │   ├── TodoPage.tsx        # Section root; filter tabs; empty state
 │   │   ├── TodoCard.tsx        # Status checkbox, title, due_at, priority badge, delete
@@ -242,7 +260,9 @@ frontend/src/
 │   ├── useReminderPolling.ts   # polls GET /v1/reminders/due (60s), shows toast + native OS notification (manual dismiss → ack), POSTs /ack; Phase 4
 │   ├── useReminders.ts         # useInfiniteQuery (cursor), useCreateReminder, useCancelReminder, useDeleteReminder; Sprint 5
 │   ├── useSettings.ts          # useMutation → PATCH /auth/me + setAuth to update authStore
-│   └── useTodos.ts             # useInfiniteQuery (cursor), useCreateTodo, useCompleteTodo, useDeleteTodo
+│   ├── useTodos.ts             # useInfiniteQuery (cursor), useCreateTodo, useCompleteTodo, useDeleteTodo
+│   └── useUpdateAvailable.ts   # Sprint 7: check() lúc mount + mỗi 6h; toast sonner "Có bản cập nhật" →
+│                               # downloadAndInstall() → relaunch(); try/catch nuốt lỗi khi chạy dev/browser
 │
 ├── lib/
 │   ├── api.ts                  # ApiClient; Sprint 5: + reminder/dashboard/notification methods;
@@ -266,6 +286,10 @@ frontend/src/
 - `src/app/global-error.tsx` — React render error boundary
 - `e2e/` — Playwright E2E test suite (4 spec files + fixtures + globalSetup)
 - `playwright.config.ts` — 2 webServers (BE + FE), globalSetup, retries: 1 in CI
+
+**Sprint 7 frontend additions:**
+- `hooks/useUpdateAvailable.ts` + `components/updater/UpdatePrompt.tsx` — mounted in `layout.tsx` alongside `<ReminderPolling />`
+- deps: `@tauri-apps/api`, `@tauri-apps/plugin-updater`, `@tauri-apps/plugin-process`
 
 ---
 
@@ -299,3 +323,4 @@ frontend/e2e/
 | `.env.example` | Env var template: local Postgres + LLM keys + JWT + Google OAuth; no VAPID (removed Phase 4) |
 | `.gitignore` | Excludes .env, .venv, node_modules, __pycache__, test-results/, playwright-report/ |
 | `.github/workflows/ci.yml` | GitHub Actions: backend-test + migration-smoke + frontend-check + desktop-build (Windows/Tauri) |
+| `.github/workflows/release.yml` | Sprint 7: trigger tag `v*.*.*`, `tauri-apps/tauri-action@v0` build+sign+`latest.json`, tạo draft GitHub Release (staged rollout) |
