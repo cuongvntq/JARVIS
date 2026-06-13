@@ -19,7 +19,7 @@ from starlette.responses import JSONResponse, Response
 
 from app.config import get_settings
 
-_IDEMPOTENT_PREFIXES = ("/v1/todos", "/v1/notes", "/v1/memories", "/v1/reminders")
+_IDEMPOTENT_PATHS = frozenset({"/v1/todos", "/v1/notes", "/v1/memories", "/v1/reminders"})
 
 
 class _CacheEntry(NamedTuple):
@@ -76,7 +76,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         if (
             request.method != "POST"
             or not idempotency_key
-            or not request.url.path.startswith(_IDEMPOTENT_PREFIXES)
+            or request.url.path not in _IDEMPOTENT_PATHS
         ):
             return await call_next(request)
 
@@ -91,53 +91,59 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 
         cache_key = (user_id, idempotency_key)
 
-        async with _get_lock(cache_key):
-            _prune_expired()
-            cached = _cache.get(cache_key)
+        try:
+            async with _get_lock(cache_key):
+                _prune_expired()
+                cached = _cache.get(cache_key)
 
-            if cached:
-                if cached.request_hash != request_hash:
-                    request_id = getattr(request.state, "request_id", "unknown")
-                    return JSONResponse(
-                        status_code=409,
-                        content={
-                            "error": {
-                                "code": "idempotency_conflict",
-                                "message": "Idempotency-Key đã được dùng với nội dung khác",
-                                "details": {"idempotency_key": idempotency_key},
-                                "request_id": request_id,
-                            }
-                        },
+                if cached:
+                    if cached.request_hash != request_hash:
+                        request_id = getattr(request.state, "request_id", "unknown")
+                        return JSONResponse(
+                            status_code=409,
+                            content={
+                                "error": {
+                                    "code": "idempotency_conflict",
+                                    "message": "Idempotency-Key đã được dùng với nội dung khác",
+                                    "details": {"idempotency_key": idempotency_key},
+                                    "request_id": request_id,
+                                }
+                            },
+                        )
+                    return Response(
+                        content=cached.body,
+                        status_code=cached.status_code,
+                        headers=cached.headers,
                     )
-                return Response(
-                    content=cached.body,
-                    status_code=cached.status_code,
-                    headers=cached.headers,
-                )
 
-            response = await call_next(request)
+                response = await call_next(request)
 
-            if 200 <= response.status_code < 300:
-                response_body = b""
-                async for chunk in response.body_iterator:  # type: ignore[attr-defined]
-                    response_body += chunk if isinstance(chunk, bytes) else bytes(chunk)
+                if 200 <= response.status_code < 300:
+                    response_body = b""
+                    async for chunk in response.body_iterator:  # type: ignore[attr-defined]
+                        response_body += chunk if isinstance(chunk, bytes) else bytes(chunk)
 
-                cache_headers = {
-                    k: v for k, v in response.headers.items() if k.lower() != "content-length"
-                }
-                ttl = get_settings().idempotency_key_ttl_seconds
-                _cache[cache_key] = _CacheEntry(
-                    request_hash=request_hash,
-                    status_code=response.status_code,
-                    body=response_body,
-                    headers=cache_headers,
-                    expires_at=time.monotonic() + ttl,
-                )
-                return Response(
-                    content=response_body,
-                    status_code=response.status_code,
-                    headers=cache_headers,
-                    background=getattr(response, "background", None),
-                )
+                    cache_headers = {
+                        k: v for k, v in response.headers.items() if k.lower() != "content-length"
+                    }
+                    ttl = get_settings().idempotency_key_ttl_seconds
+                    _cache[cache_key] = _CacheEntry(
+                        request_hash=request_hash,
+                        status_code=response.status_code,
+                        body=response_body,
+                        headers=cache_headers,
+                        expires_at=time.monotonic() + ttl,
+                    )
+                    return Response(
+                        content=response_body,
+                        status_code=response.status_code,
+                        headers=cache_headers,
+                        background=getattr(response, "background", None),
+                    )
 
-            return response
+                return response
+        finally:
+            # Drop the lock if this request never resulted in a cache entry (e.g. 4xx/5xx)
+            # so repeated failed requests with throwaway keys don't grow _locks forever.
+            if cache_key not in _cache:
+                _locks.pop(cache_key, None)

@@ -4,6 +4,8 @@ import asyncio
 
 import pytest
 
+from app.middleware.idempotency import _cache, _locks
+
 
 @pytest.mark.asyncio
 async def test_idempotency_key_returns_cached_response(async_client, auth_headers):
@@ -84,3 +86,32 @@ async def test_idempotency_key_concurrent_requests_create_one_todo(async_client,
     listed = await async_client.get("/v1/todos", headers=auth_headers)
     titles = [item["title"] for item in listed.json()["items"]]
     assert titles.count("Đặt vé máy bay") == 1
+
+
+@pytest.mark.asyncio
+async def test_idempotency_key_ignored_for_memory_search(async_client, auth_headers):
+    """POST /v1/memories/search is a subroute of /v1/memories, not the create endpoint —
+    middleware must not treat it as idempotent (no caching, no conflict)."""
+    headers = {**auth_headers, "Idempotency-Key": "key-search"}
+    payload = {"query": "cà phê"}
+
+    first = await async_client.post("/v1/memories/search", json=payload, headers=headers)
+    second = await async_client.post("/v1/memories/search", json=payload, headers=headers)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert not any(key[1] == "key-search" for key in _cache)
+    assert not any(key[1] == "key-search" for key in _locks)
+
+
+@pytest.mark.asyncio
+async def test_idempotency_lock_cleaned_up_after_failed_request(async_client, auth_headers):
+    """A request with an Idempotency-Key that fails validation (4xx) must not leave a
+    stale lock in _locks — otherwise repeated failed requests grow _locks forever."""
+    headers = {**auth_headers, "Idempotency-Key": "key-invalid"}
+
+    resp = await async_client.post("/v1/todos", json={"title": ""}, headers=headers)
+
+    assert resp.status_code == 422
+    assert not any(key[1] == "key-invalid" for key in _cache)
+    assert not any(key[1] == "key-invalid" for key in _locks)
