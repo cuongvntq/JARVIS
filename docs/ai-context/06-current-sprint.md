@@ -3,7 +3,7 @@
 > Sprint history (what each PR built): `memory/project-sprint-status.md` *(external Claude memory, không nằm trong repo)*
 > This file covers: current state, design decisions chốt.
 
-**As of:** 2026-06-14 | **Branch:** `feat/sprint8-google-calendar-oauth` (chưa merge) | **Tests:** 232 collected backend (+ Playwright E2E)
+**As of:** 2026-06-15 | **Branch:** `main` | **Tests:** 239 collected backend (+ Playwright E2E)
 
 ---
 
@@ -24,11 +24,14 @@
   - PR #39 ✅ `IdempotencyMiddleware` (`backend/app/middleware/idempotency.py`) — merged `e691b07`
   - PR #40 ✅ Tauri auto-update infra (`tauri-plugin-updater` + GitHub Releases) — merged `f58819e`
   - 221 backend tests pass, ruff/mypy clean
-- **MVP2 Sprint 8 — Google Calendar OAuth (desktop) — CODE DONE (chưa merge)** 🔵
+- **MVP2 Sprint 8 — Google Calendar OAuth (desktop) — DONE ✅ (merged 2026-06-14, QA verified 2026-06-15)**
   - Backend: loopback + PKCE OAuth, keyring token storage, refresh/revoke, list calendars
   - Frontend: Settings → "Kết nối Google Calendar", hook poll status, mở system browser qua plugin-shell
-  - 232 backend tests pass (11 mới), ruff/mypy clean, pnpm lint+typecheck clean
-  - DoD cần Google Cloud setup + chạy desktop thật để verify (xem QA checklist trong `docs/07`)
+  - 239 backend tests pass, ruff/mypy clean, pnpm lint+typecheck clean
+  - PR #43 (core) + #44 (sidecar zombie fix) + #45 (keyring bundling + v1.0.2) + #46/#47 (CI fixes) + #48 (auto-migrate + file logging)
+  - **QA thật (2026-06-15):** kết nối Google Cloud project thật → "Đã kết nối: dragonball1997vntq@gmail.com" → `GET /calendars` trả đúng 4 lịch khớp Google Calendar thật
+  - **Bug + fix:** lần đầu connect lỗi "Không hoàn tất kết nối" — DB local thiếu migration 009 (`google_oauth_accounts`) vì app không tự migrate khi khởi động. PR #48 thêm auto-migrate (`app/core/db_migrate.py`) + file logging JSON (`app/core/logging_config.py`, `%APPDATA%\JARVIS\logs\`)
+  - Còn lại (optional, không block): test thật refresh-token-expired và disconnect/reconnect (đã có unit test mock)
 
 ---
 
@@ -83,14 +86,16 @@
 | Scope `openid email https://www.googleapis.com/auth/calendar.readonly` | `openid email` để nhận diện account (email từ id_token, không cần userinfo call); `calendar.readonly` đủ Sprint 8-9 — Sprint 10 re-consent xin quyền ghi |
 | `_pending: dict[state]` in-memory + PKCE S256 + `state` verify | Single-process sidecar; chống CSRF + code interception; refresh `invalid_grant` → xóa account + raise `google_reauth_required` |
 | Service tham chiếu `database.AsyncSessionLocal` (không import trực tiếp) | Callback handler chạy ngoài request context, cần session riêng; import-by-name bị bắt cứng lúc load, không nhận override test |
+| Auto-run `alembic upgrade head` trong lifespan (non-test env), fail-fast nếu lỗi | Desktop app không có cách nào chạy migration thủ công sau update; release shipping migration mới sẽ làm DB local lệch schema (vd. thiếu `google_oauth_accounts`) |
+| structlog → JSON qua stdlib + `RotatingFileHandler` tại `%APPDATA%\JARVIS\logs\` | PyInstaller `console=False` nuốt stderr — không có sink nào khác để debug lỗi production trên máy user |
 
 ---
 
-## Sprint 8 — CODE DONE 🔵 (chưa merge, 2026-06-14)
+## Sprint 8 — DONE ✅ (merged 2026-06-14, QA verified 2026-06-15)
 
 **Goal:** MVP2 Calendar branch kickoff — kết nối Google Calendar (read-only) qua OAuth desktop.
 
-**Backend** (`feat/sprint8-google-calendar-oauth`):
+**Backend** (PR #43 `feat/sprint8-google-calendar-oauth`):
 - `models/google_account.py` `GoogleOAuthAccount` + migration `009` (metadata, NO token, unique user_id)
 - `core/token_store.py` — keyring helper (save/get/delete, `asyncio.to_thread`)
 - `services/google_oauth_service.py` — `start_connect` (PKCE + loopback random port), `process_callback` (verify state → exchange → store), `get_status`, `disconnect` (revoke), `get_valid_access_token` (auto-refresh + `invalid_grant` re-auth)
@@ -110,7 +115,11 @@
 - `hooks/useGoogleCalendar.ts` — status query + connect (mở browser + poll 2s) + disconnect
 - `components/settings/GoogleCalendarSettings.tsx` mount trong `SettingsPage.tsx`
 
-**Còn lại:** Google Cloud setup (user) + QA thủ công DoD — xem `docs/07_MVP2_MVP3_Plan.md` Sprint 8.
+**QA thật (2026-06-15):** Google Cloud project thật → kết nối thành công ("Đã kết nối: dragonball1997vntq@gmail.com") → `list_calendars` trả đúng 4 lịch khớp Google Calendar thật.
+
+**Bug + fix (PR #44/#45/#46/#47/#48):** sidecar zombie process khi đóng app (#44); bundle `keyring` trong sidecar + bump v1.0.2 (#45); CI fixes (#46/#47); auto-migrate `alembic upgrade head` ở lifespan + file logging JSON tại `%APPDATA%\JARVIS\logs\` (#48) — fix lỗi "Không hoàn tất kết nối" do DB local thiếu migration 009.
+
+**Còn lại (optional, không block):** refresh-token-expired và disconnect/reconnect chỉ verify bằng unit test mock, chưa test thật trên Google account.
 
 ---
 
