@@ -24,13 +24,18 @@ fn kill_process_tree(pid: u32) {
 
 /// Kill any leftover backend sidecar from a previous session (e.g. after a forced
 /// close, crash, or Task Manager kill) so port 8000 is free before spawning a fresh
-/// one. Safe on a single-user desktop: there is only ever one jarvis-server.exe.
+/// one. Safe on a single-user desktop: there is only ever one backend sidecar.
+///
+/// Uses a `jarvis-server*` wildcard so it matches both the runtime name
+/// (`jarvis-server.exe`, after Tauri strips the target triple) and the raw bundled
+/// name (`jarvis-server-x86_64-pc-windows-msvc.exe`) — depending on the build,
+/// a crashed/force-killed leftover may carry either name.
 #[cfg(all(windows, not(debug_assertions)))]
 fn kill_stray_sidecars() {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     let _ = std::process::Command::new("taskkill")
-        .args(["/F", "/IM", "jarvis-server.exe"])
+        .args(["/F", "/IM", "jarvis-server*.exe"])
         .creation_flags(CREATE_NO_WINDOW)
         .status();
 }
