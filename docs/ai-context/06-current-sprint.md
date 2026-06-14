@@ -3,7 +3,7 @@
 > Sprint history (what each PR built): `memory/project-sprint-status.md` *(external Claude memory, không nằm trong repo)*
 > This file covers: current state, design decisions chốt.
 
-**As of:** 2026-06-07 | **Branch:** `main` (PR #36 merged) | **Tests:** 211+ collected backend (+ Playwright E2E)
+**As of:** 2026-06-13 | **Branch:** `main` (PR #40 merged) | **Tests:** 221 collected backend (+ Playwright E2E)
 
 ---
 
@@ -20,6 +20,10 @@
 - **Post-Phase 4 polish** (2026-06-07, merged sau PR #34):
   - PR #35 ✅ Loading state khi sidecar khởi động — `AuthGuard` poll `GET /health` (1s, tối đa 90s) trước khi chạy auth flow; fix biome ignore `src-tauri/target`, thêm `jsdom` dep
   - PR #36 ✅ Native OS notification cho reminder đến hạn — `@tauri-apps/plugin-notification`, gọi song song với in-app toast trong `useReminderPolling`
+- **MVP2 Sprint 7 — Infra: Auto-update + Idempotency-Key — MERGED 2026-06-13** ✅
+  - PR #39 ✅ `IdempotencyMiddleware` (`backend/app/middleware/idempotency.py`) — merged `e691b07`
+  - PR #40 ✅ Tauri auto-update infra (`tauri-plugin-updater` + GitHub Releases) — merged `f58819e`
+  - 221 backend tests pass, ruff/mypy clean
 
 ---
 
@@ -60,6 +64,41 @@
 | SQLite `create_all` guard: `startswith("sqlite") AND app_env=="test"` | Ngăn schema mutation nếu dev/prod vô tình dùng SQLite URL |
 | `DATABASE_URL_DIRECT` dùng `psycopg2` (sync) cho Alembic | Alembic `env.py` dùng sync `engine_from_config` — không tương thích `asyncpg` |
 | Playwright `globalSetup` warm-up trước tests | Next.js dev JIT-compile route trên first request; warm-up loại cold-start flakiness |
+| Idempotency cache: in-memory dict + TTL (không Redis) | Desktop app single-process/single-user — Redis là dependency thừa; lệch khỏi `05_security.md` (viết cho cloud multi-instance), lý do ghi trong docstring `idempotency.py` |
+| `_IDEMPOTENT_PATHS` exact-match (không prefix `startswith()`) | Tránh bắt nhầm subroute `POST /v1/memories/search` và `POST /v1/reminders/{id}/ack` — các route này không phải create-and-cache |
+| Idempotency cache key gồm method+path+query+body hash | Tránh reuse cùng Idempotency-Key giữa 2 route khác nhau trả về cached response sai |
+| Per-(user_id, idempotency_key) `asyncio.Lock`, pop trong `finally` nếu không tạo cache entry | Chặn 2 request đồng thời cùng key tạo duplicate record; tránh `_locks` phình vô hạn với request lỗi (4xx/5xx) |
+| GitHub Releases làm nơi host update artifact (`latest.json` + `.msi`) | Free, tích hợp sẵn `tauri-action`, không cần thêm storage/CDN riêng |
+| Draft release = staged rollout, `--prerelease` = kill-switch | `releases/latest` chỉ trỏ tới release published+non-prerelease; máy đã update lên bản lỗi không tự downgrade — kill-switch chỉ bảo vệ máy chưa update |
+| Authenticode code-signing cert: deferred | App vẫn unsigned ở OS level (SmartScreen warning) — chấp nhận được cho personal use; updater signature key (minisign/ed25519) là loại khác, đã setup |
+
+---
+
+## Sprint 7 — DONE ✅ (merged 2026-06-13)
+
+**Goal:** MVP2 kickoff — infra trước feature: auto-update + dọn tech debt Idempotency-Key.
+
+**PR #39** `feat/sprint7-idempotency-key` → merged `e691b07`
+- `IdempotencyMiddleware` (`backend/app/middleware/idempotency.py`) cho `POST /v1/todos|notes|memories|reminders` (exact path)
+- In-memory `_cache` (TTL `idempotency_key_ttl_seconds`, default 86400s) + `_locks` per `(user_id, idempotency_key)`
+- Cache key = sha256(method+path+query+body); cùng key+body khác → `409 idempotency_conflict`; cùng key+body giống → trả cached response
+- Round 1 review fix: scope hash theo route (chống cross-route leak) + lock chống concurrent duplicate
+- Round 2 review fix: exact-path match (không bắt `/memories/search`, `/reminders/{id}/ack`) + lock cleanup khi request không tạo cache entry
+- `backend/tests/test_idempotency.py` — 7 tests
+
+**PR #40** `feat/sprint7-auto-update-infra` → merged `f58819e`
+- `tauri-plugin-updater` + `tauri-plugin-process`: check + download + install + relaunch
+- `tauri.conf.json`: `bundle.createUpdaterArtifacts: true` + `plugins.updater` (pubkey + endpoint `releases/latest/download/latest.json`)
+- `hooks/useUpdateAvailable.ts` (check mount + 6h) + `components/updater/UpdatePrompt.tsx`, mounted trong `layout.tsx`
+- `.github/workflows/release.yml` — trigger tag `v*.*.*`, `tauri-apps/tauri-action@v0`, draft release (staged rollout)
+- Updater signing keypair generated — private key/password ở GitHub Actions secrets (`TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`)
+
+**Merge conflict resolution:** cả 2 PR sửa cùng block Sprint 7 trong `docs/07_MVP2_MVP3_Plan.md`. Merge PR #39 trước → merge `main` vào branch PR #40 → resolve conflict (giữ tất cả mục `[x]` của cả 2 PR + mục QA `[ ]` toast verify) → merge PR #40.
+
+**Còn lại (QA thủ công, user tự thực hiện sau khi build version mới):**
+- [ ] Verify toast reminder hiển thị đúng trong WebView (item Phase 4 chưa verify)
+- [ ] Bump `version` trong `tauri.conf.json` → tag `vX.Y.Z` → push tag → CI tạo draft release → cài thử trên máy test → publish → verify app nhận update
+- [ ] Test kill-switch (`gh release edit <tag> --prerelease`)
 
 ---
 
@@ -134,7 +173,7 @@ Xem chi tiết trong [`docs/migration-desktop-app.md`](../migration-desktop-app.
 
 | Feature | Lý do defer |
 |---|---|
-| Google OAuth | Scope reduction Sprint 1 |
-| Idempotency-Key header | Không cần MVP1 |
+| Google OAuth | Scope reduction Sprint 1 — nay là Sprint 8 |
 | Per-device push subscription | 1 sub/user đủ MVP1 |
 | Beta deploy (Railway + Vercel) | Bỏ — đã chuyển sang desktop app |
+| Authenticode code-signing cert | Sprint 7: deferred — app unsigned ở OS level, chấp nhận được cho personal use |
