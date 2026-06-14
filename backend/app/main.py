@@ -51,6 +51,23 @@ if settings.sentry_dsn:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Keep the local DB in lockstep with the shipped code: the desktop app never runs
+    # `alembic upgrade head` by hand, so a release shipping a new migration would
+    # otherwise leave the DB on the old schema (how Sprint 8's table went missing).
+    # Skipped in test (SQLite schema is created below). Alembic's fileConfig resets
+    # stdlib logging, so configure our JSON+file logging afterwards.
+    if settings.app_env != "test":
+        from app.core.db_migrate import run_migrations_to_head
+        from app.core.logging_config import configure_logging
+
+        try:
+            run_migrations_to_head()
+        except Exception:
+            configure_logging(settings.log_level)
+            log.exception("jarvis.migrations_failed")
+            raise
+        configure_logging(settings.log_level)
+
     log.info("jarvis.startup", env=settings.app_env, version="0.1.0")
     # Auto-create schema only in test env with SQLite — prevents accidental schema
     # mutation if a dev/prod instance is misconfigured with a SQLite URL.
