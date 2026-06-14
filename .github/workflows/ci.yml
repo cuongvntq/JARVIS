@@ -144,9 +144,11 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
-      - name: Tauri build
+      - name: Tauri build (smoke — no updater signing)
         working-directory: frontend
-        run: pnpm tauri build
+        # CI is a build smoke test; disable updater artifacts so it doesn't need the
+        # signing key (only release.yml signs, via secrets).
+        run: pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
   frontend-check:
     name: Frontend — lint + typecheck
