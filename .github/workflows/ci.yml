@@ -36,7 +36,7 @@ jobs:
       - name: Test (pytest + SQLite)
         env:
           APP_ENV: test
-          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
           DATABASE_URL_DIRECT: ""
           JWT_SECRET: test-jwt-secret-key-must-be-32-chars!!
           GEMINI_API_KEY: fake
@@ -113,11 +113,11 @@ jobs:
       - name: Cache Rust artifacts
         uses: swatinem/rust-cache@v2
         with:
-          workdir: frontend
+          workspaces: frontend/src-tauri
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
 
       - uses: actions/setup-node@v4
         with:
@@ -152,7 +152,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
 
       - uses: actions/setup-node@v4
         with:
