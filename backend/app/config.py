@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     google_client_id: str | None = None
     google_client_secret: str | None = None
 
+    # ---- Google Calendar OAuth (Sprint 8) ----
+    # openid+email so we can identify the connected account; calendar.readonly for Sprint 8-9.
+    google_oauth_scopes: str = "openid email https://www.googleapis.com/auth/calendar.readonly"
+    google_oauth_callback_timeout_seconds: int = 180
+
     # ---- Cookie ----
     cookie_samesite: str = "lax"
     cookie_secure: bool = False

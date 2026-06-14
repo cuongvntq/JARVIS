@@ -249,6 +249,26 @@ export interface UserUpdateRequest {
   locale?: string | null;
 }
 
+// ── Google Calendar (Sprint 8) ────────────────────────────────────────────────
+
+export interface GoogleConnectOut {
+  authorize_url: string;
+}
+
+export interface GoogleStatusOut {
+  connected: boolean;
+  email: string | null;
+  scopes: string | null;
+  access_token_expires_at: string | null;
+}
+
+export interface GoogleCalendarOut {
+  id: string;
+  summary: string;
+  primary: boolean;
+  time_zone: string | null;
+}
+
 // ── SSE streaming events ──────────────────────────────────────────────────────
 
 export type SSEEvent =

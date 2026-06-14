@@ -13,6 +13,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.conversation import Conversation
+    from app.models.google_account import GoogleOAuthAccount
     from app.models.memory import Memory
     from app.models.note import Note
     from app.models.reminder import Reminder
@@ -61,6 +62,9 @@ class User(Base):
     )
     reminders: Mapped[list[Reminder]] = relationship(
         "Reminder", back_populates="user", cascade="all, delete-orphan"
+    )
+    google_account: Mapped[GoogleOAuthAccount | None] = relationship(
+        "GoogleOAuthAccount", back_populates="user", cascade="all, delete-orphan", uselist=False
     )
 
 

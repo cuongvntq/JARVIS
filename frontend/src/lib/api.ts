@@ -5,6 +5,9 @@ import {
   type ConversationDetailOut,
   type ConversationListResponse,
   type DashboardOut,
+  type GoogleCalendarOut,
+  type GoogleConnectOut,
+  type GoogleStatusOut,
   type MemoryCreate,
   type MemoryListOut,
   type MemoryOut,
@@ -362,6 +365,24 @@ class ApiClient {
 
   async getDashboardToday(): Promise<DashboardOut> {
     return this.request("/v1/dashboard/today");
+  }
+
+  // ── Google Calendar ──────────────────────────────────────────────────────────
+
+  async googleStatus(): Promise<GoogleStatusOut> {
+    return this.request("/v1/google/calendar/status");
+  }
+
+  async googleConnect(): Promise<GoogleConnectOut> {
+    return this.request("/v1/google/calendar/connect", { method: "POST" });
+  }
+
+  async googleDisconnect(): Promise<void> {
+    return this.request("/v1/google/calendar/disconnect", { method: "DELETE" });
+  }
+
+  async googleListCalendars(): Promise<GoogleCalendarOut[]> {
+    return this.request("/v1/google/calendar/calendars");
   }
 }
 

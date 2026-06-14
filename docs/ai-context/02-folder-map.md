@@ -41,7 +41,9 @@ backend/
 │   ├── core/
 │   │   ├── deps.py             # get_current_user() FastAPI dependency (JWT → User)
 │   │   ├── errors.py           # JarvisError, RequestIDMiddleware, exception handlers; Sprint 4: + http_exception_handler (unified HTTPException → { error: ... })
-│   │   └── security.py         # JWT encode/decode, bcrypt hash/verify, token helpers
+│   │   ├── security.py         # JWT encode/decode, bcrypt hash/verify, token helpers
+│   │   └── token_store.py      # Sprint 8: Google OAuth token storage via keyring (Credential Manager);
+│   │                           # save/get/delete_tokens (asyncio.to_thread); NEVER in DB/log
 │   │
 │   ├── middleware/
 │   │   ├── rate_limit.py       # SlowAPI limiter setup, in-memory store; Sprint 5 (S5-5)
@@ -56,6 +58,7 @@ backend/
 │   │   ├── note.py             # Note
 │   │   ├── memory.py           # Memory — embedding=sa.JSON (SQLite compat)
 │   │   ├── reminder.py         # Reminder — status ENUM (pending|sending|sent|failed|cancelled); Sprint 5
+│   │   ├── google_account.py   # GoogleOAuthAccount — Calendar OAuth metadata (email/scopes/expiry, NO token); Sprint 8
 │   │   └── tool_log.py         # ToolExecutionLog, LLMCallLog
 │   │
 │   ├── schemas/                # Pydantic request/response schemas
@@ -66,8 +69,9 @@ backend/
 │   │   ├── note.py             # NoteCreate, NoteUpdate, NotePatch, NoteOut, NoteListOut
 │   │   │                       # Sprint 5: NoteUpdate + field_validator reject explicit null (→422 not 500)
 │   │   ├── memory.py           # MemoryCreate, MemoryUpdate, MemoryOut, MemoryListOut
-│   │   └── reminder.py         # ReminderCreate, ReminderUpdate, ReminderOut, ReminderListOut, ReminderStatus; Sprint 5
-│   │                           # ReminderUpdate: reject null on title+remind_at; description nullable (can be set to null)
+│   │   ├── reminder.py         # ReminderCreate, ReminderUpdate, ReminderOut, ReminderListOut, ReminderStatus; Sprint 5
+│   │   │                       # ReminderUpdate: reject null on title+remind_at; description nullable (can be set to null)
+│   │   └── google.py           # GoogleConnectOut, GoogleStatusOut, GoogleCalendarOut; Sprint 8
 │   │
 │   ├── routers/                # FastAPI route handlers (thin: validate → service → return)
 │   │   ├── auth.py             # /auth/register, login, refresh, logout, me; Sprint 4: + PATCH /auth/me
@@ -78,6 +82,7 @@ backend/
 │   │   ├── memories.py         # /v1/memories CRUD + /search
 │   │   ├── reminders.py        # /v1/reminders CRUD + /cancel + /due + /{id}/ack; Sprint 5; Phase 4: +due/ack
 │   │   ├── dashboard.py        # /v1/dashboard/today; Sprint 5
+│   │   ├── google.py           # /v1/google/calendar/connect|status|disconnect|calendars; Sprint 8
 │   │   └── health.py           # /health, /health/ready
 │   │
 │   ├── services/               # Business logic
@@ -92,7 +97,11 @@ backend/
 │   │   ├── reminder_service.py # create (validate remind_at future), get, list, update, cancel, delete; Sprint 5
 │   │   ├── scheduler_service.py # APScheduler (max_instances=1, coalesce=True), check_reminders() job 60s; Sprint 5
 │   │   │                        # Phase 4: marks pending→due (no push), frontend polls /due + acks /ack
-│   │   └── dashboard_service.py # get_today_dashboard(db, user_id, user_tz) → DashboardOut; Sprint 5
+│   │   ├── dashboard_service.py # get_today_dashboard(db, user_id, user_tz) → DashboardOut; Sprint 5
+│   │   ├── google_oauth_service.py # Sprint 8: start_connect (PKCE+loopback random port), process_callback
+│   │   │                        # (verify state→exchange→keyring+DB), get_status, disconnect (revoke),
+│   │   │                        # get_valid_access_token (auto-refresh, invalid_grant→reauth); _pending in-memory
+│   │   └── google_calendar_service.py # list_calendars (Bearer + auto-refresh); Sprint 8
 │   │
 │   ├── repositories/           # DB queries (SQLAlchemy 2.0, no business logic)
 │   │   ├── user_repo.py        # get_by_email, get_by_id, create, update_last_login; Sprint 4: + update_fields()
@@ -105,6 +114,7 @@ backend/
 │   │   │                       # soft_delete, _build_semantic_search_stmt(), semantic_search (SQLite→[])
 │   │   ├── reminder_repo.py    # get_by_id, list_reminders, create, update_fields, cancel, soft_delete,
 │   │   │                       # get_pending_due(before_utc), claim_pending_due() — atomic UPDATE...RETURNING; Sprint 5
+│   │   ├── google_repo.py      # get_by_user, upsert, update_expiry, delete_by_user; Sprint 8
 │   │   ├── tool_log_repo.py    # log_execution()
 │   │   └── llm_call_log_repo.py # log_call() + _calc_cost()
 │   │
@@ -137,7 +147,9 @@ backend/
 │       ├── 004_sprint3_notes.py            # notes table
 │       ├── 005_sprint4_memories.py         # memories + ENUM memory_type + HNSW index
 │       ├── 006_sprint5_reminders.py        # reminders + ENUM reminder_status (pending|due|sent|failed|cancelled); Sprint 5
-│       └── 007_add_summary_to_conversations.py # ADD COLUMN summary TEXT to conversations; Sprint 6
+│       ├── 007_add_summary_to_conversations.py # ADD COLUMN summary TEXT to conversations; Sprint 6
+│       ├── 008_desktop_reminders.py        # ADD 'due' to reminder_status; DROP push_subscriptions; Phase 4
+│       └── 009_sprint8_google_oauth.py     # google_oauth_accounts (Calendar OAuth metadata, no token); Sprint 8
 │
 └── tests/
     ├── conftest.py             # SQLite in-memory, fixtures: async_client, auth_headers, mock_llm,
@@ -158,11 +170,13 @@ backend/
     ├── test_orchestrator.py    # Orchestrator + router + fallback chain + memory tools (28 collected)
     ├── test_tool_executors.py  # Tool executor unit tests: todo/note/memory/summary (17 collected)
     ├── test_datetime_parser.py # Datetime parser tests (12 collected)
+    ├── test_idempotency.py     # Idempotency-Key middleware (7 tests); Sprint 7
+    ├── test_google_oauth.py    # Google Calendar OAuth: connect/PKCE/callback/refresh/disconnect/calendars (11 tests, mock httpx+keyring); Sprint 8
     └── test_health.py          # Health endpoint tests (2 collected)
 ```
 
-**Total: ~214 tests collected** (`pytest --collect-only`; some functions expand via `@pytest.mark.parametrize`)
-Per-file breakdown: auth=23, chat=18, todos=26, notes=19, memories=22, reminders=~39, dashboard=5, rate_limit=3, orchestrator=28, tool_executors=17, datetime_parser=12, health=2
+**Total: 232 backend tests passed** (`pytest`; some functions expand via `@pytest.mark.parametrize`)
+Per-file breakdown: auth=23, chat=18, todos=26, notes=19, memories=22, reminders=~39, dashboard=5, rate_limit=3, orchestrator=28, tool_executors=17, datetime_parser=12, idempotency=7, google_oauth=11, health=2
 
 ---
 
@@ -237,7 +251,8 @@ frontend/src/
 │   │   ├── ReminderCard.tsx    # Status badge, countdown to remind_at, cancel/delete actions
 │   │   └── CreateReminderDialog.tsx # Modal dialog: title + datetime input + submit
 │   ├── settings/
-│   │   └── SettingsPage.tsx    # Form: name, assistant_name, timezone select (11 IANA), locale select (vi-VN/en-US)
+│   │   ├── SettingsPage.tsx    # Form: name, assistant_name, timezone select (11 IANA), locale select; + GoogleCalendarSettings
+│   │   └── GoogleCalendarSettings.tsx # Sprint 8: connect/disconnect Google Calendar, status, mở system browser
 │   ├── updater/                 # Sprint 7
 │   │   └── UpdatePrompt.tsx    # Client component, no own UI — calls useUpdateAvailable(); mounted in layout.tsx
 │   ├── todos/
@@ -260,6 +275,7 @@ frontend/src/
 │   ├── useReminderPolling.ts   # polls GET /v1/reminders/due (60s), shows toast + native OS notification (manual dismiss → ack), POSTs /ack; Phase 4
 │   ├── useReminders.ts         # useInfiniteQuery (cursor), useCreateReminder, useCancelReminder, useDeleteReminder; Sprint 5
 │   ├── useSettings.ts          # useMutation → PATCH /auth/me + setAuth to update authStore
+│   ├── useGoogleCalendar.ts    # Sprint 8: useGoogleStatus, useConnectGoogle (open browser + poll 2s), useDisconnectGoogle
 │   ├── useTodos.ts             # useInfiniteQuery (cursor), useCreateTodo, useCompleteTodo, useDeleteTodo
 │   └── useUpdateAvailable.ts   # Sprint 7: check() lúc mount + mỗi 6h; toast sonner "Có bản cập nhật" →
 │                               # downloadAndInstall() → relaunch(); try/catch nuốt lỗi khi chạy dev/browser

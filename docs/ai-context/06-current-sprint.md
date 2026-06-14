@@ -3,7 +3,7 @@
 > Sprint history (what each PR built): `memory/project-sprint-status.md` *(external Claude memory, không nằm trong repo)*
 > This file covers: current state, design decisions chốt.
 
-**As of:** 2026-06-13 | **Branch:** `main` (PR #40 merged) | **Tests:** 221 collected backend (+ Playwright E2E)
+**As of:** 2026-06-14 | **Branch:** `feat/sprint8-google-calendar-oauth` (chưa merge) | **Tests:** 232 collected backend (+ Playwright E2E)
 
 ---
 
@@ -24,6 +24,11 @@
   - PR #39 ✅ `IdempotencyMiddleware` (`backend/app/middleware/idempotency.py`) — merged `e691b07`
   - PR #40 ✅ Tauri auto-update infra (`tauri-plugin-updater` + GitHub Releases) — merged `f58819e`
   - 221 backend tests pass, ruff/mypy clean
+- **MVP2 Sprint 8 — Google Calendar OAuth (desktop) — CODE DONE (chưa merge)** 🔵
+  - Backend: loopback + PKCE OAuth, keyring token storage, refresh/revoke, list calendars
+  - Frontend: Settings → "Kết nối Google Calendar", hook poll status, mở system browser qua plugin-shell
+  - 232 backend tests pass (11 mới), ruff/mypy clean, pnpm lint+typecheck clean
+  - DoD cần Google Cloud setup + chạy desktop thật để verify (xem QA checklist trong `docs/07`)
 
 ---
 
@@ -71,6 +76,41 @@
 | GitHub Releases làm nơi host update artifact (`latest.json` + `.msi`) | Free, tích hợp sẵn `tauri-action`, không cần thêm storage/CDN riêng |
 | Draft release = staged rollout, `--prerelease` = kill-switch | `releases/latest` chỉ trỏ tới release published+non-prerelease; máy đã update lên bản lỗi không tự downgrade — kill-switch chỉ bảo vệ máy chưa update |
 | Authenticode code-signing cert: deferred | App vẫn unsigned ở OS level (SmartScreen warning) — chấp nhận được cho personal use; updater signature key (minisign/ed25519) là loại khác, đã setup |
+| Google Calendar OAuth tách biệt hoàn toàn với JWT/refresh app | 2 hệ token khác nhau; `users.google_sub` (đã có) KHÔNG dùng — Sprint 8 chỉ kết nối Calendar, không login-with-Google |
+| Callback OAuth desktop = loopback server tạm (RFC 8252), random port (bind `127.0.0.1:0`) | Đúng chuẩn native app; không cần custom URI scheme / plugin deep-link; server sống trong lúc auth rồi đóng + timeout 180s |
+| Google token lưu qua `keyring` (Credential Manager), DB chỉ metadata | Token = secret cấp cao nhất (`05_security.md`); không vào DB/log/response. `google_oauth_accounts` chỉ email/scopes/expiry |
+| `client_secret` trong `.env` local của sidecar (Google "Desktop app" client) | Google bắt gửi secret khi exchange kể cả desktop; chấp nhận cho app cá nhân single-user — cùng mức `GEMINI_API_KEY` |
+| Scope `openid email https://www.googleapis.com/auth/calendar.readonly` | `openid email` để nhận diện account (email từ id_token, không cần userinfo call); `calendar.readonly` đủ Sprint 8-9 — Sprint 10 re-consent xin quyền ghi |
+| `_pending: dict[state]` in-memory + PKCE S256 + `state` verify | Single-process sidecar; chống CSRF + code interception; refresh `invalid_grant` → xóa account + raise `google_reauth_required` |
+| Service tham chiếu `database.AsyncSessionLocal` (không import trực tiếp) | Callback handler chạy ngoài request context, cần session riêng; import-by-name bị bắt cứng lúc load, không nhận override test |
+
+---
+
+## Sprint 8 — CODE DONE 🔵 (chưa merge, 2026-06-14)
+
+**Goal:** MVP2 Calendar branch kickoff — kết nối Google Calendar (read-only) qua OAuth desktop.
+
+**Backend** (`feat/sprint8-google-calendar-oauth`):
+- `models/google_account.py` `GoogleOAuthAccount` + migration `009` (metadata, NO token, unique user_id)
+- `core/token_store.py` — keyring helper (save/get/delete, `asyncio.to_thread`)
+- `services/google_oauth_service.py` — `start_connect` (PKCE + loopback random port), `process_callback` (verify state → exchange → store), `get_status`, `disconnect` (revoke), `get_valid_access_token` (auto-refresh + `invalid_grant` re-auth)
+- `services/google_calendar_service.py` — `list_calendars`
+- `repositories/google_repo.py`, `schemas/google.py`, `routers/google.py` (`/v1/google/calendar/connect|status|disconnect|calendars`)
+- `config.py`: `google_oauth_scopes`, `google_oauth_callback_timeout_seconds`; dep `keyring>=25`
+- `tests/test_google_oauth.py` — 15 tests (mock httpx + keyring, real SQLite)
+
+**Review fixes (PR #43):**
+- P2a — `get_status` kiểm tra cả token store; nếu DB có metadata nhưng keyring mất/corrupt → tự xóa DB row + báo `connected=false` (self-heal, tránh UI báo "Đã kết nối" nhưng calendars 404).
+- P2b — calendar API trả 401 (token bị revoke trước hạn) → `force_refresh_access_token` + retry 1 lần; vẫn 401 → `clear_local_connection` + `google_reauth_required`.
+- P3 — `_html_page` dùng `html.escape()` cho title/message (callback page reflect `error` query param).
+
+**Frontend:**
+- `@tauri-apps/plugin-shell` + `shell:allow-open` capability — mở system browser
+- `lib/api.ts` + `types/api.ts` — 4 method/3 type Google
+- `hooks/useGoogleCalendar.ts` — status query + connect (mở browser + poll 2s) + disconnect
+- `components/settings/GoogleCalendarSettings.tsx` mount trong `SettingsPage.tsx`
+
+**Còn lại:** Google Cloud setup (user) + QA thủ công DoD — xem `docs/07_MVP2_MVP3_Plan.md` Sprint 8.
 
 ---
 
@@ -173,7 +213,7 @@ Xem chi tiết trong [`docs/migration-desktop-app.md`](../migration-desktop-app.
 
 | Feature | Lý do defer |
 |---|---|
-| Google OAuth | Scope reduction Sprint 1 — nay là Sprint 8 |
+| Google OAuth (login) | Scope reduction Sprint 1; Sprint 8 chỉ làm kết nối Calendar, login-with-Google vẫn defer |
 | Per-device push subscription | 1 sub/user đủ MVP1 |
 | Beta deploy (Railway + Vercel) | Bỏ — đã chuyển sang desktop app |
 | Authenticode code-signing cert | Sprint 7: deferred — app unsigned ở OS level, chấp nhận được cho personal use |

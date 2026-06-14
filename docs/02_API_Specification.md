@@ -354,6 +354,39 @@ Frontend calls this after displaying the in-app toast. Transitions status `due �
 
 ---
 
+## 10b. GOOGLE CALENDAR OAUTH (Sprint 8)
+
+Prefix `/v1/google/calendar`. Tất cả cần JWT. OAuth desktop loopback + PKCE; token Google
+lưu qua keyring (Credential Manager), DB chỉ lưu metadata (`google_oauth_accounts`).
+Hoàn toàn tách biệt với JWT/refresh token của app.
+
+### `POST /v1/google/calendar/connect`
+Bắt đầu flow OAuth. Backend sinh PKCE (`code_verifier`/`code_challenge` S256) + `state` random,
+mở loopback HTTP server tạm trên `127.0.0.1:<random port>` (timeout 180s), trả authorize URL.
+Frontend mở URL này bằng system browser; Google redirect về loopback → backend exchange code,
+lưu token + metadata.
+
+**Response 200:** `{ "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth?..." }`
+- **503** `google_not_configured` nếu thiếu `GOOGLE_CLIENT_ID/SECRET`.
+
+### `GET /v1/google/calendar/status`
+**Response 200:** `{ "connected": bool, "email": str|null, "scopes": str|null, "access_token_expires_at": datetime|null }`
+
+### `DELETE /v1/google/calendar/disconnect`
+Revoke refresh token tại Google (best-effort) + xóa token (keyring) + xóa metadata (DB). **204**.
+
+### `GET /v1/google/calendar/calendars`
+Trả calendar list (tự refresh access token nếu hết hạn).
+**Response 200:** `[{ "id", "summary", "primary", "time_zone" }, ...]`
+- **404** `google_not_connected` nếu chưa kết nối.
+- **401** `google_reauth_required` nếu refresh token bị revoke (cần kết nối lại).
+
+**Google Cloud setup (user làm 1 lần):** tạo project → bật Calendar API → OAuth consent screen
+(External, scope `calendar.readonly`, thêm email vào Test users) → tạo OAuth client **Desktop app**
+→ điền `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` vào `.env`.
+
+---
+
 ## 11. SETTINGS API
 
 ### `GET /settings` → user settings (timezone, assistant_name, locale, notification prefs).
