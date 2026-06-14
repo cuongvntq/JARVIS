@@ -15,6 +15,9 @@ tiktoken_datas, tiktoken_binaries, tiktoken_hiddenimports = collect_all("tiktoke
 # win32ctypes is the Windows backend's dependency (win32ctypes.pywin32.win32cred).
 keyring_datas, keyring_binaries, keyring_hiddenimports = collect_all("keyring")
 win32ctypes_datas, win32ctypes_binaries, win32ctypes_hiddenimports = collect_all("win32ctypes")
+# Alembic runs on startup (auto-migrate). It loads templates/migration scripts and
+# the psycopg2 sync dialect dynamically — neither is reliably found by static analysis.
+alembic_datas, alembic_binaries, alembic_hiddenimports = collect_all("alembic")
 
 # Resolve litellm package directory dynamically (cross-platform, venv-agnostic)
 _litellm_dir = os.path.dirname(importlib.util.find_spec("litellm").origin)
@@ -48,6 +51,7 @@ a = Analysis(
         *tiktoken_datas,
         *keyring_datas,
         *win32ctypes_datas,
+        *alembic_datas,
     ],
     hiddenimports=[
         "uvicorn.logging",
@@ -65,16 +69,19 @@ a = Analysis(
         "tiktoken_ext",
         "tiktoken_ext.openai_public",
         "win32ctypes.pywin32.win32cred",
+        "psycopg2",
         *litellm_hiddenimports,
         *tiktoken_hiddenimports,
         *keyring_hiddenimports,
         *win32ctypes_hiddenimports,
+        *alembic_hiddenimports,
     ],
     binaries=[
         *litellm_binaries,
         *tiktoken_binaries,
         *keyring_binaries,
         *win32ctypes_binaries,
+        *alembic_binaries,
     ],
     noarchive=False,
 )

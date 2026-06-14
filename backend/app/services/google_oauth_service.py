@@ -147,7 +147,7 @@ async def _handle_callback(
         _write_http_response(writer, html)
         await writer.drain()
     except Exception as e:
-        log.error("google.callback_handler_error", error=str(e))
+        log.error("google.callback_handler_error", error=str(e), exc_info=True)
     finally:
         writer.close()
 
@@ -188,7 +188,9 @@ async def process_callback(
             "✅ Đã kết nối Google Calendar", "Bạn có thể đóng tab này và quay lại JARVIS."
         )
     except Exception as e:
-        log.error("google.exchange_failed", error=str(e))
+        # exc_info=True records the full traceback; the HTTP error body (the real
+        # OAuth reason, e.g. invalid_grant) is logged in _exchange_and_store below.
+        log.error("google.exchange_failed", error=str(e), exc_info=True)
         await _cleanup(expected_state)
         return False, _html_page("Lỗi", "Không hoàn tất kết nối. Vui lòng thử lại.")
 
@@ -209,6 +211,10 @@ async def _exchange_and_store(pending: _PendingAuth, code: str) -> None:
                 "redirect_uri": pending.redirect_uri,
             },
         )
+    if resp.status_code >= 400:
+        # The token endpoint's error body carries the real reason (invalid_grant,
+        # redirect_uri_mismatch, ...). Safe to log: error responses contain no tokens.
+        log.error("google.token_exchange_http_error", status=resp.status_code, body=resp.text)
     resp.raise_for_status()
     tokens = resp.json()
 
@@ -339,6 +345,8 @@ async def _refresh_access_token(db: AsyncSession, user_id: uuid.UUID, refresh_to
         await google_repo.delete_by_user(db, user_id)
         await db.commit()
         raise JarvisError(401, "google_reauth_required", "Cần kết nối lại Google Calendar")
+    if resp.status_code >= 400:
+        log.error("google.token_refresh_http_error", status=resp.status_code, body=resp.text)
     resp.raise_for_status()
 
     data = resp.json()
