@@ -99,21 +99,35 @@ Mỗi sprint ~2 tuần.
 
 ### Sprint 8 — Google OAuth (desktop) + kết nối Calendar
 
-- [ ] OAuth Desktop flow: loopback redirect + PKCE; Tauri mở system browser, local server bắt `code`
-- [ ] **Acceptance criteria bảo mật (bắt buộc):**
+- [x] OAuth Desktop flow: loopback redirect + PKCE; Tauri mở system browser, local server bắt `code`
+- [x] **Acceptance criteria bảo mật (bắt buộc):**
       - **PKCE**: `code_verifier` random + `code_challenge` (S256)
       - **`state`** random chống CSRF, verify khi nhận callback
       - **Random loopback port** (không hardcode), redirect_uri = `http://127.0.0.1:<port>`
       - Validate **origin/redirect** của callback; chỉ chấp nhận đúng `state` + đúng port đã mở
       - **`access_type=offline`** + **`prompt=consent`** (khi cần) để chắc chắn lấy được refresh token
       - Loopback server chỉ sống trong lúc auth rồi đóng; timeout nếu user không hoàn tất
-- [ ] Lưu token theo Quyết định kiến trúc (Credential Manager qua `keyring`); DB chỉ metadata
-- [ ] Token refresh tự động khi access token hết hạn; xử lý refresh token bị **revoke** (re-auth)
-- [ ] DB: bảng `google_oauth_accounts` (email, scopes, expiry — **không token**) + migration
+- [x] Lưu token theo Quyết định kiến trúc (Credential Manager qua `keyring`); DB chỉ metadata
+- [x] Token refresh tự động khi access token hết hạn; xử lý refresh token bị **revoke** (re-auth)
+- [x] DB: bảng `google_oauth_accounts` (email, scopes, expiry — **không token**) + migration 009
       (`sync_token` thuộc per-calendar sync state, xem `calendar_sync_states` ở Sprint 9 — không để ở đây)
-- [ ] Backend: service gọi Google API (httpx, không cần SDK nặng) + endpoints connect/disconnect/status
-- [ ] UI: Settings → "Kết nối Google Calendar" / "Ngắt kết nối" / trạng thái
+- [x] Backend: service gọi Google API (httpx, không cần SDK nặng) + endpoints connect/disconnect/status
+- [x] UI: Settings → "Kết nối Google Calendar" / "Ngắt kết nối" / trạng thái
 - **DoD:** Kết nối → list calendars OK → **giả lập access token hết hạn → refresh tự động thành công** → **disconnect gọi revoke endpoint → token mất hiệu lực tại Google** → reconnect lại được. State/PKCE sai → từ chối.
+- **Scope đã chốt:** chỉ kết nối Calendar (KHÔNG login-with-Google); scope `calendar.readonly` (+ `openid email` để nhận diện account); callback = loopback RFC 8252. Code hoàn tất (39 endpoint test/service, ruff+mypy clean); DoD cần Google Cloud setup + chạy desktop thật để verify (xem checklist QA bên dưới).
+
+**⚠️ Google Cloud setup (user làm trước khi test):**
+1. console.cloud.google.com → tạo project → **bật Google Calendar API**.
+2. OAuth consent screen: **External**; thêm scope `.../auth/calendar.readonly`; thêm email user vào **Test users**.
+3. Credentials → OAuth client ID → **Application type = Desktop app** → copy Client ID + Secret.
+4. Điền `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (`%APPDATA%\JARVIS\.env` khi đóng gói).
+
+**Checklist QA thủ công Sprint 8 (user tự thực hiện):**
+- [ ] Settings → "Kết nối Google Calendar" → browser mở → consent → trang success → UI "Đã kết nối: email"
+- [ ] `GET /v1/google/calendar/calendars` trả danh sách lịch (≥ primary)
+- [ ] Sửa `access_token_expires_at` về quá khứ → gọi lại `/calendars` → refresh tự động thành công
+- [ ] "Ngắt kết nối" → token mất hiệu lực tại Google; reconnect lại được
+- [ ] PyInstaller build: thêm `--collect-all keyring` nếu sidecar không tìm thấy keyring backend
 
 ### Sprint 9 — Calendar read-only (Google → JARVIS)
 

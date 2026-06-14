@@ -324,6 +324,25 @@ CREATE INDEX idx_session_user_active ON auth_sessions(user_id) WHERE revoked_at 
 CREATE INDEX idx_session_token       ON auth_sessions(refresh_token_hash);
 ```
 
+### 4.11 `google_oauth_accounts` (Sprint 8)
+
+Metadata kết nối Google Calendar. **KHÔNG lưu token** — access/refresh token lưu qua `keyring`
+(Windows Credential Manager), xem `app/core/token_store.py`. Hard delete khi disconnect.
+
+```sql
+CREATE TABLE google_oauth_accounts (
+    id                      UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id                 UUID         NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    google_email            VARCHAR(255) NOT NULL,
+    scopes                  VARCHAR      NOT NULL,   -- space-separated
+    access_token_expires_at TIMESTAMPTZ  NOT NULL,
+    connected_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    created_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+-- UNIQUE(user_id) tự tạo index — 1 Google account / user (MVP)
+```
+
 ---
 
 ## 5. SEED DATA (DEV ONLY)

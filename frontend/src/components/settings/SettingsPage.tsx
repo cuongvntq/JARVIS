@@ -2,16 +2,9 @@
 
 import { useUpdateProfile } from "@/hooks/useSettings";
 import { useAuthStore } from "@/stores/authStore";
-import {
-  AlertCircle,
-  Bot,
-  CheckCircle,
-  Globe,
-  Loader2,
-  Settings,
-  User,
-} from "lucide-react";
+import { AlertCircle, Bot, CheckCircle, Globe, Loader2, Settings, User } from "lucide-react";
 import { useEffect, useState } from "react";
+import GoogleCalendarSettings from "./GoogleCalendarSettings";
 
 const TIMEZONES = [
   { value: "Asia/Ho_Chi_Minh", label: "Hà Nội / TP. HCM (UTC+7)" },
@@ -313,6 +306,10 @@ export default function SettingsPage() {
             {isPending ? "Đang lưu..." : "Lưu thay đổi"}
           </button>
         </form>
+
+        <div className="mt-8">
+          <GoogleCalendarSettings />
+        </div>
       </div>
     </div>
   );
