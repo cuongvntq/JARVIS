@@ -148,7 +148,7 @@ jobs:
         working-directory: frontend
         # CI is a build smoke test; disable updater artifacts so it doesn't need the
         # signing key (only release.yml signs, via secrets).
-        run: pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
+        run: pnpm tauri build --config src-tauri/tauri.ci.json
 
   frontend-check:
     name: Frontend — lint + typecheck

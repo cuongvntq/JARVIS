@@ -1,12 +1,12 @@
 "use client";
 
 import { api } from "@/lib/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   isPermissionGranted,
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 

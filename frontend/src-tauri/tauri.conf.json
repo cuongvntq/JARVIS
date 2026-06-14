@@ -35,17 +35,13 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": [
-      "binaries/jarvis-server"
-    ],
+    "externalBin": ["binaries/jarvis-server"],
     "createUpdaterArtifacts": true
   },
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUxN0RCNzEyNjNEOEU3MTgKUldRWTU5aGpFcmQ5VVh0REluZmtQODNhR2hLUDZnSkg4aFJsT2U5U282WC9tNjBTVW5LOS9seUUK",
-      "endpoints": [
-        "https://github.com/cuongvntq/JARVIS/releases/latest/download/latest.json"
-      ]
+      "endpoints": ["https://github.com/cuongvntq/JARVIS/releases/latest/download/latest.json"]
     }
   }
 }
