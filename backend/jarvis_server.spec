@@ -10,6 +10,11 @@ from PyInstaller.utils.hooks import collect_all, collect_data_files
 litellm_datas, litellm_binaries, litellm_hiddenimports = collect_all("litellm")
 # tiktoken needs its BPE encoding data files and the openai_public registry
 tiktoken_datas, tiktoken_binaries, tiktoken_hiddenimports = collect_all("tiktoken")
+# keyring discovers backends via entry points (dist-info) — collect_all pulls the
+# metadata + backend modules so the packaged sidecar can use WinVaultKeyring.
+# win32ctypes is the Windows backend's dependency (win32ctypes.pywin32.win32cred).
+keyring_datas, keyring_binaries, keyring_hiddenimports = collect_all("keyring")
+win32ctypes_datas, win32ctypes_binaries, win32ctypes_hiddenimports = collect_all("win32ctypes")
 
 # Resolve litellm package directory dynamically (cross-platform, venv-agnostic)
 _litellm_dir = os.path.dirname(importlib.util.find_spec("litellm").origin)
@@ -41,6 +46,8 @@ a = Analysis(
         *_extra_litellm_jsons,
         *litellm_datas,
         *tiktoken_datas,
+        *keyring_datas,
+        *win32ctypes_datas,
     ],
     hiddenimports=[
         "uvicorn.logging",
@@ -57,10 +64,18 @@ a = Analysis(
         "asyncpg.pgproto.pgproto",
         "tiktoken_ext",
         "tiktoken_ext.openai_public",
+        "win32ctypes.pywin32.win32cred",
         *litellm_hiddenimports,
         *tiktoken_hiddenimports,
+        *keyring_hiddenimports,
+        *win32ctypes_hiddenimports,
     ],
-    binaries=[*litellm_binaries, *tiktoken_binaries],
+    binaries=[
+        *litellm_binaries,
+        *tiktoken_binaries,
+        *keyring_binaries,
+        *win32ctypes_binaries,
+    ],
     noarchive=False,
 )
 
