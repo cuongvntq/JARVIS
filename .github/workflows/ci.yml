@@ -17,6 +17,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - uses: astral-sh/setup-uv@v4
         with:
           version: "latest"
@@ -36,7 +40,7 @@ jobs:
       - name: Test (pytest + SQLite)
         env:
           APP_ENV: test
-          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
           DATABASE_URL_DIRECT: ""
           JWT_SECRET: test-jwt-secret-key-must-be-32-chars!!
           GEMINI_API_KEY: fake
@@ -67,6 +71,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - uses: astral-sh/setup-uv@v4
         with:
@@ -113,15 +121,15 @@ jobs:
       - name: Cache Rust artifacts
         uses: swatinem/rust-cache@v2
         with:
-          workdir: frontend
+          workspaces: frontend/src-tauri
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
@@ -136,9 +144,11 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
-      - name: Tauri build
+      - name: Tauri build (smoke — no updater signing)
         working-directory: frontend
-        run: pnpm tauri build
+        # CI is a build smoke test; disable updater artifacts so it doesn't need the
+        # signing key (only release.yml signs, via secrets).
+        run: pnpm tauri build --config '{"bundle":{"createUpdaterArtifacts":false}}'
 
   frontend-check:
     name: Frontend — lint + typecheck
@@ -152,11 +162,11 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
