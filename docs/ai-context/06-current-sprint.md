@@ -97,7 +97,12 @@
 - `services/google_calendar_service.py` — `list_calendars`
 - `repositories/google_repo.py`, `schemas/google.py`, `routers/google.py` (`/v1/google/calendar/connect|status|disconnect|calendars`)
 - `config.py`: `google_oauth_scopes`, `google_oauth_callback_timeout_seconds`; dep `keyring>=25`
-- `tests/test_google_oauth.py` — 11 tests (mock httpx + keyring, real SQLite)
+- `tests/test_google_oauth.py` — 15 tests (mock httpx + keyring, real SQLite)
+
+**Review fixes (PR #43):**
+- P2a — `get_status` kiểm tra cả token store; nếu DB có metadata nhưng keyring mất/corrupt → tự xóa DB row + báo `connected=false` (self-heal, tránh UI báo "Đã kết nối" nhưng calendars 404).
+- P2b — calendar API trả 401 (token bị revoke trước hạn) → `force_refresh_access_token` + retry 1 lần; vẫn 401 → `clear_local_connection` + `google_reauth_required`.
+- P3 — `_html_page` dùng `html.escape()` cho title/message (callback page reflect `error` query param).
 
 **Frontend:**
 - `@tauri-apps/plugin-shell` + `shell:allow-open` capability — mở system browser

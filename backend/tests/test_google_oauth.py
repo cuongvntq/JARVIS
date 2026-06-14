@@ -116,8 +116,15 @@ async def test_connect_returns_authorize_url_with_pkce(
 
 @pytest.mark.asyncio
 async def test_connect_not_configured(async_client, auth_headers):
-    # No google_client_id/secret set in test env → 503.
-    resp = await async_client.post("/v1/google/calendar/connect", headers=auth_headers)
+    # Force creds absent (the loaded .env may define them) → 503 google_not_configured.
+    settings = get_settings()
+    old_id, old_secret = settings.google_client_id, settings.google_client_secret
+    settings.google_client_id = None
+    settings.google_client_secret = None
+    try:
+        resp = await async_client.post("/v1/google/calendar/connect", headers=auth_headers)
+    finally:
+        settings.google_client_id, settings.google_client_secret = old_id, old_secret
     assert resp.status_code == 503
     assert resp.json()["error"]["code"] == "google_not_configured"
 
@@ -341,6 +348,104 @@ async def test_list_calendars_not_connected_returns_404(async_client, auth_heade
         resp = await async_client.get("/v1/google/calendar/calendars", headers=auth_headers)
     assert resp.status_code == 404
     assert resp.json()["error"]["code"] == "google_not_connected"
+
+
+# ── Review fixes: status self-heal + 401 recovery ─────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_status_self_heals_when_token_missing(async_client, auth_headers):
+    """DB says connected but keyring token is gone → status returns not connected
+    AND the stale DB row is removed (P2a)."""
+    user_id = await _get_user_id(async_client, auth_headers)
+    async with AsyncSessionLocal() as db:
+        await google_repo.upsert(
+            db, user_id, "me@gmail.com", "scope", datetime.now(UTC) + timedelta(hours=1)
+        )
+        await db.commit()
+
+    with patch("app.core.token_store.get_tokens", new_callable=AsyncMock, return_value=None):
+        resp = await async_client.get("/v1/google/calendar/status", headers=auth_headers)
+
+    assert resp.status_code == 200
+    assert resp.json()["connected"] is False
+    async with AsyncSessionLocal() as db:
+        assert await google_repo.get_by_user(db, user_id) is None  # self-healed
+
+
+@pytest.mark.asyncio
+async def test_list_calendars_force_refreshes_on_401(async_client, auth_headers):
+    """Calendar API 401 (token revoked before expiry) → force refresh once + retry
+    succeeds (P2b)."""
+    items = {"items": [{"id": "primary@gmail.com", "summary": "Lịch", "primary": True}]}
+    with (
+        patch(
+            "app.services.google_oauth_service.get_valid_access_token",
+            new_callable=AsyncMock,
+            return_value="ya29.stale",
+        ),
+        patch(
+            "app.services.google_oauth_service.force_refresh_access_token",
+            new_callable=AsyncMock,
+            return_value="ya29.fresh",
+        ) as mock_fr,
+        patch(
+            "app.services.google_calendar_service._get_calendar_list",
+            new_callable=AsyncMock,
+            side_effect=[_FakeResp(status_code=401), _FakeResp(json_data=items)],
+        ),
+    ):
+        resp = await async_client.get("/v1/google/calendar/calendars", headers=auth_headers)
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()[0]["id"] == "primary@gmail.com"
+    mock_fr.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_list_calendars_clears_state_when_still_401(async_client, auth_headers):
+    """If the calendar API still 401s after a forced refresh → clear local state and
+    require reconnect (P2b)."""
+    with (
+        patch(
+            "app.services.google_oauth_service.get_valid_access_token",
+            new_callable=AsyncMock,
+            return_value="ya29.stale",
+        ),
+        patch(
+            "app.services.google_oauth_service.force_refresh_access_token",
+            new_callable=AsyncMock,
+            return_value="ya29.fresh",
+        ),
+        patch(
+            "app.services.google_oauth_service.clear_local_connection",
+            new_callable=AsyncMock,
+        ) as mock_clear,
+        patch(
+            "app.services.google_calendar_service._get_calendar_list",
+            new_callable=AsyncMock,
+            side_effect=[_FakeResp(status_code=401), _FakeResp(status_code=401)],
+        ),
+    ):
+        resp = await async_client.get("/v1/google/calendar/calendars", headers=auth_headers)
+
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "google_reauth_required"
+    mock_clear.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_callback_html_escapes_error(async_client, auth_headers, google_configured):
+    """Reflected OAuth error must be HTML-escaped in the callback page (P3)."""
+    user_id = await _get_user_id(async_client, auth_headers)
+    authorize_url = await google_oauth_service.start_connect(user_id)
+    state = urllib.parse.parse_qs(urllib.parse.urlparse(authorize_url).query)["state"][0]
+
+    _, page = await google_oauth_service.process_callback(
+        state, code=None, state=state, error="<script>alert(1)</script>"
+    )
+    assert "<script>alert(1)</script>" not in page
+    assert "&lt;script&gt;" in page
 
 
 # Reference google_calendar_service so linters keep the import (used via patched paths).

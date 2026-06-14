@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import html
 import json
 import secrets
 import urllib.parse
@@ -257,15 +258,33 @@ async def _email_from_userinfo(access_token: str) -> str:
 # ── Status / disconnect / token refresh ──────────────────────────────────────
 
 
+_NOT_CONNECTED: dict[str, object | None] = {
+    "connected": False,
+    "email": None,
+    "scopes": None,
+    "access_token_expires_at": None,
+}
+
+
 async def get_status(db: AsyncSession, user_id: uuid.UUID) -> dict[str, object | None]:
+    """Report connection status.
+
+    Connected only if BOTH the DB metadata AND the keyring token exist. If the DB
+    row is present but the token is gone/corrupt (keyring cleared, machine restore,
+    bad JSON), self-heal by dropping the stale row so the UI shows "not connected"
+    instead of claiming connected while every calendar call 404s.
+    """
     account = await google_repo.get_by_user(db, user_id)
     if account is None:
-        return {
-            "connected": False,
-            "email": None,
-            "scopes": None,
-            "access_token_expires_at": None,
-        }
+        return dict(_NOT_CONNECTED)
+
+    tokens = await token_store.get_tokens(user_id)
+    if tokens is None:
+        await google_repo.delete_by_user(db, user_id)
+        await db.commit()
+        log.info("google.status_self_healed", user_id=str(user_id))
+        return dict(_NOT_CONNECTED)
+
     return {
         "connected": True,
         "email": account.google_email,
@@ -334,7 +353,36 @@ async def _refresh_access_token(db: AsyncSession, user_id: uuid.UUID, refresh_to
     return new_access
 
 
+async def force_refresh_access_token(db: AsyncSession, user_id: uuid.UUID) -> str:
+    """Refresh the access token regardless of its stored expiry.
+
+    Used when a calendar API call returns 401 even though the cached token has not
+    expired yet (e.g. the token was revoked server-side). Raises
+    google_not_connected / google_reauth_required if no usable token remains.
+    """
+    tokens = await token_store.get_tokens(user_id)
+    if tokens is None:
+        raise JarvisError(404, "google_not_connected", "Chưa kết nối Google Calendar")
+    return await _refresh_access_token(db, user_id, tokens["refresh_token"])
+
+
+async def clear_local_connection(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """Drop local token + DB metadata WITHOUT calling Google revoke.
+
+    For when the token is already invalid server-side (revoked); there is nothing
+    useful to revoke, we just need the local state to reflect "not connected".
+    """
+    await token_store.delete_tokens(user_id)
+    await google_repo.delete_by_user(db, user_id)
+    await db.commit()
+    log.info("google.connection_cleared", user_id=str(user_id))
+
+
 def _html_page(title: str, message: str) -> str:
+    # Escape: `message` may include the OAuth `error` query param reflected from the
+    # callback. Low impact (local loopback, correct state required) but escape anyway.
+    title = html.escape(title)
+    message = html.escape(message)
     return (
         "<!doctype html><html lang='vi'><head><meta charset='utf-8'>"
         f"<title>{title}</title></head>"
