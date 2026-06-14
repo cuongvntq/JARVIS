@@ -1,5 +1,11 @@
 # CLAUDE.md — J.A.R.V.I.S Personal AI Assistant
 
+## Ngôn ngữ giao tiếp
+
+Luôn giao tiếp với user bằng **tiếng Việt** trong toàn bộ project này — tin nhắn trả lời,
+tóm tắt, câu hỏi xác nhận, v.v. Code, commit message, docstring, tên biến vẫn dùng tiếng Anh
+theo convention hiện có.
+
 ## Context — Đọc khi bắt đầu session mới
 
 **Bắt buộc đọc khi bắt đầu session** (nhất là sau thời gian dài không làm việc):
