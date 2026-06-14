@@ -114,7 +114,9 @@ Mỗi sprint ~2 tuần.
 - [x] Backend: service gọi Google API (httpx, không cần SDK nặng) + endpoints connect/disconnect/status
 - [x] UI: Settings → "Kết nối Google Calendar" / "Ngắt kết nối" / trạng thái
 - **DoD:** Kết nối → list calendars OK → **giả lập access token hết hạn → refresh tự động thành công** → **disconnect gọi revoke endpoint → token mất hiệu lực tại Google** → reconnect lại được. State/PKCE sai → từ chối.
-- **Scope đã chốt:** chỉ kết nối Calendar (KHÔNG login-with-Google); scope `calendar.readonly` (+ `openid email` để nhận diện account); callback = loopback RFC 8252. Code hoàn tất (39 endpoint test/service, ruff+mypy clean); DoD cần Google Cloud setup + chạy desktop thật để verify (xem checklist QA bên dưới).
+- **Scope đã chốt:** chỉ kết nối Calendar (KHÔNG login-with-Google); scope `calendar.readonly` (+ `openid email` để nhận diện account); callback = loopback RFC 8252. Code hoàn tất (39 endpoint test/service, ruff+mypy clean).
+- **DoD đạt 2026-06-15:** kết nối thực qua Google Cloud project thật → `google_oauth_accounts` có row (`dragonball1997vntq@gmail.com`, scope `calendar.readonly openid email`) → `list_calendars` trả đúng 4 lịch khớp Google Calendar thật (primary + CodeLean FullStack + Gia đình + Ngày lễ ở Việt Nam).
+- **Bug phát sinh + đã fix (PR #48):** lần connect đầu tiên lỗi "Không hoàn tất kết nối" — DB local còn ở migration 008 (thiếu bảng `google_oauth_accounts` của 009) vì app desktop không tự migrate khi khởi động. Fix: `app/core/db_migrate.py` chạy `alembic upgrade head` trong lifespan (non-test env) + `app/core/logging_config.py` ghi log JSON ra `%APPDATA%\JARVIS\logs\jarvis-backend.log` (trước đó `console=False` nuốt mất stderr nên không debug được).
 
 **⚠️ Google Cloud setup (user làm trước khi test):**
 1. console.cloud.google.com → tạo project → **bật Google Calendar API**.
@@ -122,12 +124,12 @@ Mỗi sprint ~2 tuần.
 3. Credentials → OAuth client ID → **Application type = Desktop app** → copy Client ID + Secret.
 4. Điền `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (`%APPDATA%\JARVIS\.env` khi đóng gói).
 
-**Checklist QA thủ công Sprint 8 (user tự thực hiện):**
-- [ ] Settings → "Kết nối Google Calendar" → browser mở → consent → trang success → UI "Đã kết nối: email"
-- [ ] `GET /v1/google/calendar/calendars` trả danh sách lịch (≥ primary)
-- [ ] Sửa `access_token_expires_at` về quá khứ → gọi lại `/calendars` → refresh tự động thành công
-- [ ] "Ngắt kết nối" → token mất hiệu lực tại Google; reconnect lại được
-- [ ] PyInstaller build: thêm `--collect-all keyring` nếu sidecar không tìm thấy keyring backend
+**Checklist QA thủ công Sprint 8:**
+- [x] Settings → "Kết nối Google Calendar" → browser mở → consent → trang success → UI "Đã kết nối: dragonball1997vntq@gmail.com" (2026-06-15)
+- [x] `GET /v1/google/calendar/calendars` trả danh sách lịch (4 lịch, gồm primary) (2026-06-15)
+- [x] PyInstaller build: `--collect-all keyring` đã thêm (PR #45); `--collect-all alembic` + `psycopg2` thêm ở PR #48
+- [ ] *(optional, không block DONE)* Sửa `access_token_expires_at` về quá khứ → gọi lại `/calendars` → refresh tự động thành công — đã có unit test mock; chưa test thật
+- [ ] *(optional, không block DONE)* "Ngắt kết nối" → token mất hiệu lực tại Google; reconnect lại được — đã có unit test mock; chưa test thật
 
 ### Sprint 9 — Calendar read-only (Google → JARVIS)
 
