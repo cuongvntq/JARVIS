@@ -379,6 +379,58 @@ TOOLS: list[dict[str, Any]] = [
             },
         },
     },
+    # ── Sprint 9: Calendar tools ───────────────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "list_calendar_events",
+            "description": (
+                "Lấy danh sách sự kiện từ Google Calendar đã đồng bộ. "
+                "Gọi khi người dùng hỏi 'lịch hôm nay có gì', 'ngày mai có hẹn gì không', "
+                "'tuần này có cuộc họp nào'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "range": {
+                        "type": "string",
+                        "enum": ["today", "tomorrow", "week", "custom"],
+                        "default": "today",
+                        "description": (
+                            "Khoảng thời gian: today=hôm nay, tomorrow=ngày mai, "
+                            "week=7 ngày tới, custom=dùng time_min/time_max."
+                        ),
+                    },
+                    "time_min": {
+                        "type": ["string", "null"],
+                        "format": "date-time",
+                        "description": "Bắt đầu khoảng tùy chỉnh, ISO 8601 UTC. Chỉ dùng khi range=custom.",
+                    },
+                    "time_max": {
+                        "type": ["string", "null"],
+                        "format": "date-time",
+                        "description": "Kết thúc khoảng tùy chỉnh, ISO 8601 UTC. Chỉ dùng khi range=custom.",
+                    },
+                },
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_today_summary",
+            "description": (
+                "Tổng hợp tình hình hôm nay: việc cần làm, lời nhắc sắp tới, sự kiện lịch. "
+                "Gọi khi người dùng hỏi 'hôm nay có gì', 'tình hình hôm nay thế nào'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        },
+    },
     {
         "type": "function",
         "function": {

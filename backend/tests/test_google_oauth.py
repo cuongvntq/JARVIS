@@ -14,11 +14,13 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
+import sqlalchemy as sa
 
 from app.config import get_settings
 from app.core.errors import JarvisError
 from app.database import AsyncSessionLocal
-from app.repositories import google_repo
+from app.models.calendar_event import CalendarEvent
+from app.repositories import calendar_event_repo, calendar_sync_repo, google_repo
 from app.services import google_calendar_service, google_oauth_service
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -66,6 +68,11 @@ class _FakeClient:
     async def get(self, *args: object, **kwargs: object) -> _FakeResp:
         assert self._get_resp is not None
         return self._get_resp
+
+    async def request(self, method: str, *args: object, **kwargs: object) -> _FakeResp:
+        if method.upper() == "POST":
+            return await self.post(*args, **kwargs)
+        return await self.get(*args, **kwargs)
 
 
 @pytest.fixture
@@ -355,12 +362,36 @@ async def test_list_calendars_not_connected_returns_404(async_client, auth_heade
 
 @pytest.mark.asyncio
 async def test_status_self_heals_when_token_missing(async_client, auth_headers):
-    """DB says connected but keyring token is gone → status returns not connected
-    AND the stale DB row is removed (P2a)."""
+    """DB says connected but keyring token is gone → status returns not connected,
+    the stale DB row is removed, AND cached calendar data is cleared (P2a) so the
+    dashboard/chat don't keep showing events from a calendar JARVIS no longer
+    has access to."""
     user_id = await _get_user_id(async_client, auth_headers)
     async with AsyncSessionLocal() as db:
         await google_repo.upsert(
             db, user_id, "me@gmail.com", "scope", datetime.now(UTC) + timedelta(hours=1)
+        )
+        await calendar_sync_repo.upsert_from_calendar_list(
+            db,
+            user_id,
+            [
+                {
+                    "google_calendar_id": "primary",
+                    "calendar_summary": "Primary",
+                    "is_primary": True,
+                    "time_zone": "UTC",
+                    "access_role": "owner",
+                }
+            ],
+        )
+        await calendar_event_repo.upsert(
+            db,
+            user_id,
+            "primary",
+            "evt1",
+            summary="Stale meeting",
+            is_all_day=False,
+            status="confirmed",
         )
         await db.commit()
 
@@ -371,6 +402,9 @@ async def test_status_self_heals_when_token_missing(async_client, auth_headers):
     assert resp.json()["connected"] is False
     async with AsyncSessionLocal() as db:
         assert await google_repo.get_by_user(db, user_id) is None  # self-healed
+        assert await calendar_sync_repo.list_for_user(db, user_id) == []
+        result = await db.execute(sa.select(CalendarEvent).where(CalendarEvent.user_id == user_id))
+        assert result.scalars().all() == []
 
 
 @pytest.mark.asyncio
@@ -390,7 +424,7 @@ async def test_list_calendars_force_refreshes_on_401(async_client, auth_headers)
             return_value="ya29.fresh",
         ) as mock_fr,
         patch(
-            "app.services.google_calendar_service._get_calendar_list",
+            "app.services.google_calendar_service._request",
             new_callable=AsyncMock,
             side_effect=[_FakeResp(status_code=401), _FakeResp(json_data=items)],
         ),
@@ -404,8 +438,39 @@ async def test_list_calendars_force_refreshes_on_401(async_client, auth_headers)
 
 @pytest.mark.asyncio
 async def test_list_calendars_clears_state_when_still_401(async_client, auth_headers):
-    """If the calendar API still 401s after a forced refresh → clear local state and
-    require reconnect (P2b)."""
+    """If the calendar API still 401s after a forced refresh → clear local state
+    (account metadata + cached calendar events/sync state) and require reconnect
+    (P2b), so the dashboard/chat don't keep showing events from a calendar JARVIS
+    no longer has access to."""
+    user_id = await _get_user_id(async_client, auth_headers)
+    async with AsyncSessionLocal() as db:
+        await google_repo.upsert(
+            db, user_id, "me@gmail.com", "scope", datetime.now(UTC) + timedelta(hours=1)
+        )
+        await calendar_sync_repo.upsert_from_calendar_list(
+            db,
+            user_id,
+            [
+                {
+                    "google_calendar_id": "primary",
+                    "calendar_summary": "Primary",
+                    "is_primary": True,
+                    "time_zone": "UTC",
+                    "access_role": "owner",
+                }
+            ],
+        )
+        await calendar_event_repo.upsert(
+            db,
+            user_id,
+            "primary",
+            "evt1",
+            summary="Stale meeting",
+            is_all_day=False,
+            status="confirmed",
+        )
+        await db.commit()
+
     with (
         patch(
             "app.services.google_oauth_service.get_valid_access_token",
@@ -417,12 +482,9 @@ async def test_list_calendars_clears_state_when_still_401(async_client, auth_hea
             new_callable=AsyncMock,
             return_value="ya29.fresh",
         ),
+        patch("app.core.token_store.delete_tokens", new_callable=AsyncMock),
         patch(
-            "app.services.google_oauth_service.clear_local_connection",
-            new_callable=AsyncMock,
-        ) as mock_clear,
-        patch(
-            "app.services.google_calendar_service._get_calendar_list",
+            "app.services.google_calendar_service._request",
             new_callable=AsyncMock,
             side_effect=[_FakeResp(status_code=401), _FakeResp(status_code=401)],
         ),
@@ -431,7 +493,11 @@ async def test_list_calendars_clears_state_when_still_401(async_client, auth_hea
 
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "google_reauth_required"
-    mock_clear.assert_awaited_once()
+    async with AsyncSessionLocal() as db:
+        assert await google_repo.get_by_user(db, user_id) is None
+        assert await calendar_sync_repo.list_for_user(db, user_id) == []
+        result = await db.execute(sa.select(CalendarEvent).where(CalendarEvent.user_id == user_id))
+        assert result.scalars().all() == []
 
 
 @pytest.mark.asyncio

@@ -343,6 +343,66 @@ CREATE TABLE google_oauth_accounts (
 -- UNIQUE(user_id) tự tạo index — 1 Google account / user (MVP)
 ```
 
+### 4.12 `calendar_sync_states` (Sprint 9)
+
+Trạng thái đồng bộ mỗi Google Calendar của user (1 row / calendar được liệt kê, không chỉ
+calendar đã chọn). `selected=true` mới được sync events.
+
+```sql
+CREATE TABLE calendar_sync_states (
+    id                   UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id              UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    google_calendar_id   VARCHAR(255) NOT NULL,
+    calendar_summary     VARCHAR(255) NOT NULL,
+    is_primary           BOOLEAN      NOT NULL DEFAULT FALSE,
+    time_zone            VARCHAR(64),
+    access_role          VARCHAR(20),
+    sync_token           VARCHAR,
+    selected             BOOLEAN      NOT NULL DEFAULT FALSE,
+    horizon_until        TIMESTAMPTZ,
+    last_full_synced_at  TIMESTAMPTZ,
+    last_synced_at       TIMESTAMPTZ,
+    created_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, google_calendar_id)
+);
+```
+
+### 4.13 `calendar_events` (Sprint 9)
+
+Cache local của event đọc từ Google Calendar (read-only, ghi đè khi sync lại). Hard delete
+khi event bị xóa trên Google hoặc calendar bị bỏ chọn.
+
+```sql
+CREATE TABLE calendar_events (
+    id                 UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id            UUID          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    google_calendar_id VARCHAR(255)  NOT NULL,
+    google_event_id    VARCHAR(255)  NOT NULL,
+    ical_uid           VARCHAR(255),
+    summary            VARCHAR(500)  NOT NULL DEFAULT '',
+    description        TEXT,
+    location           VARCHAR(500),
+    is_all_day         BOOLEAN       NOT NULL,
+    start_at           TIMESTAMPTZ,
+    end_at             TIMESTAMPTZ,
+    start_date         DATE,
+    end_date           DATE,
+    event_timezone     VARCHAR(64),
+    status             VARCHAR(20)   NOT NULL DEFAULT 'confirmed',
+    html_link          VARCHAR,
+    etag               VARCHAR,
+    google_updated_at  TIMESTAMPTZ,
+    created_at         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, google_calendar_id, google_event_id)
+);
+
+CREATE INDEX ix_calendar_events_user_start_at   ON calendar_events(user_id, start_at);
+CREATE INDEX ix_calendar_events_user_start_date ON calendar_events(user_id, start_date);
+CREATE INDEX ix_calendar_events_user_calendar   ON calendar_events(user_id, google_calendar_id);
+```
+
 ---
 
 ## 5. SEED DATA (DEV ONLY)

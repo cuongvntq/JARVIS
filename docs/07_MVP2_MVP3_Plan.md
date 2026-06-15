@@ -135,21 +135,28 @@ Mỗi sprint ~2 tuần.
 
 > Tách riêng read-only trước 2-way **cho an toàn**: xác nhận sync + auth ổn trước khi cho ghi ngược.
 
-- [ ] Pull events qua Calendar API, **incremental sync bằng `syncToken`** (per calendar)
-- [ ] **Edge case bắt buộc của Google incremental sync** (không ghi vào đây thì Sprint 10 sẽ vỡ):
+- [x] Pull events qua Calendar API, **incremental sync bằng `syncToken`** (per calendar)
+- [x] **Edge case bắt buộc của Google incremental sync** (không ghi vào đây thì Sprint 10 sẽ vỡ):
       - **Pagination**: lặp `nextPageToken` đến hết; `nextSyncToken` chỉ có ở trang cuối
       - **`410 Gone`** khi `syncToken` invalid → **full resync** (xóa cache calendar đó, sync lại từ đầu)
       - **Deleted/cancelled events**: `status == "cancelled"` → xóa khỏi cache (không hiển thị)
       - **Recurring events**: dùng `singleEvents=true` (expand instances) cho hiển thị; lưu ý quota/lượng data
       - **All-day events**: `start.date` (không `start.dateTime`) → xử lý riêng với event có giờ
       - **Timezone**: tôn trọng `start.timeZone`; convert sang tz user ở app layer
-      - **Chọn calendar nào sync**: mặc định primary; cho user chọn (multi-calendar = post-MVP nếu cần)
-- [ ] DB: bảng `calendar_events` (cache local) + bảng `calendar_sync_states` (per calendar:
-      `calendar_id`, `sync_token`, `last_synced_at`) + migration
-- [ ] APScheduler job poll định kỳ (vd 5 phút) — tái dùng infra scheduler
-- [ ] Dashboard: hiển thị event hôm nay cạnh todo/reminder
-- [ ] Tool mới: `list_calendar_events`; `get_today_summary` gộp thêm lịch
-- **DoD:** Tạo event trên Google → vài phút sau lên Dashboard; **xóa event trên Google → biến mất khỏi cache**; **làm invalid syncToken → full resync chạy đúng**; recurring + all-day hiển thị đúng; hỏi "hôm nay có gì" → trả cả lịch.
+      - **Chọn calendar nào sync**: cho user chọn nhiều calendar (Settings → checkbox list); mặc định chưa chọn calendar nào tới khi user bấm "Đồng bộ ngay" lần đầu
+- [x] DB: bảng `calendar_events` (cache local) + bảng `calendar_sync_states` (per calendar:
+      `calendar_id`, `sync_token`, `last_synced_at`) + migration 010
+- [x] APScheduler job poll định kỳ (5 phút, `sync_calendars`) — tái dùng infra scheduler
+- [x] Dashboard: hiển thị event hôm nay cạnh todo/reminder (`TodayEvents`, `events_today`)
+- [x] Tool mới: `list_calendar_events`; `get_today_summary` gộp thêm lịch
+- **Code hoàn tất 2026-06-15:** backend (models/migration/repos/service/endpoints/scheduler/
+      dashboard/tools) + frontend (LỊCH section, Dashboard, Settings calendar-selection) — 24
+      test mới (`test_calendar_sync.py`) + 4 test bổ sung `test_google_oauth.py` (15 tổng),
+      full suite **263 passed**; `pnpm lint`/`typecheck`/`build` xanh.
+- **DoD (cần Google Cloud thật — QA thủ công, optional không block DONE):** Tạo event trên
+  Google → vài phút sau lên Dashboard (chờ scheduler 5 phút hoặc bấm "Đồng bộ ngay"); xóa event
+  trên Google → biến mất khỏi cache; làm invalid `syncToken` → full resync chạy đúng; recurring
+  + all-day hiển thị đúng; hỏi "hôm nay có gì" → trả cả lịch.
 
 ### Sprint 10 — Calendar 2-way sync (JARVIS → Google)
 

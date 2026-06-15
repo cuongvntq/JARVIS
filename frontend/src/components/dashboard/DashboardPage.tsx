@@ -6,6 +6,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { formatInTimeZone } from "date-fns-tz";
 import { LayoutDashboard, Loader2, RefreshCw } from "lucide-react";
 import MemoryCount from "./MemoryCount";
+import TodayEvents from "./TodayEvents";
 import TodayStats from "./TodayStats";
 import UpcomingReminders from "./UpcomingReminders";
 
@@ -92,6 +93,16 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
             {/* Upcoming Reminders */}
             <UpcomingReminders
               reminders={data.reminders_upcoming}
+              timezone={timezone}
+              onNavigate={(s) => onNavigate?.(s as Section)}
+            />
+
+            {/* Divider */}
+            <div style={{ height: 1, backgroundColor: "rgba(0,180,216,0.07)" }} />
+
+            {/* Today's Events */}
+            <TodayEvents
+              events={data.events_today}
               timezone={timezone}
               onNavigate={(s) => onNavigate?.(s as Section)}
             />

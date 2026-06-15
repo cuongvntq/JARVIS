@@ -48,6 +48,30 @@ async def check_reminders() -> None:
                 log.info("scheduler.reminder_due", reminder_id=str(r.id), user_id=str(r.user_id))
 
 
+async def sync_calendars() -> None:
+    """
+    Scheduler job: runs every 5 minutes.
+    Syncs every connected Google account's selected calendars into the local cache.
+    Per-account errors are logged and swallowed so one bad account never stops the
+    scheduler or blocks other accounts.
+    """
+    from app.database import AsyncSessionLocal
+    from app.repositories import google_repo
+    from app.services import google_calendar_service
+
+    async with AsyncSessionLocal() as db:
+        accounts = await google_repo.list_all(db)
+        for account in accounts:
+            try:
+                await google_calendar_service.sync_all_selected(db, account.user_id)
+            except Exception as e:
+                log.error(
+                    "scheduler.sync_calendars_failed",
+                    user_id=str(account.user_id),
+                    error=str(e),
+                )
+
+
 def start_scheduler() -> None:
     global _scheduler
     _scheduler = AsyncIOScheduler()
@@ -56,6 +80,14 @@ def start_scheduler() -> None:
         "interval",
         seconds=60,
         id="check_reminders",
+        max_instances=1,
+        coalesce=True,
+    )
+    _scheduler.add_job(
+        sync_calendars,
+        "interval",
+        minutes=5,
+        id="sync_calendars",
         max_instances=1,
         coalesce=True,
     )

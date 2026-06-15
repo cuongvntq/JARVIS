@@ -387,6 +387,84 @@ Trả calendar list (tự refresh access token nếu hết hạn).
 
 ---
 
+## 10c. CALENDAR EVENTS & SYNC (Sprint 9)
+
+Prefix `/v1/google/calendar`. Tất cả cần JWT. Đọc/đồng bộ event từ Google Calendar vào cache
+local (`calendar_events`, `calendar_sync_states`). Backend cũng chạy job nền `sync_calendars`
+mỗi 5 phút để tự đồng bộ các calendar đã `selected`.
+
+### `GET /v1/google/calendar/events?time_min&time_max`
+Trả event trong khoảng `[time_min, time_max]` từ cache local — **không** gọi Google API trực
+tiếp (an toàn khi chưa kết nối, trả `[]`). `time_min`/`time_max` là ISO 8601 datetime, optional
+— mặc định `time_min=now`, `time_max=now+14 ngày`.
+
+**Response 200:**
+```json
+[
+  {
+    "id": "uuid",
+    "google_calendar_id": "primary",
+    "google_event_id": "abc123",
+    "summary": "Họp team",
+    "description": null,
+    "location": null,
+    "is_all_day": false,
+    "start_at": "2026-06-16T08:00:00Z",
+    "end_at": "2026-06-16T09:00:00Z",
+    "start_date": null,
+    "end_date": null,
+    "event_timezone": "Asia/Ho_Chi_Minh",
+    "status": "confirmed",
+    "html_link": "https://calendar.google.com/..."
+  }
+]
+```
+
+### `POST /v1/google/calendar/sync`
+Đồng bộ ngay toàn bộ calendar đã chọn (`selected=true`) — refresh danh sách calendar, sync
+event mỗi calendar (incremental qua `sync_token` khi có), upsert/xóa `calendar_events`. Có
+per-user lock — gọi khi đang sync sẽ trả `status="already_running"` ngay (không chờ).
+
+**Response 200:**
+```json
+{
+  "status": "synced",
+  "upserted": 12,
+  "deleted": 1,
+  "failed": 0,
+  "synced_at": "2026-06-15T10:00:00Z",
+  "errors": []
+}
+```
+`status`: `"synced"` (không lỗi), `"partial"` (một số calendar lỗi — xem `errors`),
+`"already_running"` (đang có lần sync khác chạy, không làm gì).
+
+### `GET /v1/google/calendar/selected`
+Trả danh sách calendar (từ `calendar_sync_states`) kèm trạng thái `selected`. Trước lần
+`/sync` đầu tiên có thể trả `[]` (chưa có row nào).
+
+**Response 200:**
+```json
+[
+  {
+    "google_calendar_id": "primary",
+    "calendar_summary": "user@gmail.com",
+    "is_primary": true,
+    "selected": true,
+    "access_role": "owner",
+    "time_zone": "Asia/Ho_Chi_Minh"
+  }
+]
+```
+
+### `PUT /v1/google/calendar/selected`
+Cập nhật danh sách calendar được chọn để đồng bộ.
+
+**Request:** `{ "calendar_ids": ["primary", "abc@group.calendar.google.com"] }`
+**Response 200:** giống `GET /selected` (sau khi cập nhật).
+
+---
+
 ## 11. SETTINGS API
 
 ### `GET /settings` → user settings (timezone, assistant_name, locale, notification prefs).

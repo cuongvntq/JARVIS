@@ -307,17 +307,46 @@
 }
 ```
 
-### 2.11 `get_today_summary`
+### 2.11 `list_calendar_events` (Sprint 9)
+
+```json
+{
+  "name": "list_calendar_events",
+  "description": "Lấy danh sách sự kiện từ Google Calendar đã đồng bộ. Gọi khi người dùng hỏi 'lịch hôm nay có gì', 'ngày mai có hẹn gì không', 'tuần này có cuộc họp nào'.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "range": {
+        "type": "string",
+        "enum": ["today", "tomorrow", "week", "custom"],
+        "default": "today",
+        "description": "Khoảng thời gian: today=hôm nay, tomorrow=ngày mai, week=7 ngày tới, custom=dùng time_min/time_max."
+      },
+      "time_min": {
+        "type": ["string", "null"],
+        "format": "date-time",
+        "description": "Bắt đầu khoảng tùy chỉnh, ISO 8601 UTC. Chỉ dùng khi range=custom."
+      },
+      "time_max": {
+        "type": ["string", "null"],
+        "format": "date-time",
+        "description": "Kết thúc khoảng tùy chỉnh, ISO 8601 UTC. Chỉ dùng khi range=custom."
+      }
+    },
+    "additionalProperties": false
+  }
+}
+```
+
+### 2.12 `get_today_summary`
 
 ```json
 {
   "name": "get_today_summary",
-  "description": "Lấy tóm tắt hôm nay: todo hôm nay, todo quá hạn, reminder hôm nay. Gọi khi user hỏi 'hôm nay có gì', 'tóm tắt ngày hôm nay', 'tình hình hôm nay'.",
+  "description": "Tổng hợp tình hình hôm nay: việc cần làm, lời nhắc sắp tới, sự kiện lịch. Gọi khi người dùng hỏi 'hôm nay có gì', 'tình hình hôm nay thế nào'.",
   "parameters": {
     "type": "object",
-    "properties": {
-      "include_completed": { "type": "boolean", "default": false, "description": "Có gồm việc đã hoàn thành hôm nay không." }
-    },
+    "properties": {},
     "additionalProperties": false
   }
 }
@@ -359,7 +388,8 @@ Bảng giúp model (và dev review) quyết định gọi tool nào:
 |-------------|------|
 | "Thêm việc X" / "Tôi cần làm Y" | `create_todo` |
 | "Còn việc gì" / "Hôm nay làm gì" (todo only) | `list_todos` |
-| "Hôm nay có gì" / "Tình hình hôm nay" (todo + reminder + overdue) | `get_today_summary` |
+| "Hôm nay có gì" / "Tình hình hôm nay" (todo + reminder + lịch) | `get_today_summary` |
+| "Lịch hôm nay/ngày mai/tuần này có gì" / "Tôi có hẹn gì không" | `list_calendar_events` |
 | "Đã xong việc X" / "Hủy việc Y" | `update_todo` (status) |
 | "Ghi chú lại Z" / "Note: ..." | `create_note` |
 | "Tìm ghi chú về X" | `search_notes` |

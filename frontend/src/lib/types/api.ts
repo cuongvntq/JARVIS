@@ -237,6 +237,7 @@ export interface DashboardOut {
   todos_count: TodosCount;
   reminders_upcoming: ReminderOut[];
   memories_count: number;
+  events_today: CalendarEventOut[];
   as_of: string;
 }
 
@@ -267,6 +268,48 @@ export interface GoogleCalendarOut {
   summary: string;
   primary: boolean;
   time_zone: string | null;
+}
+
+// ── Calendar Events & Sync (Sprint 9) ─────────────────────────────────────────
+
+export interface CalendarEventOut {
+  id: string;
+  google_calendar_id: string;
+  google_event_id: string;
+  summary: string;
+  description: string | null;
+  location: string | null;
+  is_all_day: boolean;
+  start_at: string | null;
+  end_at: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  event_timezone: string | null;
+  status: string;
+  html_link: string | null;
+}
+
+export interface CalendarSelectionOut {
+  google_calendar_id: string;
+  calendar_summary: string;
+  is_primary: boolean;
+  selected: boolean;
+  access_role: string | null;
+  time_zone: string | null;
+}
+
+export interface SyncErrorOut {
+  calendar_id: string;
+  message: string;
+}
+
+export interface SyncResultOut {
+  status: "synced" | "partial" | "already_running";
+  upserted: number;
+  deleted: number;
+  failed: number;
+  synced_at: string | null;
+  errors: SyncErrorOut[];
 }
 
 // ── SSE streaming events ──────────────────────────────────────────────────────

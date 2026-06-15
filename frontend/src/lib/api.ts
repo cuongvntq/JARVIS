@@ -1,5 +1,7 @@
 import {
   ApiException,
+  type CalendarEventOut,
+  type CalendarSelectionOut,
   type ChatSendRequest,
   type ChatSendResponse,
   type ConversationDetailOut,
@@ -25,6 +27,7 @@ import {
   type ReminderStatus,
   type ReminderUpdate,
   type SSEEvent,
+  type SyncResultOut,
   type TodoCreate,
   type TodoFilter,
   type TodoListOut,
@@ -383,6 +386,30 @@ class ApiClient {
 
   async googleListCalendars(): Promise<GoogleCalendarOut[]> {
     return this.request("/v1/google/calendar/calendars");
+  }
+
+  // ── Calendar Events & Sync (Sprint 9) ────────────────────────────────────────
+
+  async googleListEvents(timeMin?: string, timeMax?: string): Promise<CalendarEventOut[]> {
+    const p = new URLSearchParams();
+    if (timeMin) p.set("time_min", timeMin);
+    if (timeMax) p.set("time_max", timeMax);
+    return this.request(`/v1/google/calendar/events?${p}`);
+  }
+
+  async googleSyncNow(): Promise<SyncResultOut> {
+    return this.request("/v1/google/calendar/sync", { method: "POST" });
+  }
+
+  async googleGetSelected(): Promise<CalendarSelectionOut[]> {
+    return this.request("/v1/google/calendar/selected");
+  }
+
+  async googleSetSelected(calendarIds: string[]): Promise<CalendarSelectionOut[]> {
+    return this.request("/v1/google/calendar/selected", {
+      method: "PUT",
+      body: JSON.stringify({ calendar_ids: calendarIds }),
+    });
   }
 }
 

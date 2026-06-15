@@ -2,12 +2,15 @@ import { api } from "@/lib/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 const STATUS_KEY = ["google-calendar", "status"];
+const SELECTED_KEY = ["google-calendar", "selected"];
+const EVENTS_KEY = ["google-calendar", "events"];
+const DASHBOARD_KEY = ["dashboard"];
 
 /**
  * Open a URL in the system browser. Uses the Tauri shell plugin when running in
  * the desktop app; falls back to window.open in a plain browser / dev.
  */
-async function openInBrowser(url: string): Promise<void> {
+export async function openInBrowser(url: string): Promise<void> {
   try {
     const { open } = await import("@tauri-apps/plugin-shell");
     await open(url);
@@ -48,6 +51,9 @@ export function useConnectGoogle() {
     onSuccess: (status) => {
       if (status) queryClient.setQueryData(STATUS_KEY, status);
       queryClient.invalidateQueries({ queryKey: STATUS_KEY });
+      queryClient.invalidateQueries({ queryKey: SELECTED_KEY });
+      queryClient.invalidateQueries({ queryKey: EVENTS_KEY });
+      queryClient.invalidateQueries({ queryKey: DASHBOARD_KEY });
     },
   });
 }
@@ -58,6 +64,9 @@ export function useDisconnectGoogle() {
     mutationFn: () => api.googleDisconnect(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: STATUS_KEY });
+      queryClient.invalidateQueries({ queryKey: SELECTED_KEY });
+      queryClient.invalidateQueries({ queryKey: EVENTS_KEY });
+      queryClient.invalidateQueries({ queryKey: DASHBOARD_KEY });
     },
   });
 }
