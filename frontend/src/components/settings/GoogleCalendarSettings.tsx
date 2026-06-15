@@ -23,9 +23,7 @@ export default function GoogleCalendarSettings() {
   function toggleCalendar(googleCalendarId: string, checked: boolean) {
     if (!calendars) return;
     const selectedIds = calendars
-      .filter((c) =>
-        c.google_calendar_id === googleCalendarId ? checked : c.selected,
-      )
+      .filter((c) => (c.google_calendar_id === googleCalendarId ? checked : c.selected))
       .map((c) => c.google_calendar_id);
     setSelection.mutate(selectedIds);
   }
@@ -105,10 +103,7 @@ export default function GoogleCalendarSettings() {
 
           {connected && (
             <div className="space-y-2 pt-2">
-              <p
-                className="text-[9px] font-semibold tracking-[0.2em]"
-                style={{ color: "#3a6a7e" }}
-              >
+              <p className="text-[9px] font-semibold tracking-[0.2em]" style={{ color: "#3a6a7e" }}>
                 CHỌN LỊCH ĐỒNG BỘ
               </p>
 
@@ -134,9 +129,7 @@ export default function GoogleCalendarSettings() {
                       />
                       <span>
                         {c.calendar_summary}
-                        {c.is_primary && (
-                          <span style={{ color: "#3a6a7e" }}> (chính)</span>
-                        )}
+                        {c.is_primary && <span style={{ color: "#3a6a7e" }}> (chính)</span>}
                       </span>
                     </label>
                   ))}
@@ -165,7 +158,8 @@ export default function GoogleCalendarSettings() {
                 onClick={() => syncCalendar.mutate()}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-semibold tracking-[0.15em] uppercase transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  background: "linear-gradient(135deg, rgba(0, 180, 216, 0.8), rgba(0, 95, 138, 0.8))",
+                  background:
+                    "linear-gradient(135deg, rgba(0, 180, 216, 0.8), rgba(0, 95, 138, 0.8))",
                   color: "#dff3fd",
                 }}
               >

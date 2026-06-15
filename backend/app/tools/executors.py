@@ -414,15 +414,11 @@ async def execute_list_calendar_events(
     elif range_type == "custom":
         try:
             time_min_local = _parse_iso(params.get("time_min")) or today_start
-            time_max_local = _parse_iso(params.get("time_max")) or (
-                today_start + timedelta(days=1)
-            )
+            time_max_local = _parse_iso(params.get("time_max")) or (today_start + timedelta(days=1))
         except (ValueError, TypeError) as e:
             return _err("invalid_time_range", f"time_min/time_max không hợp lệ: {e}")
     else:
-        return _err(
-            "invalid_range", "range phải là một trong: today, tomorrow, week, custom."
-        )
+        return _err("invalid_range", "range phải là một trong: today, tomorrow, week, custom.")
 
     events = await google_calendar_service.list_events(
         db, user_id, time_min_local.astimezone(UTC), time_max_local.astimezone(UTC), user_tz

@@ -41,9 +41,7 @@ class _SyncTokenExpiredError(Exception):
 # ── Low-level HTTP helpers ────────────────────────────────────────────────────
 
 
-async def _request(
-    method: str, url: str, access_token: str, **kwargs: Any
-) -> httpx.Response:
+async def _request(method: str, url: str, access_token: str, **kwargs: Any) -> httpx.Response:
     async with httpx.AsyncClient(timeout=30) as client:
         return await client.request(
             method, url, headers={"Authorization": f"Bearer {access_token}"}, **kwargs
@@ -209,9 +207,7 @@ async def _fetch_events_pages(
     db: AsyncSession, user_id: uuid.UUID, google_calendar_id: str, params: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], str | None]:
     """Fetch all pages (HTTP only, no DB writes). Raises _SyncTokenExpiredError on 410."""
-    url = _EVENTS_URL_TEMPLATE.format(
-        calendar_id=urllib.parse.quote(google_calendar_id, safe="")
-    )
+    url = _EVENTS_URL_TEMPLATE.format(calendar_id=urllib.parse.quote(google_calendar_id, safe=""))
     items: list[dict[str, Any]] = []
     next_sync_token: str | None = None
     page_params = dict(params)

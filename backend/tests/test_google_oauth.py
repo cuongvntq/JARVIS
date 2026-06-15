@@ -403,9 +403,7 @@ async def test_status_self_heals_when_token_missing(async_client, auth_headers):
     async with AsyncSessionLocal() as db:
         assert await google_repo.get_by_user(db, user_id) is None  # self-healed
         assert await calendar_sync_repo.list_for_user(db, user_id) == []
-        result = await db.execute(
-            sa.select(CalendarEvent).where(CalendarEvent.user_id == user_id)
-        )
+        result = await db.execute(sa.select(CalendarEvent).where(CalendarEvent.user_id == user_id))
         assert result.scalars().all() == []
 
 
@@ -498,9 +496,7 @@ async def test_list_calendars_clears_state_when_still_401(async_client, auth_hea
     async with AsyncSessionLocal() as db:
         assert await google_repo.get_by_user(db, user_id) is None
         assert await calendar_sync_repo.list_for_user(db, user_id) == []
-        result = await db.execute(
-            sa.select(CalendarEvent).where(CalendarEvent.user_id == user_id)
-        )
+        result = await db.execute(sa.select(CalendarEvent).where(CalendarEvent.user_id == user_id))
         assert result.scalars().all() == []
 
 

@@ -46,7 +46,9 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("now()"),
         ),
-        sa.UniqueConstraint("user_id", "google_calendar_id", name="uq_calendar_sync_states_user_calendar"),
+        sa.UniqueConstraint(
+            "user_id", "google_calendar_id", name="uq_calendar_sync_states_user_calendar"
+        ),
     )
 
     op.create_table(
@@ -98,9 +100,7 @@ def upgrade() -> None:
             name="uq_calendar_events_user_calendar_event",
         ),
     )
-    op.create_index(
-        "ix_calendar_events_user_start_at", "calendar_events", ["user_id", "start_at"]
-    )
+    op.create_index("ix_calendar_events_user_start_at", "calendar_events", ["user_id", "start_at"])
     op.create_index(
         "ix_calendar_events_user_start_date", "calendar_events", ["user_id", "start_date"]
     )

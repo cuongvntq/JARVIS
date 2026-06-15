@@ -6,8 +6,8 @@ import { openInBrowser, useGoogleStatus } from "@/hooks/useGoogleCalendar";
 import type { CalendarEventOut } from "@/lib/types/api";
 import { useAuthStore } from "@/stores/authStore";
 import { format } from "date-fns";
-import { vi } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
+import { vi } from "date-fns/locale";
 import { CalendarDays, ExternalLink, Loader2, MapPin, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
@@ -39,7 +39,11 @@ function groupEventsByDay(
 function dayLabel(dateKey: string, timezone: string): string {
   const now = new Date();
   const todayKey = formatInTimeZone(now, timezone, "yyyy-MM-dd");
-  const tomorrowKey = formatInTimeZone(new Date(now.getTime() + 86_400_000), timezone, "yyyy-MM-dd");
+  const tomorrowKey = formatInTimeZone(
+    new Date(now.getTime() + 86_400_000),
+    timezone,
+    "yyyy-MM-dd",
+  );
   if (dateKey === todayKey) return "Hôm nay";
   if (dateKey === tomorrowKey) return "Ngày mai";
   const [y, m, d] = dateKey.split("-").map(Number);
@@ -102,7 +106,9 @@ export default function CalendarPage({ onNavigate }: CalendarPageProps) {
   const syncCalendar = useSyncCalendar();
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
-  const grouped = events ? groupEventsByDay(events, timezone) : new Map<string, CalendarEventOut[]>();
+  const grouped = events
+    ? groupEventsByDay(events, timezone)
+    : new Map<string, CalendarEventOut[]>();
   const sortedKeys = Array.from(grouped.keys()).sort();
 
   return (
