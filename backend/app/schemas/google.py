@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class GoogleConnectOut(BaseModel):
@@ -70,4 +70,4 @@ class SyncResultOut(BaseModel):
     deleted: int
     failed: int
     synced_at: datetime | None = None
-    errors: list[SyncErrorOut] = []
+    errors: list[SyncErrorOut] = Field(default_factory=list)
