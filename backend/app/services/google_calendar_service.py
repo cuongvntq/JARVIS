@@ -231,7 +231,7 @@ async def _fetch_events_pages(
         page_token = data.get("nextPageToken")
         if not page_token:
             break
-        page_params = {**_common_event_params(), "pageToken": page_token}
+        page_params = {**params, "pageToken": page_token}
 
     return items, next_sync_token
 

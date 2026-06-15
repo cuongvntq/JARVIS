@@ -333,6 +333,118 @@ async def test_incremental_sync_sends_sync_token(db_session):
 
 
 @pytest.mark.asyncio
+async def test_full_sync_pagination_keeps_time_range_on_later_pages(db_session):
+    user_id = uuid.uuid4()
+    states, _ = await calendar_sync_repo.upsert_from_calendar_list(
+        db_session, user_id, [_PRIMARY_CALENDAR]
+    )
+    await db_session.commit()
+    sync_state = states[0]
+
+    page1 = {
+        "items": [
+            {
+                "id": "evt1",
+                "summary": "Meeting 1",
+                "status": "confirmed",
+                "start": {"dateTime": "2026-06-16T01:00:00+00:00"},
+                "end": {"dateTime": "2026-06-16T02:00:00+00:00"},
+            }
+        ],
+        "nextPageToken": "page-2",
+    }
+    page2 = {
+        "items": [
+            {
+                "id": "evt2",
+                "summary": "Meeting 2",
+                "status": "confirmed",
+                "start": {"dateTime": "2026-06-17T01:00:00+00:00"},
+                "end": {"dateTime": "2026-06-17T02:00:00+00:00"},
+            }
+        ],
+        "nextSyncToken": "sync-token-2",
+    }
+    with patch(
+        "app.services.google_calendar_service._authed_request",
+        new_callable=AsyncMock,
+        side_effect=[_FakeResp(json_data=page1), _FakeResp(json_data=page2)],
+    ) as mock_request:
+        result = await google_calendar_service.sync_calendar(db_session, user_id, sync_state)
+
+    assert result == {"upserted": 2, "deleted": 0}
+
+    _, kwargs1 = mock_request.call_args_list[0]
+    _, kwargs2 = mock_request.call_args_list[1]
+    assert "timeMin" in kwargs1["params"]
+    assert "timeMax" in kwargs1["params"]
+    assert kwargs2["params"]["pageToken"] == "page-2"
+    assert kwargs2["params"]["timeMin"] == kwargs1["params"]["timeMin"]
+    assert kwargs2["params"]["timeMax"] == kwargs1["params"]["timeMax"]
+
+
+@pytest.mark.asyncio
+async def test_incremental_sync_pagination_keeps_sync_token_on_later_pages(db_session):
+    user_id = uuid.uuid4()
+    states, _ = await calendar_sync_repo.upsert_from_calendar_list(
+        db_session, user_id, [_PRIMARY_CALENDAR]
+    )
+    await db_session.commit()
+    sync_state = states[0]
+
+    now = datetime.now(UTC)
+    sync_state.sync_token = "old-token"
+    sync_state.horizon_until = now + timedelta(days=360)
+    sync_state.last_full_synced_at = now
+    sync_state.last_synced_at = now
+    await db_session.flush()
+    await db_session.commit()
+
+    page1 = {
+        "items": [
+            {
+                "id": "evt1",
+                "summary": "Meeting 1",
+                "status": "confirmed",
+                "start": {"dateTime": "2026-06-16T01:00:00+00:00"},
+                "end": {"dateTime": "2026-06-16T02:00:00+00:00"},
+            }
+        ],
+        "nextPageToken": "page-2",
+    }
+    page2 = {
+        "items": [
+            {
+                "id": "evt2",
+                "summary": "Meeting 2",
+                "status": "confirmed",
+                "start": {"dateTime": "2026-06-17T01:00:00+00:00"},
+                "end": {"dateTime": "2026-06-17T02:00:00+00:00"},
+            }
+        ],
+        "nextSyncToken": "new-token",
+    }
+    with patch(
+        "app.services.google_calendar_service._authed_request",
+        new_callable=AsyncMock,
+        side_effect=[_FakeResp(json_data=page1), _FakeResp(json_data=page2)],
+    ) as mock_request:
+        result = await google_calendar_service.sync_calendar(db_session, user_id, sync_state)
+
+    assert result == {"upserted": 2, "deleted": 0}
+
+    _, kwargs1 = mock_request.call_args_list[0]
+    _, kwargs2 = mock_request.call_args_list[1]
+    assert kwargs1["params"]["syncToken"] == "old-token"
+    assert kwargs2["params"]["pageToken"] == "page-2"
+    assert kwargs2["params"]["syncToken"] == "old-token"
+
+    refreshed = await calendar_sync_repo.get(db_session, user_id, "primary")
+    assert refreshed is not None
+    assert refreshed.sync_token == "new-token"
+
+
+@pytest.mark.asyncio
 async def test_sync_falls_back_to_full_on_410(db_session):
     user_id = uuid.uuid4()
     states, _ = await calendar_sync_repo.upsert_from_calendar_list(
