@@ -272,6 +272,18 @@ _NOT_CONNECTED: dict[str, object | None] = {
 }
 
 
+async def _delete_local_state(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """Remove account metadata + cached calendar data (caller must commit).
+
+    calendar_events/calendar_sync_states FK to users, not google_oauth_accounts —
+    every path that drops the account (disconnect, self-heal, forced reauth) must
+    clear them too so the UI/chat don't keep showing stale cached events.
+    """
+    await google_repo.delete_by_user(db, user_id)
+    await calendar_event_repo.delete_all_for_user(db, user_id)
+    await calendar_sync_repo.delete_all_for_user(db, user_id)
+
+
 async def get_status(db: AsyncSession, user_id: uuid.UUID) -> dict[str, object | None]:
     """Report connection status.
 
@@ -286,7 +298,7 @@ async def get_status(db: AsyncSession, user_id: uuid.UUID) -> dict[str, object |
 
     tokens = await token_store.get_tokens(user_id)
     if tokens is None:
-        await google_repo.delete_by_user(db, user_id)
+        await _delete_local_state(db, user_id)
         await db.commit()
         log.info("google.status_self_healed", user_id=str(user_id))
         return dict(_NOT_CONNECTED)
@@ -309,11 +321,7 @@ async def disconnect(db: AsyncSession, user_id: uuid.UUID) -> None:
         except httpx.HTTPError as e:
             log.warning("google.revoke_failed", user_id=str(user_id), error=str(e))
     await token_store.delete_tokens(user_id)
-    await google_repo.delete_by_user(db, user_id)
-    # calendar_events/calendar_sync_states FK to users, not google_oauth_accounts —
-    # clean them up explicitly so the UI/chat don't keep showing stale events.
-    await calendar_event_repo.delete_all_for_user(db, user_id)
-    await calendar_sync_repo.delete_all_for_user(db, user_id)
+    await _delete_local_state(db, user_id)
     await db.commit()
     log.info("google.disconnected", user_id=str(user_id))
 
@@ -346,7 +354,7 @@ async def _refresh_access_token(db: AsyncSession, user_id: uuid.UUID, refresh_to
     if resp.status_code == 400:
         # invalid_grant: refresh token revoked/expired → force re-auth.
         await token_store.delete_tokens(user_id)
-        await google_repo.delete_by_user(db, user_id)
+        await _delete_local_state(db, user_id)
         await db.commit()
         raise JarvisError(401, "google_reauth_required", "Cần kết nối lại Google Calendar")
     if resp.status_code >= 400:
@@ -379,13 +387,13 @@ async def force_refresh_access_token(db: AsyncSession, user_id: uuid.UUID) -> st
 
 
 async def clear_local_connection(db: AsyncSession, user_id: uuid.UUID) -> None:
-    """Drop local token + DB metadata WITHOUT calling Google revoke.
+    """Drop local token + DB metadata + cached calendar data WITHOUT calling Google revoke.
 
     For when the token is already invalid server-side (revoked); there is nothing
     useful to revoke, we just need the local state to reflect "not connected".
     """
     await token_store.delete_tokens(user_id)
-    await google_repo.delete_by_user(db, user_id)
+    await _delete_local_state(db, user_id)
     await db.commit()
     log.info("google.connection_cleared", user_id=str(user_id))
 

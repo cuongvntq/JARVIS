@@ -77,19 +77,16 @@ async def _authed_request(
 
 
 async def list_calendars(db: AsyncSession, user_id: uuid.UUID) -> list[dict[str, Any]]:
-    """Return the user's calendar list (simple, single-page — used by Settings UI)."""
-    resp = await _authed_request(db, user_id, "GET", _CALENDAR_LIST_URL)
-    resp.raise_for_status()
-
-    items = resp.json().get("items", [])
+    """Return the user's calendar list (paginated via `_fetch_calendar_list`)."""
+    calendars = await _fetch_calendar_list(db, user_id)
     return [
         {
-            "id": item["id"],
-            "summary": item.get("summary", ""),
-            "primary": bool(item.get("primary", False)),
-            "time_zone": item.get("timeZone"),
+            "id": c["google_calendar_id"],
+            "summary": c["calendar_summary"],
+            "primary": c["is_primary"],
+            "time_zone": c["time_zone"],
         }
-        for item in items
+        for c in calendars
     ]
 
 
