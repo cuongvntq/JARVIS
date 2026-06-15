@@ -16,6 +16,12 @@ async def get_by_user(db: AsyncSession, user_id: uuid.UUID) -> GoogleOAuthAccoun
     return result.scalar_one_or_none()
 
 
+async def list_all(db: AsyncSession) -> list[GoogleOAuthAccount]:
+    """All connected Google accounts — used by the calendar sync scheduler job."""
+    result = await db.execute(select(GoogleOAuthAccount))
+    return list(result.scalars())
+
+
 async def upsert(
     db: AsyncSession,
     user_id: uuid.UUID,

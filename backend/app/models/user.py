@@ -12,6 +12,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.calendar_event import CalendarEvent
+    from app.models.calendar_sync_state import CalendarSyncState
     from app.models.conversation import Conversation
     from app.models.google_account import GoogleOAuthAccount
     from app.models.memory import Memory
@@ -65,6 +67,12 @@ class User(Base):
     )
     google_account: Mapped[GoogleOAuthAccount | None] = relationship(
         "GoogleOAuthAccount", back_populates="user", cascade="all, delete-orphan", uselist=False
+    )
+    calendar_sync_states: Mapped[list[CalendarSyncState]] = relationship(
+        "CalendarSyncState", back_populates="user", cascade="all, delete-orphan"
+    )
+    calendar_events: Mapped[list[CalendarEvent]] = relationship(
+        "CalendarEvent", back_populates="user", cascade="all, delete-orphan"
     )
 
 

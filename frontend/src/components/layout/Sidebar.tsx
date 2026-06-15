@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/authStore";
 import {
   Bell,
   Brain,
+  CalendarDays,
   CheckSquare,
   FileText,
   LayoutDashboard,
@@ -18,7 +19,15 @@ import {
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export type Section = "chat" | "todo" | "notes" | "reminders" | "memory" | "dashboard" | "settings";
+export type Section =
+  | "chat"
+  | "todo"
+  | "notes"
+  | "reminders"
+  | "memory"
+  | "calendar"
+  | "dashboard"
+  | "settings";
 
 interface SidebarProps {
   active: Section;
@@ -33,6 +42,7 @@ const navItems = [
   { id: "notes" as Section, icon: FileText, label: "NOTES" },
   { id: "reminders" as Section, icon: Bell, label: "REMINDERS" },
   { id: "memory" as Section, icon: Brain, label: "MEMORY" },
+  { id: "calendar" as Section, icon: CalendarDays, label: "LỊCH" },
   { id: "dashboard" as Section, icon: LayoutDashboard, label: "DASHBOARD" },
 ];
 

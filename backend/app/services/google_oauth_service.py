@@ -30,7 +30,7 @@ from app import database
 from app.config import get_settings
 from app.core import token_store
 from app.core.errors import JarvisError
-from app.repositories import google_repo
+from app.repositories import calendar_event_repo, calendar_sync_repo, google_repo
 
 log = structlog.get_logger()
 
@@ -310,6 +310,10 @@ async def disconnect(db: AsyncSession, user_id: uuid.UUID) -> None:
             log.warning("google.revoke_failed", user_id=str(user_id), error=str(e))
     await token_store.delete_tokens(user_id)
     await google_repo.delete_by_user(db, user_id)
+    # calendar_events/calendar_sync_states FK to users, not google_oauth_accounts —
+    # clean them up explicitly so the UI/chat don't keep showing stale events.
+    await calendar_event_repo.delete_all_for_user(db, user_id)
+    await calendar_sync_repo.delete_all_for_user(db, user_id)
     await db.commit()
     log.info("google.disconnected", user_id=str(user_id))
 

@@ -226,7 +226,7 @@ Error format thống nhất: `{ "error": { "code", "message", "details", "reques
 
 ---
 
-## AI Tool System (11 tools)
+## AI Tool System (12 tools)
 
 Tools dùng OpenAI Function Calling schema, tương thích LiteLLM:
 
@@ -242,7 +242,8 @@ Tools dùng OpenAI Function Calling schema, tương thích LiteLLM:
 | `save_memory` | User tiết lộ fact/preference/rule/relation/goal dài hạn |
 | `search_memory` | RAG — tự gọi trước khi call LLM |
 | `forget_memory` | User muốn xóa memory |
-| `get_today_summary` | User hỏi tình hình hôm nay |
+| `list_calendar_events` | User hỏi lịch Google Calendar (hôm nay/ngày mai/tuần này có gì) |
+| `get_today_summary` | User hỏi tình hình hôm nay (todo + reminder + lịch) |
 
 **Quan trọng:** Nếu `create_reminder` mà thiếu giờ → KHÔNG gọi tool, hỏi user. Chitchat → KHÔNG gọi tool.
 

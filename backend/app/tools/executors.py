@@ -7,8 +7,9 @@ Each executor:
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import structlog
 from sqlalchemy.exc import SQLAlchemyError
@@ -18,7 +19,14 @@ from app.schemas.memory import MemoryCreate
 from app.schemas.note import NoteCreate
 from app.schemas.reminder import ReminderCreate
 from app.schemas.todo import TodoCreate, TodoPartialUpdate
-from app.services import memory_service, note_service, reminder_service, todo_service
+from app.services import (
+    dashboard_service,
+    google_calendar_service,
+    memory_service,
+    note_service,
+    reminder_service,
+    todo_service,
+)
 from app.utils.datetime_parser import ParseDatetimeError, parse_datetime
 
 log = structlog.get_logger()
@@ -373,6 +381,103 @@ async def execute_list_reminders(
     )
 
 
+# ── list_calendar_events ─────────────────────────────────────────────────────
+
+
+def _format_event_line(event: Any, tz: ZoneInfo) -> str:
+    if event.is_all_day:
+        when = "Cả ngày"
+    else:
+        start_local = event.start_at.astimezone(tz) if event.start_at else None
+        when = start_local.strftime("%H:%M") if start_local else "?"
+    return f"{when} - {event.summary or '(không có tiêu đề)'}"
+
+
+async def execute_list_calendar_events(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    params: dict[str, Any],
+    user_tz: str = "UTC",
+) -> ToolResult:
+    tz = ZoneInfo(user_tz)
+    now_local = datetime.now(tz)
+    today_start = datetime.combine(now_local.date(), time.min, tzinfo=tz)
+
+    range_type = params.get("range", "today")
+    if range_type == "today":
+        time_min_local, time_max_local = today_start, today_start + timedelta(days=1)
+    elif range_type == "tomorrow":
+        time_min_local = today_start + timedelta(days=1)
+        time_max_local = today_start + timedelta(days=2)
+    elif range_type == "week":
+        time_min_local, time_max_local = today_start, today_start + timedelta(days=7)
+    elif range_type == "custom":
+        try:
+            time_min_local = _parse_iso(params.get("time_min")) or today_start
+            time_max_local = _parse_iso(params.get("time_max")) or (
+                today_start + timedelta(days=1)
+            )
+        except (ValueError, TypeError) as e:
+            return _err("invalid_time_range", f"time_min/time_max không hợp lệ: {e}")
+    else:
+        return _err(
+            "invalid_range", "range phải là một trong: today, tomorrow, week, custom."
+        )
+
+    events = await google_calendar_service.list_events(
+        db, user_id, time_min_local.astimezone(UTC), time_max_local.astimezone(UTC), user_tz
+    )
+
+    from app.schemas.google import CalendarEventOut
+
+    return _ok(
+        {"events": [CalendarEventOut.model_validate(e).model_dump(mode="json") for e in events]},
+        f"Có {len(events)} sự kiện: " + "; ".join(_format_event_line(e, tz) for e in events)
+        if events
+        else "Không có sự kiện nào trong khoảng thời gian này.",
+    )
+
+
+# ── get_today_summary ─────────────────────────────────────────────────────────
+
+
+async def execute_get_today_summary(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    params: dict[str, Any],
+    user_tz: str = "UTC",
+) -> ToolResult:
+    data = await dashboard_service.get_today_dashboard(db, user_id, user_tz)
+
+    tz = ZoneInfo(user_tz)
+    todos_count = data["todos_count"]["today"]
+    overdue_count = data["todos_count"]["overdue"]
+    reminders_count = len(data["reminders_upcoming"])
+    events = data["events_today"]
+
+    parts = [f"{todos_count} việc cần làm hôm nay"]
+    if overdue_count:
+        parts.append(f"{overdue_count} việc quá hạn")
+    parts.append(f"{reminders_count} lời nhắc sắp tới")
+    if events:
+        parts.append(
+            f"{len(events)} sự kiện lịch ({'; '.join(_format_event_line(e, tz) for e in events)})"
+        )
+    else:
+        parts.append("không có sự kiện lịch")
+
+    return _ok(
+        {
+            "todos_today": [t.model_dump(mode="json") for t in data["todos_today"]],
+            "todos_count": data["todos_count"],
+            "reminders_upcoming": [r.model_dump(mode="json") for r in data["reminders_upcoming"]],
+            "events_today": [e.model_dump(mode="json") for e in events],
+            "memories_count": data["memories_count"],
+        },
+        "Hôm nay: " + ", ".join(parts) + ".",
+    )
+
+
 # ── dispatch ──────────────────────────────────────────────────────────────────
 
 _EXECUTOR_MAP = {
@@ -386,6 +491,8 @@ _EXECUTOR_MAP = {
     "forget_memory": execute_forget_memory,
     "create_reminder": execute_create_reminder,
     "list_reminders": execute_list_reminders,
+    "list_calendar_events": execute_list_calendar_events,
+    "get_today_summary": execute_get_today_summary,
 }
 
 
@@ -400,7 +507,13 @@ async def dispatch(
     executor = _EXECUTOR_MAP.get(tool_name)
     if executor is None:
         return _err("unknown_tool", f"Tool '{tool_name}' không tồn tại.")
-    _needs_tz = {"list_todos", "create_reminder", "list_reminders"}
+    _needs_tz = {
+        "list_todos",
+        "create_reminder",
+        "list_reminders",
+        "list_calendar_events",
+        "get_today_summary",
+    }
     try:
         if tool_name in _needs_tz:
             return await executor(db, user_id, params, user_tz)  # type: ignore[call-arg]

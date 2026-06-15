@@ -67,6 +67,11 @@ class _FakeClient:
         assert self._get_resp is not None
         return self._get_resp
 
+    async def request(self, method: str, *args: object, **kwargs: object) -> _FakeResp:
+        if method.upper() == "POST":
+            return await self.post(*args, **kwargs)
+        return await self.get(*args, **kwargs)
+
 
 @pytest.fixture
 def google_configured():
@@ -390,7 +395,7 @@ async def test_list_calendars_force_refreshes_on_401(async_client, auth_headers)
             return_value="ya29.fresh",
         ) as mock_fr,
         patch(
-            "app.services.google_calendar_service._get_calendar_list",
+            "app.services.google_calendar_service._request",
             new_callable=AsyncMock,
             side_effect=[_FakeResp(status_code=401), _FakeResp(json_data=items)],
         ),
@@ -422,7 +427,7 @@ async def test_list_calendars_clears_state_when_still_401(async_client, auth_hea
             new_callable=AsyncMock,
         ) as mock_clear,
         patch(
-            "app.services.google_calendar_service._get_calendar_list",
+            "app.services.google_calendar_service._request",
             new_callable=AsyncMock,
             side_effect=[_FakeResp(status_code=401), _FakeResp(status_code=401)],
         ),

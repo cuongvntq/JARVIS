@@ -3,7 +3,7 @@
 > Sprint history (what each PR built): `memory/project-sprint-status.md` *(external Claude memory, không nằm trong repo)*
 > This file covers: current state, design decisions chốt.
 
-**As of:** 2026-06-15 | **Branch:** `main` | **Tests:** 239 collected backend (+ Playwright E2E)
+**As of:** 2026-06-15 | **Branch:** `main` | **Tests:** 263 passed backend, 10 deselected (+ Playwright E2E)
 
 ---
 
@@ -32,6 +32,11 @@
   - **QA thật (2026-06-15):** kết nối Google Cloud project thật → "Đã kết nối: dragonball1997vntq@gmail.com" → `GET /calendars` trả đúng 4 lịch khớp Google Calendar thật
   - **Bug + fix:** lần đầu connect lỗi "Không hoàn tất kết nối" — DB local thiếu migration 009 (`google_oauth_accounts`) vì app không tự migrate khi khởi động. PR #48 thêm auto-migrate (`app/core/db_migrate.py`) + file logging JSON (`app/core/logging_config.py`, `%APPDATA%\JARVIS\logs\`)
   - Còn lại (optional, không block): test thật refresh-token-expired và disconnect/reconnect (đã có unit test mock)
+- **MVP2 Sprint 9 — Calendar read-only (Google → JARVIS) — code hoàn tất 2026-06-15** ✅
+  - Backend: migration 010 (`calendar_sync_states`, `calendar_events`), incremental sync (`syncToken` + pagination + 410 full resync + cancelled-event deletion + all-day handling), `sync_calendars` scheduler job (5 phút), `events_today` trong dashboard, tool `list_calendar_events` + `get_today_summary` (gộp lịch)
+  - Frontend: hooks `useCalendarEvents.ts` (invalidation matrix), "LỊCH" sidebar section + `CalendarPage.tsx` (agenda theo ngày), `TodayEvents.tsx` trong Dashboard, Settings → chọn calendar đồng bộ + "Đồng bộ ngay"
+  - 24 test mới `test_calendar_sync.py` + 4 test bổ sung `test_google_oauth.py` (auto-migrate) — full suite 263 passed, ruff/mypy clean, pnpm lint/typecheck/build clean
+  - **Còn lại (optional, không block, cần Google Cloud thật):** verify thủ công tạo/xóa event trên Google → lên/biến mất khỏi Dashboard; invalid `syncToken` → full resync
 
 ---
 
@@ -88,6 +93,63 @@
 | Service tham chiếu `database.AsyncSessionLocal` (không import trực tiếp) | Callback handler chạy ngoài request context, cần session riêng; import-by-name bị bắt cứng lúc load, không nhận override test |
 | Auto-run `alembic upgrade head` trong lifespan (non-test env), fail-fast nếu lỗi | Desktop app không có cách nào chạy migration thủ công sau update; release shipping migration mới sẽ làm DB local lệch schema (vd. thiếu `google_oauth_accounts`) |
 | structlog → JSON qua stdlib + `RotatingFileHandler` tại `%APPDATA%\JARVIS\logs\` | PyInstaller `console=False` nuốt stderr — không có sink nào khác để debug lỗi production trên máy user |
+| All-day event date key = `event.start_date` trực tiếp (không convert timezone) | `formatInTimeZone` trên `start_at` sẽ lệch ngày với timezone âm UTC; `start.date` của Google đã là ngày local đúng |
+| `list_events`/`get_selected_calendars` chỉ query DB local, không gọi Google API | An toàn khi chưa kết nối Google (trả `[]`, không lỗi); chỉ `POST /sync` mới gọi Google |
+| Per-user `asyncio.Lock` cho `sync_all_selected` + `is_sync_running` | Tránh 2 lần sync chạy song song (user bấm "Đồng bộ ngay" trong khi scheduler đang chạy) — trả `status="already_running"` thay vì chờ |
+| `sync_calendars` scheduler job, interval 5 phút, `max_instances=1, coalesce=True` | Tái dùng pattern reminder scheduler; tự động đồng bộ calendar đã chọn không cần user mở app Settings |
+| `selected=false` mặc định cho calendar mới phát hiện | User phải chủ động chọn calendar để sync — tránh sync toàn bộ calendar (kể cả "Ngày lễ") không mong muốn |
+
+---
+
+## Sprint 9 — Code complete 2026-06-15, chờ PR/merge (branch `feat/sprint9-calendar-readonly`)
+
+**Goal:** Calendar read-only — pull events từ Google Calendar đã kết nối (Sprint 8) vào cache
+local, hiển thị trong Dashboard + sidebar "LỊCH", AI tool `list_calendar_events` +
+`get_today_summary` gộp lịch.
+
+**Backend:**
+- Migration `010`: `calendar_sync_states` (per-calendar sync state: `sync_token`, `selected`,
+  `horizon_until`, `last_synced_at`...) + `calendar_events` (cache event, unique
+  `(user_id, google_calendar_id, google_event_id)`, index theo `start_at`/`start_date`/`calendar`)
+- `models/calendar_sync_state.py`, `models/calendar_event.py`
+- `repositories/calendar_sync_repo.py`, `repositories/calendar_event_repo.py`
+- `services/google_calendar_service.py` mở rộng: `refresh_calendar_list` (upsert calendar list
+  vào `calendar_sync_states`), `sync_calendar`/`sync_all_selected` (incremental `syncToken` +
+  pagination + `410 Gone` → full resync + xóa event `status=cancelled`), `list_events`,
+  `get_selected_calendars`, `set_selected_calendars`, `is_sync_running` (per-user
+  `asyncio.Lock`)
+- `schemas/google.py`: `CalendarEventOut`, `CalendarSelectionOut`, `CalendarSelectionIn`,
+  `SyncResultOut`, `SyncErrorOut`
+- `routers/google.py`: `GET /events`, `POST /sync`, `GET /selected`, `PUT /selected`
+- `services/scheduler_service.py`: job `sync_calendars` (interval 5 phút, `max_instances=1,
+  coalesce=True`) — gọi `sync_all_selected` cho mọi user đã kết nối Google
+- Dashboard: `DashboardOut.events_today` (event hôm nay theo timezone user)
+- AI tools: `list_calendar_events` (range today/tomorrow/week/custom), `get_today_summary` viết
+  lại — gộp todo + reminder + lịch, bỏ tham số `include_completed`
+- `tests/test_calendar_sync.py` — 24 test (repo upsert/reconcile/selection, service sync +
+  error handling, tool executors); + 4 test bổ sung trong `test_google_oauth.py`
+
+**Frontend:**
+- `lib/types/api.ts` + `lib/api.ts`: `CalendarEventOut`, `CalendarSelectionOut`, `SyncResultOut`,
+  4 method `googleListEvents/googleSyncNow/googleGetSelected/googleSetSelected`,
+  `DashboardOut.events_today`
+- `hooks/useCalendarEvents.ts` (mới): `useCalendarEvents`, `useSyncCalendar`,
+  `useCalendarSelection`, `useSetCalendarSelection` — invalidation matrix đầy đủ
+  (`google-calendar/events`, `google-calendar/selected`, `dashboard`)
+- `hooks/useGoogleCalendar.ts`: export `openInBrowser`; connect/disconnect invalidate thêm
+  `selected`/`events`/`dashboard`
+- Sidebar: section mới "LỊCH" (`CalendarDays` icon) → `components/calendar/CalendarPage.tsx`
+  (agenda nhóm theo ngày, "Hôm nay"/"Ngày mai", "Đồng bộ ngay")
+- `components/dashboard/TodayEvents.tsx` mount trong `DashboardPage.tsx`
+- `components/settings/GoogleCalendarSettings.tsx`: checkbox chọn calendar đồng bộ + nút
+  "Đồng bộ ngay"
+
+**Verify:** full backend suite 263 passed (10 deselected, ruff/mypy clean); `pnpm
+lint`/`typecheck`/`build` clean.
+
+**Còn lại (optional, không block, cần Google Cloud thật):** tạo/xóa event trên Google → vài
+phút sau lên/biến mất khỏi Dashboard (chờ scheduler hoặc "Đồng bộ ngay"); làm invalid
+`syncToken` → full resync chạy đúng; recurring + all-day hiển thị đúng.
 
 ---
 

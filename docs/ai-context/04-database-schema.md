@@ -17,6 +17,7 @@
 | 006 | `006_sprint5_reminders.py` | reminders + ENUM reminder_status (pending\|sending\|sent\|failed\|cancelled) | Applied (Sprint 5 done) |
 | 008 | `008_desktop_reminders.py` | ADD `due` to reminder_status ENUM; DROP TABLE push_subscriptions | Applied (Phase 4) |
 | 009 | `009_sprint8_google_oauth.py` | google_oauth_accounts (Google Calendar OAuth metadata; NO tokens) | Applied (Sprint 8) |
+| 010 | `010_sprint9_calendar_events.py` | calendar_sync_states, calendar_events (Calendar read cache) | Applied (Sprint 9) |
 
 **Not yet created:** conversations.summary (deferred Sprint 6)
 
@@ -48,6 +49,8 @@ reminder_status:  pending | sending | sent | failed | cancelled | due   (Sprint 
 | memories | YES (`deleted_at` + `is_active`) | also has `is_active` flag for RAG filter |
 | reminders | YES (`deleted_at`) | Sprint 5 |
 | google_oauth_accounts | NO | Hard delete on disconnect; Sprint 8. Tokens NOT stored here (keyring) |
+| calendar_sync_states | NO | Hard delete on disconnect; Sprint 9 |
+| calendar_events | NO | Hard delete on resync (re-fetched from Google); Sprint 9 |
 | tool_execution_logs | NO | |
 | llm_call_logs | NO | |
 
@@ -59,6 +62,8 @@ reminder_status:  pending | sending | sent | failed | cancelled | due   (Sprint 
 |---|---|---|
 | `User` | `models/user.py` | → sessions, conversations, todos, notes, memories, reminders, google_account |
 | `GoogleOAuthAccount` | `models/google_account.py` | → user (one-to-one); Sprint 8 |
+| `CalendarSyncState` | `models/calendar_sync_state.py` | → user; Sprint 9 |
+| `CalendarEvent` | `models/calendar_event.py` | → user; Sprint 9 |
 | `AuthSession` | `models/user.py` | → user |
 | `Conversation` | `models/conversation.py` | → user, messages |
 | `Message` | `models/conversation.py` | → conversation |

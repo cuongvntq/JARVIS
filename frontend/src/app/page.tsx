@@ -1,5 +1,6 @@
 "use client";
 
+import CalendarPage from "@/components/calendar/CalendarPage";
 import ChatInterface from "@/components/chat/ChatInterface";
 import DashboardPage from "@/components/dashboard/DashboardPage";
 import Sidebar, { type Section } from "@/components/layout/Sidebar";
@@ -65,6 +66,7 @@ export default function HomePage() {
         {section === "settings" && <SettingsPage />}
         {section === "memory" && <MemoryPage />}
         {section === "reminders" && <RemindersPage />}
+        {section === "calendar" && <CalendarPage onNavigate={setSection} />}
         {section === "dashboard" && <DashboardPage onNavigate={setSection} />}
         {section !== "chat" &&
           section !== "todo" &&
@@ -72,6 +74,7 @@ export default function HomePage() {
           section !== "settings" &&
           section !== "memory" &&
           section !== "reminders" &&
+          section !== "calendar" &&
           section !== "dashboard" && <ComingSoon name={section} />}
       </main>
     </div>

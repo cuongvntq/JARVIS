@@ -59,6 +59,8 @@ backend/
 │   │   ├── memory.py           # Memory — embedding=sa.JSON (SQLite compat)
 │   │   ├── reminder.py         # Reminder — status ENUM (pending|sending|sent|failed|cancelled); Sprint 5
 │   │   ├── google_account.py   # GoogleOAuthAccount — Calendar OAuth metadata (email/scopes/expiry, NO token); Sprint 8
+│   │   ├── calendar_sync_state.py # CalendarSyncState — per-calendar sync state (sync_token, selected, horizon); Sprint 9
+│   │   ├── calendar_event.py   # CalendarEvent — cached Google Calendar event; Sprint 9
 │   │   └── tool_log.py         # ToolExecutionLog, LLMCallLog
 │   │
 │   ├── schemas/                # Pydantic request/response schemas
@@ -72,6 +74,7 @@ backend/
 │   │   ├── reminder.py         # ReminderCreate, ReminderUpdate, ReminderOut, ReminderListOut, ReminderStatus; Sprint 5
 │   │   │                       # ReminderUpdate: reject null on title+remind_at; description nullable (can be set to null)
 │   │   └── google.py           # GoogleConnectOut, GoogleStatusOut, GoogleCalendarOut; Sprint 8
+│   │                           # Sprint 9: + CalendarEventOut, CalendarSelectionOut, CalendarSelectionIn, SyncResultOut, SyncErrorOut
 │   │
 │   ├── routers/                # FastAPI route handlers (thin: validate → service → return)
 │   │   ├── auth.py             # /auth/register, login, refresh, logout, me; Sprint 4: + PATCH /auth/me
@@ -83,6 +86,7 @@ backend/
 │   │   ├── reminders.py        # /v1/reminders CRUD + /cancel + /due + /{id}/ack; Sprint 5; Phase 4: +due/ack
 │   │   ├── dashboard.py        # /v1/dashboard/today; Sprint 5
 │   │   ├── google.py           # /v1/google/calendar/connect|status|disconnect|calendars; Sprint 8
+│   │   │                       # Sprint 9: + /events (GET), /sync (POST), /selected (GET/PUT)
 │   │   └── health.py           # /health, /health/ready
 │   │
 │   ├── services/               # Business logic
@@ -97,11 +101,17 @@ backend/
 │   │   ├── reminder_service.py # create (validate remind_at future), get, list, update, cancel, delete; Sprint 5
 │   │   ├── scheduler_service.py # APScheduler (max_instances=1, coalesce=True), check_reminders() job 60s; Sprint 5
 │   │   │                        # Phase 4: marks pending→due (no push), frontend polls /due + acks /ack
+│   │   │                        # Sprint 9: + sync_calendars() job every 5 min, calls sync_all_selected per connected user
 │   │   ├── dashboard_service.py # get_today_dashboard(db, user_id, user_tz) → DashboardOut; Sprint 5
+│   │   │                        # Sprint 9: + events_today (calendar_event_repo.list_in_range)
 │   │   ├── google_oauth_service.py # Sprint 8: start_connect (PKCE+loopback random port), process_callback
 │   │   │                        # (verify state→exchange→keyring+DB), get_status, disconnect (revoke),
 │   │   │                        # get_valid_access_token (auto-refresh, invalid_grant→reauth); _pending in-memory
 │   │   └── google_calendar_service.py # list_calendars (Bearer + auto-refresh); Sprint 8
+│   │                            # Sprint 9: + refresh_calendar_list, sync_calendar/sync_all_selected
+│   │                            # (incremental syncToken + pagination + 410→full resync + cancelled→delete),
+│   │                            # list_events, get_selected_calendars, set_selected_calendars,
+│   │                            # is_sync_running (per-user asyncio.Lock)
 │   │
 │   ├── repositories/           # DB queries (SQLAlchemy 2.0, no business logic)
 │   │   ├── user_repo.py        # get_by_email, get_by_id, create, update_last_login; Sprint 4: + update_fields()
@@ -115,6 +125,10 @@ backend/
 │   │   ├── reminder_repo.py    # get_by_id, list_reminders, create, update_fields, cancel, soft_delete,
 │   │   │                       # get_pending_due(before_utc), claim_pending_due() — atomic UPDATE...RETURNING; Sprint 5
 │   │   ├── google_repo.py      # get_by_user, upsert, update_expiry, delete_by_user; Sprint 8
+│   │   ├── calendar_sync_repo.py # list_for_user, list_selected, get, upsert_from_calendar_list,
+│   │   │                       # set_selected, update_sync_state, clear_sync_token, delete_all_for_user; Sprint 9
+│   │   ├── calendar_event_repo.py # upsert, delete_by_google_id, delete_all_for_calendar,
+│   │   │                       # delete_all_for_user, list_in_range, list_today; Sprint 9
 │   │   ├── tool_log_repo.py    # log_execution()
 │   │   └── llm_call_log_repo.py # log_call() + _calc_cost()
 │   │
@@ -129,7 +143,9 @@ backend/
 │   │
 │   ├── tools/                  # Tool system
 │   │   ├── definitions.py      # TOOLS list; Sprint 3: 5 schemas; Sprint 4: 8 schemas; Sprint 5: 10 schemas (+create_reminder, list_reminders)
+│   │   │                       # Sprint 9: 12 schemas (+list_calendar_events; get_today_summary rewritten to include events)
 │   │   └── executors.py        # dispatch(); Sprint 3: 5 executors; Sprint 4: +3 memory; Sprint 5: +2 reminder executors
+│   │                            # Sprint 9: +1 calendar executor (list_calendar_events)
 │   │
 │   └── utils/
 │       └── datetime_parser.py  # parse_datetime() — ISO fast path → dict replace → regex → LLM fallback
@@ -149,7 +165,8 @@ backend/
 │       ├── 006_sprint5_reminders.py        # reminders + ENUM reminder_status (pending|due|sent|failed|cancelled); Sprint 5
 │       ├── 007_add_summary_to_conversations.py # ADD COLUMN summary TEXT to conversations; Sprint 6
 │       ├── 008_desktop_reminders.py        # ADD 'due' to reminder_status; DROP push_subscriptions; Phase 4
-│       └── 009_sprint8_google_oauth.py     # google_oauth_accounts (Calendar OAuth metadata, no token); Sprint 8
+│       ├── 009_sprint8_google_oauth.py     # google_oauth_accounts (Calendar OAuth metadata, no token); Sprint 8
+│       └── 010_sprint9_calendar_events.py  # calendar_sync_states, calendar_events (Calendar read cache); Sprint 9
 │
 └── tests/
     ├── conftest.py             # SQLite in-memory, fixtures: async_client, auth_headers, mock_llm,
@@ -171,12 +188,14 @@ backend/
     ├── test_tool_executors.py  # Tool executor unit tests: todo/note/memory/summary (17 collected)
     ├── test_datetime_parser.py # Datetime parser tests (12 collected)
     ├── test_idempotency.py     # Idempotency-Key middleware (7 tests); Sprint 7
-    ├── test_google_oauth.py    # Google Calendar OAuth: connect/PKCE/callback/refresh/disconnect/calendars (11 tests, mock httpx+keyring); Sprint 8
+    ├── test_google_oauth.py    # Google Calendar OAuth: connect/PKCE/callback/refresh/disconnect/calendars (15 tests, mock httpx+keyring); Sprint 8; Sprint 9: +4 (self-heal/401-retry)
+    ├── test_calendar_sync.py   # Calendar sync repos + service (syncToken/pagination/410/cancelled/all-day) + list_calendar_events/get_today_summary executors (24 tests); Sprint 9
+    ├── test_startup_infra.py   # Auto-migrate (alembic upgrade head in lifespan) + file logging config (3 tests); Sprint 8 (PR #48)
     └── test_health.py          # Health endpoint tests (2 collected)
 ```
 
-**Total: 232 backend tests passed** (`pytest`; some functions expand via `@pytest.mark.parametrize`)
-Per-file breakdown: auth=23, chat=18, todos=26, notes=19, memories=22, reminders=~39, dashboard=5, rate_limit=3, orchestrator=28, tool_executors=17, datetime_parser=12, idempotency=7, google_oauth=11, health=2
+**Total: 263 backend tests passed, 10 deselected (eval)** (`pytest`; some functions expand via `@pytest.mark.parametrize`)
+Per-file breakdown: auth=23, chat=18, todos=26, notes=19, memories=22, reminders=39, dashboard=5, rate_limit=3, orchestrator=28, tool_executors=17, datetime_parser=12, idempotency=7, google_oauth=15, calendar_sync=24, startup_infra=3, health=2
 
 ---
 
@@ -221,8 +240,9 @@ frontend/src/
 │
 ├── app/
 │   ├── layout.tsx              # Root layout: QueryProvider + AuthGuard
-│   ├── page.tsx                # Single-page section nav (Dashboard|Chat|Todo|Reminders|Notes|Memory|Settings);
+│   ├── page.tsx                # Single-page section nav (Dashboard|Chat|Todo|Reminders|Notes|Memory|Calendar|Settings);
 │   │                           # Sprint 5: Dashboard is default section; mount RemindersPage + DashboardPage
+│   │                           # Sprint 9: + CalendarPage (section "calendar")
 │   ├── global-error.tsx        # React render error boundary — captureException to Sentry; Sprint 6
 │   └── auth/
 │       ├── layout.tsx          # Auth pages layout (no sidebar)
@@ -236,10 +256,13 @@ frontend/src/
 │   │   ├── ChatInterface.tsx   # Message list, history; for-await SSE loop; streamSucceeded guard
 │   │   ├── ChatInput.tsx       # Textarea + send button
 │   │   └── MessageBubble.tsx   # User/assistant message rendering; streaming/toolStatus props
+│   ├── calendar/                # Sprint 9
+│   │   └── CalendarPage.tsx    # Section root; agenda theo ngày (groupEventsByDay), "Hôm nay"/"Ngày mai" label, nút Đồng bộ ngay, empty/loading/error states
 │   ├── dashboard/              # Sprint 5
 │   │   ├── DashboardPage.tsx   # Section root; grid layout; refetchInterval 5min
 │   │   ├── TodayStats.tsx      # Count cards (today / overdue / upcoming todos)
 │   │   ├── UpcomingReminders.tsx # Next 5 reminders + countdown to remind_at
+│   │   ├── TodayEvents.tsx     # Today's calendar events block; Sprint 9
 │   │   └── MemoryCount.tsx     # Memory count chip
 │   ├── memories/
 │   │   ├── MemoryCard.tsx      # Type badge (6 types), content, importance dots, edit/delete on hover
@@ -253,6 +276,7 @@ frontend/src/
 │   ├── settings/
 │   │   ├── SettingsPage.tsx    # Form: name, assistant_name, timezone select (11 IANA), locale select; + GoogleCalendarSettings
 │   │   └── GoogleCalendarSettings.tsx # Sprint 8: connect/disconnect Google Calendar, status, mở system browser
+│   │                           # Sprint 9: + chọn calendar đồng bộ (checkbox list, useCalendarSelection/useSetCalendarSelection) + nút "Đồng bộ ngay" (useSyncCalendar)
 │   ├── updater/                 # Sprint 7
 │   │   └── UpdatePrompt.tsx    # Client component, no own UI — calls useUpdateAvailable(); mounted in layout.tsx
 │   ├── todos/
@@ -264,7 +288,8 @@ frontend/src/
 │   │   ├── NoteList.tsx        # Search, pinned/all sections; isSaving prop → disable select/pin/delete
 │   │   └── NotesPage.tsx       # isSaving guards on all navigation handlers; MỚI button disabled when isSaving
 │   └── layout/
-│       └── Sidebar.tsx         # Conversation list + NEW CHAT + nav links (Dashboard|Chat|Todos|Reminders|Notes|Memory|Settings)
+│       └── Sidebar.tsx         # Conversation list + NEW CHAT + nav links (Dashboard|Chat|Todos|Reminders|Notes|Memory|Calendar|Settings)
+│                               # Sprint 9: + { id: "calendar", icon: CalendarDays, label: "LỊCH" }
 │
 ├── hooks/
 │   ├── useChatMutation.ts      # Tanstack useMutation → api.sendMessage()
@@ -276,6 +301,9 @@ frontend/src/
 │   ├── useReminders.ts         # useInfiniteQuery (cursor), useCreateReminder, useCancelReminder, useDeleteReminder; Sprint 5
 │   ├── useSettings.ts          # useMutation → PATCH /auth/me + setAuth to update authStore
 │   ├── useGoogleCalendar.ts    # Sprint 8: useGoogleStatus, useConnectGoogle (open browser + poll 2s), useDisconnectGoogle
+│   │                           # Sprint 9: export openInBrowser; connect/disconnect cũng invalidate ["google-calendar","selected"], ["google-calendar","events"], ["dashboard"]
+│   ├── useCalendarEvents.ts    # Sprint 9: useCalendarEvents (GET /events), useSyncCalendar (POST /sync),
+│   │                           # useCalendarSelection (GET /selected), useSetCalendarSelection (PUT /selected) — invalidation matrix
 │   ├── useTodos.ts             # useInfiniteQuery (cursor), useCreateTodo, useCompleteTodo, useDeleteTodo
 │   └── useUpdateAvailable.ts   # Sprint 7: check() lúc mount + mỗi 6h; toast sonner "Có bản cập nhật" →
 │                               # downloadAndInstall() → relaunch(); try/catch nuốt lỗi khi chạy dev/browser
@@ -283,10 +311,12 @@ frontend/src/
 ├── lib/
 │   ├── api.ts                  # ApiClient; Sprint 5: + reminder/dashboard/notification methods;
 │   │                           # clearAuth() + _accessToken=null on silentRefresh fail (review fix)
+│   │                           # Sprint 9: + googleListEvents, googleSyncNow, googleGetSelected, googleSetSelected
 │   ├── queryClient.ts          # Tanstack QueryClient singleton
 │   ├── utils.ts                # Utility helpers (cn() classname merge)
 │   └── types/api.ts            # TypeScript types: all API response/request types including Sprint 5
 │                               # (ReminderOut, ReminderCreate, ReminderUpdate, ReminderListOut, DashboardOut, SSEEvent)
+│                               # Sprint 9: + CalendarEventOut, CalendarSelectionOut, CalendarSelectionIn, SyncErrorOut, SyncResultOut; DashboardOut.events_today
 │
 ├── providers/
 │   └── QueryProvider.tsx       # QueryClientProvider wrapper

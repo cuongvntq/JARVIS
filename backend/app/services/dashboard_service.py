@@ -6,7 +6,8 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories import memory_repo, reminder_repo
+from app.repositories import calendar_event_repo, memory_repo, reminder_repo
+from app.schemas.google import CalendarEventOut
 from app.schemas.reminder import ReminderOut
 from app.services import todo_service
 
@@ -43,6 +44,10 @@ async def get_today_dashboard(
     # memories count
     memories_count = await memory_repo.count_active(db, user_id)
 
+    # calendar events happening today (local timezone)
+    events_today_rows = await calendar_event_repo.list_today(db, user_id, user_tz)
+    events_today = [CalendarEventOut.model_validate(e) for e in events_today_rows]
+
     return {
         "todos_today": todos_today,
         "todos_count": {
@@ -52,5 +57,6 @@ async def get_today_dashboard(
         },
         "reminders_upcoming": reminders_upcoming,
         "memories_count": memories_count,
+        "events_today": events_today,
         "as_of": datetime.now(UTC).isoformat(),
     }
