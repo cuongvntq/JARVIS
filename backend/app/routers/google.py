@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user
+from app.core.errors import JarvisError
 from app.database import get_db
 from app.models.user import User
 from app.schemas.google import (
@@ -24,6 +25,15 @@ from app.services import google_calendar_service, google_oauth_service
 _DEFAULT_EVENTS_WINDOW = timedelta(days=14)
 
 router = APIRouter()
+
+
+def _require_aware(value: datetime | None, field_name: str) -> None:
+    if value is not None and value.tzinfo is None:
+        raise JarvisError(
+            422,
+            "naive_datetime",
+            f"{field_name} phải có timezone offset (ISO 8601, ví dụ 2026-06-18T00:00:00+07:00)",
+        )
 
 
 @router.post("/connect", response_model=GoogleConnectOut)
@@ -68,6 +78,8 @@ async def list_events(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[CalendarEventOut]:
+    _require_aware(time_min, "time_min")
+    _require_aware(time_max, "time_max")
     now = datetime.now(UTC)
     resolved_min = time_min or now
     resolved_max = time_max or (now + _DEFAULT_EVENTS_WINDOW)
