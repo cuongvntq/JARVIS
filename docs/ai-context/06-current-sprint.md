@@ -3,7 +3,7 @@
 > Sprint history (what each PR built): `memory/project-sprint-status.md` *(external Claude memory, không nằm trong repo)*
 > This file covers: current state, design decisions chốt.
 
-**As of:** 2026-06-15 | **Branch:** `main` | **Tests:** 263 passed backend, 10 deselected (+ Playwright E2E)
+**As of:** 2026-06-18 | **Branch:** `main` | **Tests:** 269 passed backend, 10 deselected (+ Playwright E2E)
 
 ---
 
@@ -32,10 +32,15 @@
   - **QA thật (2026-06-15):** kết nối Google Cloud project thật → "Đã kết nối: dragonball1997vntq@gmail.com" → `GET /calendars` trả đúng 4 lịch khớp Google Calendar thật
   - **Bug + fix:** lần đầu connect lỗi "Không hoàn tất kết nối" — DB local thiếu migration 009 (`google_oauth_accounts`) vì app không tự migrate khi khởi động. PR #48 thêm auto-migrate (`app/core/db_migrate.py`) + file logging JSON (`app/core/logging_config.py`, `%APPDATA%\JARVIS\logs\`)
   - Còn lại (optional, không block): test thật refresh-token-expired và disconnect/reconnect (đã có unit test mock)
-- **MVP2 Sprint 9 — Calendar read-only (Google → JARVIS) — code hoàn tất 2026-06-15** ✅
+- **MVP2 Sprint 9 — Calendar read-only (Google → JARVIS) — DONE ✅ (merged 2026-06-15/2026-06-18)**
   - Backend: migration 010 (`calendar_sync_states`, `calendar_events`), incremental sync (`syncToken` + pagination + 410 full resync + cancelled-event deletion + all-day handling), `sync_calendars` scheduler job (5 phút), `events_today` trong dashboard, tool `list_calendar_events` + `get_today_summary` (gộp lịch)
   - Frontend: hooks `useCalendarEvents.ts` (invalidation matrix), "LỊCH" sidebar section + `CalendarPage.tsx` (agenda theo ngày), `TodayEvents.tsx` trong Dashboard, Settings → chọn calendar đồng bộ + "Đồng bộ ngay"
-  - 24 test mới `test_calendar_sync.py` + 4 test bổ sung `test_google_oauth.py` (auto-migrate) — full suite 263 passed, ruff/mypy clean, pnpm lint/typecheck/build clean
+  - **PR #50** `feat/sprint9-calendar-readonly` → squash merged `ea1b97f` (2026-06-15) — code chính, 24 test mới `test_calendar_sync.py` + 4 test bổ sung `test_google_oauth.py`, full suite 263 passed lúc đó
+  - **PR #52** `fix/calendar-events-naive-dt-and-sync-error` → squash merged `417108b` (2026-06-18) — fix 2 review finding sau PR #50:
+    - `GET /events` reject `time_min`/`time_max` naive datetime (422 `naive_datetime`) — trước đây crash 500 do so sánh aware/naive datetime trong nhánh all-day event ở `calendar_event_repo.list_in_range`
+    - `sync_all_selected()` tính lỗi `refresh_calendar_list` (vd. token invalid) vào `failed`/`errors` — trước đây bị nuốt, có thể báo `status="synced"` giả nếu user chưa chọn calendar nào
+    - 4 test mới, full suite 269 passed, ruff/mypy clean
+  - **PR #51** (trùng branch với #50, tạo nhầm sau khi #50 đã merge) → đã đóng, không merge
   - **Còn lại (optional, không block, cần Google Cloud thật):** verify thủ công tạo/xóa event trên Google → lên/biến mất khỏi Dashboard; invalid `syncToken` → full resync
 
 ---
@@ -101,7 +106,7 @@
 
 ---
 
-## Sprint 9 — Code complete 2026-06-15, chờ PR/merge (branch `feat/sprint9-calendar-readonly`)
+## Sprint 9 — DONE ✅ (PR #50 merged 2026-06-15, PR #52 review-fix merged 2026-06-18)
 
 **Goal:** Calendar read-only — pull events từ Google Calendar đã kết nối (Sprint 8) vào cache
 local, hiển thị trong Dashboard + sidebar "LỊCH", AI tool `list_calendar_events` +
@@ -144,8 +149,17 @@ local, hiển thị trong Dashboard + sidebar "LỊCH", AI tool `list_calendar_e
 - `components/settings/GoogleCalendarSettings.tsx`: checkbox chọn calendar đồng bộ + nút
   "Đồng bộ ngay"
 
-**Verify:** full backend suite 263 passed (10 deselected, ruff/mypy clean); `pnpm
+**Verify (PR #50):** full backend suite 263 passed (10 deselected, ruff/mypy clean); `pnpm
 lint`/`typecheck`/`build` clean.
+
+**Review-fix (PR #52, squash merged `417108b`, 2026-06-18):** 2 finding từ code review PR #50:
+- `GET /events` reject `time_min`/`time_max` naive datetime (422 `naive_datetime`) — trước đây
+  crash 500 do so sánh aware/naive datetime trong nhánh all-day event ở
+  `calendar_event_repo.list_in_range`
+- `sync_all_selected()` tính lỗi `refresh_calendar_list` (vd. token invalid) vào
+  `failed`/`errors` — trước đây bị nuốt, có thể báo `status="synced"` giả nếu user chưa chọn
+  calendar nào
+- 4 test mới, full suite 269 passed sau fix
 
 **Còn lại (optional, không block, cần Google Cloud thật):** tạo/xóa event trên Google → vài
 phút sau lên/biến mất khỏi Dashboard (chờ scheduler hoặc "Đồng bộ ngay"); làm invalid
