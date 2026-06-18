@@ -106,7 +106,7 @@
 
 ---
 
-## Sprint 9 — Code complete 2026-06-15, chờ PR/merge (branch `feat/sprint9-calendar-readonly`)
+## Sprint 9 — DONE ✅ (PR #50 merged 2026-06-15, PR #52 review-fix merged 2026-06-18)
 
 **Goal:** Calendar read-only — pull events từ Google Calendar đã kết nối (Sprint 8) vào cache
 local, hiển thị trong Dashboard + sidebar "LỊCH", AI tool `list_calendar_events` +
@@ -149,8 +149,17 @@ local, hiển thị trong Dashboard + sidebar "LỊCH", AI tool `list_calendar_e
 - `components/settings/GoogleCalendarSettings.tsx`: checkbox chọn calendar đồng bộ + nút
   "Đồng bộ ngay"
 
-**Verify:** full backend suite 263 passed (10 deselected, ruff/mypy clean); `pnpm
+**Verify (PR #50):** full backend suite 263 passed (10 deselected, ruff/mypy clean); `pnpm
 lint`/`typecheck`/`build` clean.
+
+**Review-fix (PR #52, squash merged `417108b`, 2026-06-18):** 2 finding từ code review PR #50:
+- `GET /events` reject `time_min`/`time_max` naive datetime (422 `naive_datetime`) — trước đây
+  crash 500 do so sánh aware/naive datetime trong nhánh all-day event ở
+  `calendar_event_repo.list_in_range`
+- `sync_all_selected()` tính lỗi `refresh_calendar_list` (vd. token invalid) vào
+  `failed`/`errors` — trước đây bị nuốt, có thể báo `status="synced"` giả nếu user chưa chọn
+  calendar nào
+- 4 test mới, full suite 269 passed sau fix
 
 **Còn lại (optional, không block, cần Google Cloud thật):** tạo/xóa event trên Google → vài
 phút sau lên/biến mất khỏi Dashboard (chờ scheduler hoặc "Đồng bộ ngay"); làm invalid
