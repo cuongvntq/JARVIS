@@ -525,6 +525,25 @@ async def test_sync_all_selected_swallows_per_calendar_errors(db_session):
 
 
 @pytest.mark.asyncio
+async def test_sync_all_selected_reports_failure_when_calendar_list_refresh_fails(db_session):
+    """No calendars selected yet + refresh_calendar_list fails (e.g. auth) must
+    not be reported as a clean "synced" — see PR review finding."""
+    user_id = uuid.uuid4()
+
+    with patch(
+        "app.services.google_calendar_service._authed_request",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("token invalid"),
+    ):
+        result = await google_calendar_service.sync_all_selected(db_session, user_id)
+
+    assert result["upserted"] == 0
+    assert result["deleted"] == 0
+    assert result["failed"] == 1
+    assert result["errors"] == [{"calendar_id": "_calendar_list", "message": "token invalid"}]
+
+
+@pytest.mark.asyncio
 async def test_is_sync_running_reflects_lock_state():
     user_id = uuid.uuid4()
     assert google_calendar_service.is_sync_running(user_id) is False
@@ -567,6 +586,41 @@ async def test_get_events_returns_cached_events(async_client, auth_headers):
 async def test_get_events_unauthenticated(async_client):
     resp = await async_client.get("/v1/google/calendar/events")
     assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_get_events_rejects_naive_time_min(async_client, auth_headers):
+    resp = await async_client.get(
+        "/v1/google/calendar/events",
+        params={"time_min": "2026-06-18T00:00:00"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "naive_datetime"
+
+
+@pytest.mark.asyncio
+async def test_get_events_rejects_naive_time_max(async_client, auth_headers):
+    resp = await async_client.get(
+        "/v1/google/calendar/events",
+        params={"time_max": "2026-06-18T00:00:00"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "naive_datetime"
+
+
+@pytest.mark.asyncio
+async def test_get_events_accepts_aware_time_range(async_client, auth_headers):
+    resp = await async_client.get(
+        "/v1/google/calendar/events",
+        params={
+            "time_min": "2026-06-18T00:00:00+07:00",
+            "time_max": "2026-06-19T00:00:00+07:00",
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200, resp.text
 
 
 @pytest.mark.asyncio

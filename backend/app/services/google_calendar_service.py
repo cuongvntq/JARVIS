@@ -346,14 +346,16 @@ async def sync_all_selected(db: AsyncSession, user_id: uuid.UUID) -> dict[str, A
     """
     lock = _get_lock(user_id)
     async with lock:
+        upserted = deleted = failed = 0
+        errors: list[dict[str, str]] = []
         try:
             await refresh_calendar_list(db, user_id)
         except Exception as e:
+            failed += 1
+            errors.append({"calendar_id": "_calendar_list", "message": str(e)})
             log.error("google.calendarlist_refresh_failed", user_id=str(user_id), error=str(e))
 
         sync_states = await calendar_sync_repo.list_selected(db, user_id)
-        upserted = deleted = failed = 0
-        errors: list[dict[str, str]] = []
         for sync_state in sync_states:
             try:
                 result = await sync_calendar(db, user_id, sync_state)
